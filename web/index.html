@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>열혈격투전설</title><link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><meta name="theme-color" content="#1a1042">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:Galmuri11;src:url(/fonts/Galmuri11.ttf) format('truetype');font-display:block}
+html,body{margin:0;padding:0;background:#000;color:#bbb;font:12px/1.4 Galmuri11,monospace;width:100%;height:100%;overflow:hidden;user-select:none}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;image-rendering:pixelated;background:#000;display:block;position:relative;width:432px;height:240px;outline:0}
+#msg{position:fixed;left:0;right:0;bottom:6px;text-align:center;color:#999;text-shadow:0 0 3px #000,0 0 3px #000;pointer-events:none;transition:opacity .6s}
+#msg.hide{opacity:0}
+#msg.band{left:50%;right:auto;transform:translateX(-50%);width:max-content;box-sizing:border-box;padding:0 4px;border-radius:4px;background:rgba(0,0,0,.8)}
+#info{position:fixed;top:2px;left:4px;color:#777;pointer-events:none}
+kbd{background:#333;border-radius:3px;padding:0 4px;font:inherit}
+.nk-cover #msg{display:none}
+/* 와이드 장식(game.js 가 ?classic=1 이 아닐 때 html.nk-wide 를 붙인다): 코어 밖을 CSS 배경으로 채우고 코어 둘레에 이중 창틀을 두른다. 캔버스 좌우 88px 는 투명.
+   배경(13 문서 15절, 그림 파일 없음·움직임 없음): 남색~보라 그라데이션 + 가운데 빛 번짐 + 대각선 두 귀퉁이의 옅은 망점(::before). 전투(html.nk-fight)에서만 좌우 색 번짐. 색·세기는 변수(--nkb-*) */
+:root{--nkb-a:#0b1238;--nkb-b:#1a1042;--nkb-c:#2b0e46;--nkb-glow:rgba(150,112,255,.2);--nkb-dot:rgba(255,255,255,.075);--nkb-l:rgba(255,82,82,.13);--nkb-r:rgba(64,156,255,.15);--nkb-d:clamp(14px,2.6vmin,30px)}
+.nk-wide #stage{background:radial-gradient(ellipse 62% 78% at 50% 50%,var(--nkb-glow),transparent 72%),linear-gradient(160deg,var(--nkb-a),var(--nkb-b) 55%,var(--nkb-c))}
+.nk-wide.nk-fight #stage{background:radial-gradient(ellipse 62% 78% at 50% 50%,var(--nkb-glow),transparent 72%),radial-gradient(ellipse 42% 85% at 0 55%,var(--nkb-l),transparent 70%),radial-gradient(ellipse 42% 85% at 100% 55%,var(--nkb-r),transparent 70%),linear-gradient(160deg,var(--nkb-a),var(--nkb-b) 55%,var(--nkb-c))}
+.nk-wide #stage::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle,var(--nkb-dot) 0 23%,transparent 25%) 0 0/var(--nkb-d) var(--nkb-d),radial-gradient(circle,var(--nkb-dot) 0 23%,transparent 25%) calc(var(--nkb-d)/2) calc(var(--nkb-d)/2)/var(--nkb-d) var(--nkb-d),linear-gradient(115deg,transparent 32%,rgba(255,255,255,.045) 46%,transparent 60%);
+  -webkit-mask-image:linear-gradient(115deg,#000,rgba(0,0,0,.25) 34%,rgba(0,0,0,.25) 66%,#000);mask-image:linear-gradient(115deg,#000,rgba(0,0,0,.25) 34%,rgba(0,0,0,.25) 66%,#000)}
+.nk-wide canvas{background:transparent}
+.nk-wide #stage::after{content:"";position:absolute;left:var(--nk-l,0);top:var(--nk-t,0);width:calc(256px*var(--nk-s,1));height:calc(1px*var(--nk-h,240)*var(--nk-s,1));pointer-events:none;
+  box-shadow:0 0 0 calc(1px*var(--nk-s,1)) #000,0 0 0 calc(2px*var(--nk-s,1)) #eceeec,0 0 0 calc(3px*var(--nk-s,1)) #000}
+</style><script>if(!/[?&](classic=1(&|$)|state=)/.test(location.search))document.documentElement.className='nk-cover'</script><link rel="stylesheet" href="ui_menu.css"><link rel="stylesheet" href="ui_manga.css"></head><body>
+<div id="stage"><canvas id="c" width="432" height="240" tabindex="0"></canvas></div>
+<div id="msg">아무 키: 소리 켜기 | 1P: 방향키 <kbd>A</kbd>=A <kbd>S</kbd>=B <kbd>D</kbd>=점프 <kbd>Enter</kbd>=시작 <kbd>Shift</kbd>=선택 | 2P: <kbd>T</kbd><kbd>F</kbd><kbd>G</kbd><kbd>H</kbd> <kbd>U</kbd>=A <kbd>I</kbd>=B <kbd>L</kbd>=시작 | <kbd>P</kbd> 일시정지 <kbd>R</kbd> 처음부터 <kbd>M</kbd> 음소거</div>
+<div id="info"></div>
+<script src="ui_menu.js"></script><script src="menu_driver.js"></script><script src="opening_scene.js"></script><script src="settings.js"></script><script src="cam_fx.js"></script><script src="keymap.js"></script><script src="skill_inputs.js"></script><script src="touch_pad.js"></script><script src="tutorial.js"></script><script src="ui_manga.js"></script><script src="game.js"></script></body></html>

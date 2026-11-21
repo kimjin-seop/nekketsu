@@ -1,0 +1,893 @@
+{
+ "version": "1.0",
+ "date": "2026-11-21",
+ "scope": "P3 프로필 꾸미기(analysis/27 P1·P2 카탈로그 id 와 1:1)",
+ "catalog": "server/profile/catalog.js",
+ "path_rule": {
+  "url": "/img/profile/{kind}/{id}_{scale}x.png",
+  "file": "web/img/profile/{kind}/{id}_{scale}x.png",
+  "kind": {
+   "frame": "equipped.frame",
+   "bg": "equipped.portrait_bg",
+   "stamp": "equipped.portrait_stamp"
+  },
+  "scales": [
+   1,
+   4
+  ],
+  "null": "portrait_stamp=null 이면 스탬프를 그리지 않는다. frame/portrait_bg 의 null·모르는 id 는 default",
+  "why_not_ui": "/ui/ 는 server_game.js·server_online.js 에서 루프백 전용(원격 403)이라 원작 파생이 아닌 이 에셋은 /img/ (web 정적) 아래에 둔다"
+ },
+ "plate": {
+  "size_1x": [
+   24,
+   24
+  ],
+  "face_rect_1x": [
+   4,
+   4,
+   16,
+   17
+  ],
+  "face_src": "/ui/portraits_orig/hud/<name>_hud_base_1x.png (16x17)",
+  "stamp_size_1x": [
+   9,
+   9
+  ],
+  "stamp_at_1x": [
+   18,
+   18
+  ],
+  "stamp_overflow_1x": [
+   3,
+   3
+  ],
+  "layers": [
+   "bg",
+   "face",
+   "frame",
+   "stamp"
+  ],
+  "scale_rule": "정수배 n 만(2x=48, 3x=72, 4x=96, 5x=120, 6x=144). 모든 좌표 x n. image-rendering: pixelated. 1x PNG 를 CSS 로 확대하면 4x 파일은 없어도 된다",
+  "css_hint": "판 컨테이너 position:relative; width/height 24n; overflow:visible(스탬프가 오른쪽·아래로 3n 넘침). 얼굴 img left 4n top 4n width 16n height 17n"
+ },
+ "load_hint": "프로필·카드 화면 진입 시 장착 3종만 로드(1x 합계 약 1KB 미만). 목록 화면은 1x 전부 프리로드해도 20장 수 KB",
+ "qa": {
+  "frame_band_vs_bg_contrast": {
+   "default": {
+    "default": 15.05,
+    "win10": 1.71,
+    "streak": 2.23,
+    "tier_gold": 1.68,
+    "season_done": 7.72,
+    "champion": 2.38
+   },
+   "champion": {
+    "default": 10.16,
+    "win10": 1.15,
+    "streak": 1.51,
+    "tier_gold": 1.13,
+    "season_done": 5.21,
+    "champion": 1.61
+   },
+   "season_done": {
+    "default": 9.11,
+    "win10": 1.03,
+    "streak": 1.35,
+    "tier_gold": 1.01,
+    "season_done": 4.68,
+    "champion": 1.44
+   },
+   "tier_silver": {
+    "default": 13.37,
+    "win10": 1.52,
+    "streak": 1.99,
+    "tier_gold": 1.49,
+    "season_done": 6.86,
+    "champion": 2.12
+   },
+   "tier_gold": {
+    "default": 11.76,
+    "win10": 1.33,
+    "streak": 1.75,
+    "tier_gold": 1.31,
+    "season_done": 6.03,
+    "champion": 1.86
+   },
+   "tier_platinum": {
+    "default": 7.8,
+    "win10": 1.13,
+    "streak": 1.16,
+    "tier_gold": 1.15,
+    "season_done": 4.0,
+    "champion": 1.24
+   },
+   "master": {
+    "default": 11.76,
+    "win10": 1.33,
+    "streak": 1.75,
+    "tier_gold": 1.31,
+    "season_done": 6.03,
+    "champion": 1.86
+   },
+   "veteran": {
+    "default": 6.41,
+    "win10": 1.37,
+    "streak": 1.05,
+    "tier_gold": 1.4,
+    "season_done": 3.29,
+    "champion": 1.02
+   }
+  },
+  "ink_vs_bg_contrast": {
+   "default": 1.26,
+   "win10": 11.07,
+   "streak": 8.46,
+   "tier_gold": 11.27,
+   "season_done": 2.45,
+   "champion": 7.92
+  }
+ },
+ "assets": [
+  {
+   "kind": "frame",
+   "id": "default",
+   "key": "profile.frame.default",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/default_1x.png",
+     "url": "/img/profile/frame/default_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 141,
+     "sha256": "03b906b31b556b7f8ba440fcbe2e5787d4cc361ba34e5efc08d1430422861b75"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/default_4x.png",
+     "url": "/img/profile/frame/default_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 274,
+     "sha256": "7b35967626611cdffb479202409847011ee17218aa640dea453d99a83609b7da"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 176,
+   "transparent_px": 400,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "champion",
+   "key": "profile.frame.champion",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/champion_1x.png",
+     "url": "/img/profile/frame/champion_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 248,
+     "sha256": "b0e7863eb486a2c66336e4b3f1055e9c6b01464564f064ec882571d07d3c59ee"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/champion_4x.png",
+     "url": "/img/profile/frame/champion_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 427,
+     "sha256": "0d25de59fc9047ad87885495eeb6a4c768fd200e323543b35dca16ea1e71534a"
+    }
+   },
+   "alpha": true,
+   "colors": 6,
+   "opaque_px": 206,
+   "transparent_px": 370,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "season_done",
+   "key": "profile.frame.season_done",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/season_done_1x.png",
+     "url": "/img/profile/frame/season_done_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 196,
+     "sha256": "521c40eb678ab4ec4f80f327818e00675e15ee5c1759459f3d721d8472eeef7e"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/season_done_4x.png",
+     "url": "/img/profile/frame/season_done_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 354,
+     "sha256": "bee5e786f7029a09895abc385660a5c6a164b16e5befd6bc99cbfd7763f091af"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 192,
+   "transparent_px": 384,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "tier_silver",
+   "key": "profile.frame.tier_silver",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/tier_silver_1x.png",
+     "url": "/img/profile/frame/tier_silver_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 193,
+     "sha256": "0cc8e7edae0a0af0b3d50f304d8991c28779bc8ca151828ad2d6003f1f597b4a"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/tier_silver_4x.png",
+     "url": "/img/profile/frame/tier_silver_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 346,
+     "sha256": "be25a8c256d6d3215175fce73208c7f9df422942a97669655c7f57f0448ac77d"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 192,
+   "transparent_px": 384,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "tier_gold",
+   "key": "profile.frame.tier_gold",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/tier_gold_1x.png",
+     "url": "/img/profile/frame/tier_gold_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 306,
+     "sha256": "b508c67abbc9823b90024b660afcb015ff4e1198621cf8bc405dc995f3d2f132"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/tier_gold_4x.png",
+     "url": "/img/profile/frame/tier_gold_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 480,
+     "sha256": "9a220a7194e16b7e71605fa5794ac79f8d0b668ce25519c3aa7ba641546c7202"
+    }
+   },
+   "alpha": true,
+   "colors": 7,
+   "opaque_px": 225,
+   "transparent_px": 351,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "tier_platinum",
+   "key": "profile.frame.tier_platinum",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/tier_platinum_1x.png",
+     "url": "/img/profile/frame/tier_platinum_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 291,
+     "sha256": "05895f03d8ea377e093a8fcc0f062f25564f4674257c721678d1497f081fdb37"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/tier_platinum_4x.png",
+     "url": "/img/profile/frame/tier_platinum_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 504,
+     "sha256": "29faacb13a1aa3610e8f1b831dcf7f221a6155de8c09aa7c8641934ccd9b78ea"
+    }
+   },
+   "alpha": true,
+   "colors": 7,
+   "opaque_px": 265,
+   "transparent_px": 311,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "master",
+   "key": "profile.frame.master",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/master_1x.png",
+     "url": "/img/profile/frame/master_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 356,
+     "sha256": "d54a7191bdc21593bcfc37e95efd20ebc68b11a4deeeac7f61c2016220bd336d"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/master_4x.png",
+     "url": "/img/profile/frame/master_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 562,
+     "sha256": "9afd1de4bab43e0e632d8240fe1a215efbaeaeab8ee49830ead806d91c556dde"
+    }
+   },
+   "alpha": true,
+   "colors": 9,
+   "opaque_px": 269,
+   "transparent_px": 307,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "frame",
+   "id": "veteran",
+   "key": "profile.frame.veteran",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/frame/veteran_1x.png",
+     "url": "/img/profile/frame/veteran_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 199,
+     "sha256": "87ccb2f92d781712357ccbd68fb1fa9c4835e0411f9b9d4da5235249e255b710"
+    },
+    "4x": {
+     "path": "web/img/profile/frame/veteran_4x.png",
+     "url": "/img/profile/frame/veteran_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 365,
+     "sha256": "d9e33f26428420797f46a61114dea6b2d02f07b499940d51931415299c976c34"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 200,
+   "transparent_px": 376,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px": 0
+  },
+  {
+   "kind": "bg",
+   "id": "default",
+   "key": "profile.bg.default",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/default_1x.png",
+     "url": "/img/profile/bg/default_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 162,
+     "sha256": "de7d0ceefd8ff71f36d3bb62644fbd87899fd8121af8cc6cb5b2dda6a494999a"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/default_4x.png",
+     "url": "/img/profile/bg/default_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 309,
+     "sha256": "d825577a572da322e403050a7baffc4073297a4da128ab7916427cad22a39f6a"
+    }
+   },
+   "alpha": false,
+   "colors": 2,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "bg",
+   "id": "win10",
+   "key": "profile.bg.win10",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/win10_1x.png",
+     "url": "/img/profile/bg/win10_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 207,
+     "sha256": "912b2d6199b08be19bfdaaaf844ddd93718163d426a5c64a1f6736a333b4eb3d"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/win10_4x.png",
+     "url": "/img/profile/bg/win10_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 373,
+     "sha256": "b3721d9f53f1660126dea5dfcbf8e9759afed0093fb6f2951c41682159e7199b"
+    }
+   },
+   "alpha": false,
+   "colors": 3,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "bg",
+   "id": "streak",
+   "key": "profile.bg.streak",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/streak_1x.png",
+     "url": "/img/profile/bg/streak_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 151,
+     "sha256": "1215e25aa8f7b22b6e1b3afee02cfacd2fdaf13a60f9ce4c23dc1ebc6f636e12"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/streak_4x.png",
+     "url": "/img/profile/bg/streak_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 343,
+     "sha256": "7e62f6b97157f84ecd67901ec66342cdfc4ad8461d5842135980dcd359cba6c5"
+    }
+   },
+   "alpha": false,
+   "colors": 3,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "bg",
+   "id": "tier_gold",
+   "key": "profile.bg.tier_gold",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/tier_gold_1x.png",
+     "url": "/img/profile/bg/tier_gold_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 293,
+     "sha256": "c89e970a736def60cdc0777d467191e4eef48999818b6aee0bc9213cb689bebe"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/tier_gold_4x.png",
+     "url": "/img/profile/bg/tier_gold_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 443,
+     "sha256": "64c45ca9c7d9c2d5795cbb0979a20796b3047502de16c12d93777af56ba59a9c"
+    }
+   },
+   "alpha": false,
+   "colors": 4,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "bg",
+   "id": "season_done",
+   "key": "profile.bg.season_done",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/season_done_1x.png",
+     "url": "/img/profile/bg/season_done_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 122,
+     "sha256": "04577da6bcfb7d1c89910227ff1baebe1943e5bcf547d7972e223c270226404d"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/season_done_4x.png",
+     "url": "/img/profile/bg/season_done_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 277,
+     "sha256": "2c52c4ef08e406f6c5f637da4689d6cf8bbf4713854a35dd75aa3c9abe42ac57"
+    }
+   },
+   "alpha": false,
+   "colors": 2,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "bg",
+   "id": "champion",
+   "key": "profile.bg.champion",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/bg/champion_1x.png",
+     "url": "/img/profile/bg/champion_1x.png",
+     "size": [
+      24,
+      24
+     ],
+     "bytes": 282,
+     "sha256": "24dfe3f9daa1c83c6a6791a6e04fcde043057b8ed247d01b5105723a60d818e5"
+    },
+    "4x": {
+     "path": "web/img/profile/bg/champion_4x.png",
+     "url": "/img/profile/bg/champion_4x.png",
+     "size": [
+      96,
+      96
+     ],
+     "bytes": 500,
+     "sha256": "c1b77dcac1346cd565e8e6f820b1e7de5217ad1b87e66980705de9f662867d9f"
+    }
+   },
+   "alpha": false,
+   "colors": 3,
+   "opaque_px": 576,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original"
+  },
+  {
+   "kind": "stamp",
+   "id": "star",
+   "key": "profile.stamp.star",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/star_1x.png",
+     "url": "/img/profile/stamp/star_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 186,
+     "sha256": "2aba8a8d055b57a093d9b732364acc4abac889ae85f1f42f2eb49f032a6f855c"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/star_4x.png",
+     "url": "/img/profile/stamp/star_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 239,
+     "sha256": "7a7578df51659fbb1a432ca84455267a42d1ee912c875ecdb69535faddf13277"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 52,
+   "transparent_px": 29,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 2,
+   "face_cover_px_avg": 2.0
+  },
+  {
+   "kind": "stamp",
+   "id": "fist",
+   "key": "profile.stamp.fist",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/fist_1x.png",
+     "url": "/img/profile/stamp/fist_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 180,
+     "sha256": "03036d5708da5cf1a040cffa8cfbfa5cc3baa8b5adae1abe7cc928911ced3bbf"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/fist_4x.png",
+     "url": "/img/profile/stamp/fist_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 216,
+     "sha256": "9c71dcd65aaf5fa426737d10e539ddd930f7923915b57f54df5dae691c1f32be"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 68,
+   "transparent_px": 13,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 4,
+   "face_cover_px_avg": 4.0
+  },
+  {
+   "kind": "stamp",
+   "id": "flame",
+   "key": "profile.stamp.flame",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/flame_1x.png",
+     "url": "/img/profile/stamp/flame_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 174,
+     "sha256": "982d1df9f9a437d353931c126dd1496b55f70ec5d7a71ffefca314078a2d2293"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/flame_4x.png",
+     "url": "/img/profile/stamp/flame_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 234,
+     "sha256": "3835ce7626d81bc264349799bec7ce0c8193ac2ef10a39121a3fd1242d2aa4d0"
+    }
+   },
+   "alpha": true,
+   "colors": 6,
+   "opaque_px": 55,
+   "transparent_px": 26,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 0,
+   "face_cover_px_avg": 0.0
+  },
+  {
+   "kind": "stamp",
+   "id": "crown",
+   "key": "profile.stamp.crown",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/crown_1x.png",
+     "url": "/img/profile/stamp/crown_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 165,
+     "sha256": "8e539e6a83ebbd0b8d8a0d85b08ba053eecad6815ec9a210aff3f39498fbe30a"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/crown_4x.png",
+     "url": "/img/profile/stamp/crown_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 219,
+     "sha256": "94249fdad35f3d311c25c3324c2d581aa9b7cbd5c8e0a45046d802739369bfeb"
+    }
+   },
+   "alpha": true,
+   "colors": 6,
+   "opaque_px": 73,
+   "transparent_px": 8,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 3,
+   "face_cover_px_avg": 3.0
+  },
+  {
+   "kind": "stamp",
+   "id": "shield",
+   "key": "profile.stamp.shield",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/shield_1x.png",
+     "url": "/img/profile/stamp/shield_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 187,
+     "sha256": "77edd1f8cc9a8e5dc5c04258be1cf45f18567cb8ffb64ac2227ca9bf083d0385"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/shield_4x.png",
+     "url": "/img/profile/stamp/shield_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 218,
+     "sha256": "b0641f1565b4e5460b3bbff5204df4fb386132f49c85b57a62d2ca6ea63fda4c"
+    }
+   },
+   "alpha": true,
+   "colors": 6,
+   "opaque_px": 67,
+   "transparent_px": 14,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 4,
+   "face_cover_px_avg": 4.0
+  },
+  {
+   "kind": "stamp",
+   "id": "laurel",
+   "key": "profile.stamp.laurel",
+   "files": {
+    "1x": {
+     "path": "web/img/profile/stamp/laurel_1x.png",
+     "url": "/img/profile/stamp/laurel_1x.png",
+     "size": [
+      9,
+      9
+     ],
+     "bytes": 176,
+     "sha256": "2b0587157b3356615dd5cbcbff28b5bed9460420578f2fa1275c465b3dd7b7d1"
+    },
+    "4x": {
+     "path": "web/img/profile/stamp/laurel_4x.png",
+     "url": "/img/profile/stamp/laurel_4x.png",
+     "size": [
+      36,
+      36
+     ],
+     "bytes": 253,
+     "sha256": "a6df673188841271849f28bcc6b78aaa9210289ee67b691d892f789c4345fb98"
+    }
+   },
+   "alpha": true,
+   "colors": 5,
+   "opaque_px": 53,
+   "transparent_px": 28,
+   "semi_alpha_px": 0,
+   "generator": "code (Pillow pixel primitives, no generative AI)",
+   "script": "art/ui_manga/scripts/profile_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original",
+   "face_cover_px_max": 4,
+   "face_cover_px_avg": 4.0
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "열혈격투전설",
+  "short_name": "열혈",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1042",
+  "theme_color": "#1a1042",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

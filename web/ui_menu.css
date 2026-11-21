@@ -1,0 +1,32 @@
+/* 신규 타이틀·모드 선택 층(web/ui_menu.js). 432x240 논리 좌표로 그리고, 캔버스와 같은 배율·위치로 통째로 확대한다(ui_menu.js place()).
+   원작에서 따온 것은 모티브뿐이다: NES 팔레트 색 값, 이중 테두리 창틀, 도트 ▶ 커서. 그림은 전부 자체 제작(절차 생성·CSS)이고 원작 타일·픽셀은 쓰지 않는다. */
+#nk-ui{position:fixed;left:0;top:0;width:432px;height:240px;transform-origin:0 0;overflow:visible;display:none;z-index:1;background:#000;color:#eceeec;
+  font:12px/16px Galmuri11,monospace;image-rendering:pixelated;touch-action:manipulation;cursor:default;-webkit-tap-highlight-color:transparent}
+#nk-ui.on{display:block}
+#msg,#info{z-index:2}
+.nk-scr{position:absolute;left:0;top:0;width:432px;height:240px;display:none;background-repeat:repeat;image-rendering:pixelated}
+.nk-scr.on{display:block}
+/* 와이드: 화면 배경을 432x240 밖(창 여백)까지 이어 그린다(위치는 16px 격자에 맞아 이음매가 없다). 창을 넘는 부분은 body 가 자른다 */
+.nk-bleed{position:absolute;left:-864px;top:-480px;width:2160px;height:1200px;z-index:-1;pointer-events:none;image-rendering:pixelated}
+/* 모드 선택 등의 배경(13 문서 15절): 전투 화면 배경(index.html .nk-wide #stage)과 같은 모양·같은 색 변수. 화면 중심에서 번지는 그라데이션 + 옅은 망점. 논리 좌표(432x240 기준)라 배율과 함께 커진다 */
+.nk-wall{background:radial-gradient(ellipse 250px 150px at 50% 50%,var(--nkb-glow,rgba(150,112,255,.2)),transparent 72%),radial-gradient(ellipse 520px 330px at 50% 50%,var(--nkb-b,#1a1042),var(--nkb-a,#0b1238));image-rendering:auto}
+.nk-wall::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,var(--nkb-dot,rgba(255,255,255,.075)) 0 23%,transparent 25%) 0 0/7px 7px,radial-gradient(circle,var(--nkb-dot,rgba(255,255,255,.075)) 0 23%,transparent 25%) 3.5px 3.5px/7px 7px;
+  -webkit-mask-image:linear-gradient(115deg,#000 40%,rgba(0,0,0,.25) 47%,rgba(0,0,0,.25) 53%,#000 60%);mask-image:linear-gradient(115deg,#000 40%,rgba(0,0,0,.25) 47%,rgba(0,0,0,.25) 53%,#000 60%)}
+.nk-logo{position:absolute;left:126px;top:14px;width:179px;height:99px;image-rendering:pixelated;pointer-events:none}
+/* 이중 테두리 창틀: 안쪽 흰 줄 + 검은 틈 + 바깥 흰 줄 + 검은 외곽 */
+.nk-win{position:absolute;box-sizing:border-box;background:#000;border:1px solid #eceeec;box-shadow:0 0 0 1px #000,0 0 0 2px #eceeec,0 0 0 3px #000}
+.nk-menu{padding:5px 0}
+.nk-opt{position:relative;height:16px;line-height:16px;padding:2px 10px 2px 28px;white-space:nowrap;cursor:pointer}
+.nk-opt.sep{margin-top:4px}
+.nk-opt.cur{color:#ccd278}
+/* 도트 ▶ 커서(4x7): 세로 줄 4개 */
+.nk-opt.cur::before{content:"";position:absolute;left:16px;top:6px;width:4px;height:7px;
+  background:linear-gradient(#eceeec,#eceeec) 0 0/1px 7px no-repeat,linear-gradient(#eceeec,#eceeec) 1px 1px/1px 5px no-repeat,linear-gradient(#eceeec,#eceeec) 2px 2px/1px 3px no-repeat,linear-gradient(#eceeec,#eceeec) 3px 3px/1px 1px no-repeat;
+  animation:nk-nudge .6s steps(1) infinite}
+@keyframes nk-nudge{50%{transform:translateX(1px)}}
+/* 모드를 고른 뒤 원작 메뉴가 넘어가는 동안(구동 중): 고른 항목 깜빡임 */
+#nk-ui.busy .nk-opt.cur{animation:nk-blink .25s steps(1) infinite}
+@keyframes nk-blink{50%{color:#eceeec}}
+.nk-head{left:168px;top:92px;width:96px;padding:3px 0;text-align:center}
+.nk-toast{left:180px;bottom:16px;width:72px;padding:2px 0;text-align:center;visibility:hidden;pointer-events:none}
+.nk-toast.on{visibility:visible}

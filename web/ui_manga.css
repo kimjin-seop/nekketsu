@@ -1,0 +1,497 @@
+/* 신규 UI 층 v2(web/ui_manga.js). 설계: analysis/15_ui_manga_impl.md, 수치: art/ui_manga/mockups_v2/style_tokens_v2.json · layout_v2_rects.json.
+   메뉴 층(#nkm)은 1280x720 논리 좌표로 그리고 창에 맞춰 통째로 확대한다(ui_manga.js place()). 전투 HUD(#nkm-hud)는 코어 캔버스 밖 좌우 여백에만 놓는다(캔버스 픽셀은 건드리지 않는다).
+   그림 파일은 원작 초상(/ui/portraits_orig)·스테이지 미리보기(/ui/stage_N.png)·로고뿐이고 창·게이지·딱지·버튼은 전부 CSS 다. */
+@font-face{font-family:Galmuri11;font-weight:700;src:url(/fonts/Galmuri11-Bold.ttf) format('truetype');font-display:block}
+/* Galmuri9 는 다른 이름(NKM9)으로 올린다: web/korean.js 가 같은 이름의 FontFace 를 따로 올리고 document.fonts.check 로 확인하므로, 같은 이름의 미사용 @font-face 가 있으면 그 확인이 실패한다 */
+@font-face{font-family:NKM9;src:url(/fonts/Galmuri9.ttf) format('truetype');font-display:block}
+@font-face{font-family:Galmuri14;src:url(/fonts/Galmuri14.ttf) format('truetype');font-display:block}
+#nkm,#nkm-hud,#nko-bt{--wall:#8814B0;--wall-text:#E454EC;--outer:#20002E;--text:#fff;--sub:#BEBAD2;--dim:#78748C;--hp:#45E06A;--te:#FFB02E;--ashi:#FF5C7A;--nage:#B983FF;--subaya:#38D6F5;--bougyo:#5C8BFF;
+  --hp-low:#FF4646;--hp-mid:#FFC83C;--p1:#FF5252;--p2:#409CFF;--p3:#3DDC84;--p4:#FF9F1C;--com:#AAAABE;--sch0:#FF9A2E;--sch1:#35C8F0;--sch2:#FF5FA2;--sch3:#A77BFF;--focus:#FFE14D;--card-line:#56526E;--row-sel:#461860;
+  color:var(--text);font:24px/1.2 Galmuri11,monospace;user-select:none;-webkit-tap-highlight-color:transparent;cursor:default}
+#nkm{position:fixed;inset:0;z-index:1;display:none;overflow:hidden;background:var(--wall);touch-action:manipulation}
+#nkm.on{display:block}
+#msg,#info{z-index:3}
+/* 벽지: KUNIO ■ RIKI 반복 줄(캔버스로 한 번 그린 타일) + 세로 그라데이션·가장자리 어둡게·사선 빛띠 */
+.nkm-wall{position:absolute;inset:0;background-repeat:repeat}
+.nkm-wall::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.12) 45%,transparent 60%),radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(20,0,30,.67) 100%),linear-gradient(rgba(255,255,255,.1),rgba(0,0,0,.28))}
+/* 메인 메뉴 배경 A안(타이틀·모드·스토리·인원, ui_manga.js placeTbg): 원작 타이틀 판 정수배 + 좌우 타일·위 하늘·아래 검정. 벽지·광택·초상 2장은 끄고 보라 장식은 검정·흰색으로 */
+.nkm-tbg{position:absolute;inset:0;display:none;background-color:#38B4CC;background-repeat:no-repeat,repeat-x,no-repeat;image-rendering:pixelated}
+#nkm.tbg{--wall:#38B4CC;--wall-text:#fff}
+#nkm.tbg .nkm-tbg{display:block}
+html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /* 메인 메뉴: 당겨 새로고침·튕김 없음 */
+.nkm-cr{position:absolute;left:0;width:1280px;top:662px;display:none;text-align:center;font-family:Galmuri11,monospace;font-weight:400;line-height:1.25;color:rgba(255,255,255,.5);pointer-events:none;white-space:normal;z-index:2} /* 메인 메뉴 하단 저작권 줄(ui_manga.js crEl) */
+#nkm.tbg .nkm-cr{display:block}
+.nkm-tbg-live{position:absolute;image-rendering:pixelated;pointer-events:none} /* 원작 타이틀 실시간 판(ui_manga.js titleBg) */
+#nkm.tbg .nkm-wall,#nkm.tbg .nkm-side,#nkm.ov .nkm-tbg{display:none}
+#nkm.tbg .nkm-win{box-shadow:6px 6px 0 rgba(0,0,0,.55),0 10px 14px rgba(0,0,0,.35)}
+#nkm.tbg .nkm-logo{filter:drop-shadow(0 6px 0 rgba(0,0,0,.45))}
+.nkm-root{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0}
+.nkm-scr{position:absolute;inset:0;display:none}
+.nkm-scr.on{display:block;animation:nkm-in .18s ease-out}
+@keyframes nkm-in{from{opacity:0;transform:translateY(-6px)}}
+.nkm-abs{position:absolute;box-sizing:border-box}
+/* 창: 검은 면 + 흰 이중 테두리 + 진보라 단색 그림자 */
+.nkm-win{position:absolute;box-sizing:border-box;border:3px solid #fff;border-radius:6px;background:linear-gradient(#1A1826,#0A0A10 45%,#06060A);box-shadow:6px 6px 0 rgba(32,0,46,.85),0 10px 14px rgba(0,0,0,.55)}
+.nkm-win::before{content:"";position:absolute;inset:3px;border:1px solid rgba(255,255,255,.55);border-radius:3px;pointer-events:none}
+.nkm-head{left:32px;top:20px;height:46px;padding:0 24px;font:30px/40px Galmuri14,monospace;white-space:nowrap}
+.nkm-turn{position:absolute;left:0;top:28px}
+/* 하단 띠 */
+.nkm-foot{position:absolute;left:-4000px;right:-4000px;top:650px;height:600px;background:#06060A;border-top:4px solid var(--wall-text)}
+.nkm-foot::before{content:"";position:absolute;left:0;right:0;top:2px;height:1.5px;background:var(--wall-text)}
+.nkm-hint{position:absolute;left:48px;top:674px;line-height:28px;white-space:nowrap}
+.nkm-keys{position:absolute;right:48px;top:674px;line-height:28px;white-space:nowrap;color:var(--sub)}
+.nkm-keys b{display:inline-block;box-sizing:border-box;width:26px;height:28px;line-height:24px;margin:0 6px 0 22px;border:2px solid #fff;border-radius:5px;text-align:center;color:#fff;font-weight:700}
+/* 딱지 */
+.nkm-chip{display:inline-block;box-sizing:border-box;height:26px;line-height:26px;padding:0 8px;border-radius:4px;font:700 20px/26px Galmuri11,monospace;color:#000;background:var(--c,#fff);white-space:nowrap;vertical-align:top}
+.nkm-chip.line{background:none;color:var(--c,#fff);border:1.5px solid var(--c,#fff);line-height:23px;font-weight:400}
+/* 버튼 4상태 */
+.nkm-btn{position:absolute;box-sizing:border-box;border:2px solid #fff;border-radius:6px;background:linear-gradient(#2C293E,#161520);color:#fff;font:700 24px/1 Galmuri11,monospace;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.nkm-btn.cur{border-width:3px;color:#140C00;background:linear-gradient(#FFF3A8,var(--focus) 45%,#E0B820);box-shadow:0 0 12px rgba(255,225,77,.6);animation:nkm-breath 1.2s ease-in-out infinite}
+.nkm-title>.nkm-btn.cur::before{content:"";position:absolute;left:-36px;top:50%;margin-top:-12px;border:12px solid transparent;border-left:18px solid #fff;border-right:0} /* 커서 ▶ = 첫 타이틀 메뉴만. 나머지 화면은 노란 버튼(.cur)으로만 표시(창 밖으로 삐져나옴 방지) */
+.nkm-btn.down{transform:translateY(2px);filter:brightness(.82);box-shadow:none;animation:none} /* 확인 창 단추 눌림(ui_manga.js tapOnce, 터치 포함) */
+.nkm-btn.cur:active,#nkm.busy .nkm-btn.cur{background:linear-gradient(#B39E36,#9D8115);transform:translateY(2px);box-shadow:none;animation:none}
+#nkm.busy .nkm-btn.cur{animation:nkm-busy .8s ease-in-out infinite} /* 구동 중(busy): 눌린 모양은 두고 빛만 계속 숨쉰다(멈춘 화면처럼 보이지 않게) */
+@keyframes nkm-breath{50%{box-shadow:0 0 12px rgba(255,225,77,.35)}}
+@keyframes nkm-busy{50%{box-shadow:0 0 16px rgba(255,225,77,.8)}}
+/* 구동 중 진행 표시: 모든 busy 화면 맨 위 한 줄(합성 스레드 transform 애니메이션). 시합 준비 컷(vs)은 자체 진행 막대가 있어 뺀다 */
+#nkm.busy::after{content:"";position:absolute;left:0;top:0;width:24%;height:4px;z-index:5;pointer-events:none;background:linear-gradient(90deg,transparent,var(--focus) 30%,#fff 50%,var(--focus) 70%,transparent);animation:nkm-busybar 1s linear infinite;will-change:transform}
+#nkm.busy:has(.nkm-scr.on .nkm-vs-bar)::after{display:none}
+@keyframes nkm-busybar{from{transform:translateX(-100%)}to{transform:translateX(420%)}}
+@media (prefers-reduced-motion:reduce){#nkm.busy .nkm-btn.cur,#nkm.busy::after{animation:none}}
+.nkm-sep{position:absolute;height:1px;background:rgba(255,255,255,.3)}
+/* 타이틀 */
+.nkm-logo{position:absolute;left:461px;top:44px;width:358px;height:198px;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 6px 0 rgba(32,0,46,.85))}
+#nkm img.nkm-noimg,#nkm-hud img.nkm-noimg{visibility:hidden} /* 못 읽은 그림 = 깨진 그림 아이콘 대신 빈자리(ui_manga.js noBroken) */
+.nkm-side{position:absolute;top:256px;width:300px;height:396px;object-fit:fill;image-rendering:pixelated;pointer-events:none;filter:drop-shadow(0 0 0 #000) drop-shadow(8px 8px 0 rgba(32,0,46,.7))}
+/* 격자 커서(모서리 꺾쇠) */
+.nkm-brk{position:absolute;box-sizing:border-box;pointer-events:none;transition:left .08s,top .08s;--g:var(--focus);z-index:3;
+  background:linear-gradient(#fff,#fff) 0 0/20px 4px,linear-gradient(#fff,#fff) 0 0/4px 20px,linear-gradient(#fff,#fff) 100% 0/20px 4px,linear-gradient(#fff,#fff) 100% 0/4px 20px,linear-gradient(#fff,#fff) 0 100%/20px 4px,linear-gradient(#fff,#fff) 0 100%/4px 20px,linear-gradient(#fff,#fff) 100% 100%/20px 4px,linear-gradient(#fff,#fff) 100% 100%/4px 20px;
+  background-repeat:no-repeat;filter:drop-shadow(0 0 6px var(--g));animation:nkm-pulse 1.2s ease-in-out infinite}
+@keyframes nkm-pulse{50%{opacity:.7}}
+/* 캐릭터 선택 */
+.nkm-school{position:absolute;left:48px;width:100px;height:40px;box-sizing:border-box;background:#fff;color:#000;border-left:6px solid var(--c);font:700 24px/40px Galmuri11,monospace;text-align:center;box-shadow:0 6px 0 -2px var(--wall-text),0 12px 0 -2px #0A0A10,0 14px 0 -2px var(--wall-text)}
+.nkm-cell{position:absolute;width:108px;height:122px;box-sizing:border-box;border:2px solid #fff;border-radius:4px;overflow:hidden;cursor:pointer;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.1) 0 6px,transparent 6px 12px),linear-gradient(color-mix(in srgb,var(--c) 85%,#fff),color-mix(in srgb,var(--c) 55%,#000))}
+.nkm-cell img{position:absolute;left:12px;top:4px;width:80px;height:85px;object-fit:fill;image-rendering:pixelated} /* 원작 HUD 얼굴 16x17 x5 */
+.nkm-cell span{position:absolute;left:0;right:0;bottom:0;height:24px;background:#0A0A10;font:20px/24px NKM9,monospace;text-align:center;white-space:nowrap}
+.nkm-cell em{position:absolute;left:0;top:0;z-index:1;display:none}
+.nkm-cell.taken img{filter:grayscale(1) brightness(.45)}
+.nkm-cell.taken em{display:block}
+.nkm-cell.taken span{background:var(--pc,#0A0A10);color:#000}
+.nkm-cell.flash{animation:nkm-flash .12s}
+@keyframes nkm-flash{0%{filter:brightness(3)}100%{transform:scale(1.06)}}
+.nkm-cut{position:absolute;box-sizing:border-box;border:2px solid #fff;border-radius:4px;overflow:hidden;background:repeating-linear-gradient(135deg,rgba(255,255,255,.1) 0 8px,transparent 8px 16px),linear-gradient(color-mix(in srgb,var(--c) 85%,#fff),color-mix(in srgb,var(--c) 55%,#000));container-type:size}
+/* 원작 HUD 얼굴 16x17 을 칸 안에 들어가는 가장 큰 정수배로(가운데, 최근접 확대). round() 없는 브라우저 = 비율 유지 맞춤 */
+.nkm-cut img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;--w:min(round(down,100cqw,16px),calc(round(down,100cqh,17px) * 16 / 17));width:var(--w);height:calc(var(--w) * 17 / 16);left:calc((100cqw - var(--w)) / 2);top:round(down,calc((100cqh - var(--w) * 17 / 16) / 2),1px)}
+.nkm-res-f:not(.lose) .nkm-cut{border-color:var(--focus)}
+.nkm-name{position:absolute;left:912px;top:140px;width:320px;height:64px;font:700 48px/60px Galmuri11,monospace;white-space:nowrap;border-bottom:3px solid var(--c);text-shadow:3px 3px 0 #000}
+.nkm-info{position:absolute;top:264px;height:68px;box-sizing:border-box;border:1.5px solid var(--card-line);border-radius:5px;background:linear-gradient(#28253A,#181624);padding:6px 6px;font:20px/26px NKM9,monospace;color:var(--sub);white-space:nowrap}
+.nkm-info b{display:block;font:24px/28px Galmuri11,monospace;color:#fff}
+.nkm-info b.sm{font:20px/28px NKM9,monospace}
+.nkm-rule-h{position:absolute;left:688px;width:544px;height:1px;background:rgba(255,255,255,.25)}
+.nkm-stat{position:absolute;width:264px;height:28px;line-height:28px;color:var(--sub);white-space:nowrap}
+.nkm-stat .nkm-g{position:absolute;left:84px;top:6px;width:124px;height:16px}
+.nkm-stat b{position:absolute;right:0;top:0;font-weight:700;color:color-mix(in srgb,var(--c) 65%,#fff)}
+/* 게이지 */
+.nkm-g{box-sizing:border-box;border:1.5px solid #4A4660;border-radius:3px;background:linear-gradient(#0E0D16,#222030);overflow:hidden;position:relative}
+.nkm-g i{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(color-mix(in srgb,var(--c) 55%,#fff),var(--c) 42%,color-mix(in srgb,var(--c) 62%,#000));box-shadow:0 0 5px var(--c);transition:width .25s ease-out}
+.nkm-g i::after{content:"";position:absolute;left:0;right:0;top:10%;height:32%;background:linear-gradient(rgba(255,255,255,.47),rgba(255,255,255,.08))}
+.nkm-g::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--tick) - 1px),rgba(8,8,14,.6) calc(var(--tick) - 1px) var(--tick))}
+.nkm-g u{position:absolute;left:0;top:0;bottom:0;width:0;background:#F0F0FA}
+.nkm-sp-h{position:absolute;left:688px;top:494px;font-weight:700;color:var(--focus)}
+.nkm-sp{position:absolute;top:532px;width:172px;height:84px;box-sizing:border-box;border:1.5px solid var(--card-line);border-top:4px solid var(--c);border-radius:5px;background:linear-gradient(#28253A,#181624);box-shadow:0 4px 6px rgba(0,0,0,.5);text-align:center;line-height:1;padding-top:40px;white-space:nowrap}
+.nkm-sp s{position:absolute;left:8px;top:6px;width:22px;height:22px;border-radius:4px;background:var(--c);color:#000;font:700 20px/22px Galmuri11,monospace;text-decoration:none}
+.nkm-sp.none{background:none;box-shadow:none;border-top-width:1.5px;border-color:var(--card-line);color:var(--dim)}
+.nkm-sp.none s{display:none}
+/* 스테이지 · 룰 */
+.nkm-stg{position:absolute;width:176px;height:132px;box-sizing:border-box;border:2px solid #fff;border-radius:4px;background:#1a1030 50% 0/105% auto no-repeat;image-rendering:pixelated;cursor:pointer;overflow:hidden}
+.nkm-stg b{position:absolute;right:6px;bottom:6px;width:28px;height:30px;background:#fff;color:#000;border:2px solid #000;box-sizing:border-box;font:700 24px/26px Galmuri11,monospace;text-align:center}
+.nkm-stg.exit{background:linear-gradient(#2a1a44,#120a22);display:flex;align-items:center;justify-content:center;font-weight:700;image-rendering:auto}
+.nkm-stg.sel{border-color:var(--focus);box-shadow:0 0 0 2px var(--focus)}
+.nkm-stg.sel b{background:var(--focus)}
+.nkm-prev{position:absolute;left:56px;top:436px;width:752px;height:184px;box-sizing:border-box;border:2px solid #fff;border-radius:4px;background:#120a22 50% 42%/100% auto no-repeat;image-rendering:pixelated;overflow:hidden}
+.nkm-prev::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.6),transparent 55%)}
+.nkm-prev b{position:absolute;left:18px;bottom:10px;z-index:1;font:700 48px/56px Galmuri11,monospace;text-shadow:4px 4px 0 #000;image-rendering:auto}
+.nkm-tab{position:absolute;left:18px;top:-19px;height:34px;box-sizing:border-box;padding:0 14px;background:#000;border:3px solid #fff;border-radius:4px;font:700 24px/28px Galmuri11,monospace;white-space:nowrap;z-index:1}
+.nkm-rule{position:absolute;left:9px;width:376px;height:102px;box-sizing:border-box;padding:0 6px 0 64px;display:flex;align-items:center;word-break:keep-all;border-top:1.5px solid #fff;border-left:2px solid transparent;border-right:2px solid transparent;border-bottom:1.5px solid transparent;line-height:30px;cursor:pointer}
+.nkm-rule:first-of-type{border-top-color:transparent}
+.nkm-rule s{position:absolute;left:14px;top:50%;margin-top:-18px;width:36px;height:36px;box-sizing:border-box;border:2px solid #fff;border-radius:4px;font:700 24px/32px Galmuri11,monospace;text-align:center;text-decoration:none}
+.nkm-rule.lock{color:var(--dim);cursor:default}
+.nkm-rule.lock s{border-color:var(--dim)}
+.nkm-rule .nkm-chip{position:absolute;right:8px;bottom:8px;--c:var(--dim)}
+.nkm-rule.sel{background:rgba(70,24,96,.55)}
+.nkm-rule.sel s{border-color:var(--focus);color:var(--focus)}
+.nkm-rule.cur{background:var(--row-sel);border:2px solid var(--focus);border-radius:4px;box-shadow:0 0 12px rgba(255,225,77,.45)}
+/* 시합 준비 컷(구동 중 덮개) */
+.nkm-vs-strip{position:absolute;left:340px;top:150px;width:600px;height:52px;font:700 36px/46px Galmuri11,monospace;text-align:center;white-space:nowrap}
+.nkm-vs-cut{top:236px;width:232px;height:290px}
+.nkm-vs-tag{position:absolute;top:538px;width:232px;text-align:center;white-space:nowrap;font-weight:700;text-shadow:2px 2px 0 #000}
+.nkm-vs-tag .nkm-chip{margin-right:8px}
+.nkm-vs-bar{position:absolute;left:440px;top:596px;width:400px;height:14px}
+.nkm-vs-bar i{animation:nkm-load 1.1s linear infinite;width:30%!important;transition:none}
+@keyframes nkm-load{from{left:-30%}to{left:100%}}
+/* 토스트(위 가운데). 오류·사유는 전부 여기로 */
+.nkm-toast{position:absolute;left:400px;top:16px;width:520px;height:50px;box-sizing:border-box;border:2px solid var(--c,#FFB02E);border-left-width:8px;border-radius:6px;background:#0A0A10;box-shadow:0 6px 10px rgba(0,0,0,.5);padding:0 16px 0 52px;line-height:46px;white-space:nowrap;z-index:9;opacity:0;transform:translateY(-12px);transition:opacity .25s,transform .18s;pointer-events:none}
+.nkm-toast::before{content:"!";position:absolute;left:12px;top:9px;width:28px;height:28px;border-radius:50%;background:var(--c,#FFB02E);color:#000;font:700 24px/28px Galmuri11,monospace;text-align:center}
+.nkm-toast.on{opacity:1;transform:none}
+/* 전투 HUD: 코어 양옆 여백의 팀 패널 2개 + 위 띠. 패널 논리 크기 266x640 */
+#nkm-hud{position:fixed;inset:0;z-index:1;display:none;pointer-events:none}
+#nkm-hud.on{display:block}
+#nkm-hud.warm{opacity:.01;z-index:2} /* 예열(ui_manga.js warmHud): 타이틀 대기 중 3화면만 거의 투명하게 그려 첫 전투의 GPU 셰이더 링크 멈춤을 미리 치른다 */
+.nkh-panel{position:absolute;left:0;top:0;width:266px;height:640px;transform-origin:0 0}
+.nkh-f{position:absolute;left:14px;width:238px;height:240px}
+.nkh-f .nkm-cut{left:0;top:0;width:96px;height:96px;border:3px solid var(--pc)}
+.nkh-f .nkm-cut img{object-position:50% 12%}
+.nkh-f.low .nkm-cut{box-shadow:0 0 12px var(--hp-low);animation:nkm-pulse .8s ease-in-out infinite}
+.nkh-f.ko .nkm-cut img{filter:grayscale(1) brightness(.5)}
+.nkh-chips{position:absolute;left:106px;top:2px;right:0;display:flex;justify-content:space-between}
+.nkh-chips .nkm-chip{padding:0 5px}
+.nkh-name{position:absolute;left:106px;top:38px;right:0;font:700 24px/36px Galmuri11,monospace;white-space:nowrap;text-shadow:2px 2px 0 #000}
+.nkh-f .nkm-g{position:absolute;left:0;top:110px;width:178px;height:20px}
+.nkh-f .nkm-g i{transition:none}
+.nkh-f .nkm-g u{transition:width .3s linear .4s}
+.nkh-hp{position:absolute;right:0;top:104px;font:700 24px/32px Galmuri11,monospace;color:color-mix(in srgb,var(--c) 65%,#fff)}
+.nkh-sp{position:absolute;left:8px;right:0;height:26px;font:20px/26px NKM9,monospace;white-space:nowrap;padding-left:22px}
+.nkh-sp::before{content:"";position:absolute;left:2px;top:8px;width:10px;height:10px;border-radius:2px;background:var(--c)}
+.nkh-sp.none{color:var(--dim)}
+.nkh-sp.none::before{background:#3a3850}
+.nkh-div{position:absolute;left:14px;right:14px;top:268px;height:1px;background:rgba(255,255,255,.25)}
+.nkh-foot{position:absolute;left:14px;right:14px;top:574px;height:48px;border-top:1px solid rgba(255,255,255,.25);font:20px/48px NKM9,monospace;color:var(--sub);text-align:center;white-space:nowrap}
+.nkh-cap{position:absolute;left:0;top:0;width:400px;height:30px;transform-origin:0 0;box-sizing:border-box;border:2px solid #fff;border-radius:6px;background:#0A0A10;display:flex;justify-content:space-between;padding:0 18px;font:20px/26px NKM9,monospace;color:var(--sub);white-space:nowrap}
+.nkh-cap b{color:#fff;font:700 24px/26px Galmuri11,monospace}
+#nkm-hud.nocap .nkh-cap{display:none}
+/* 팀 레벨 + 합체 타이밍(스토리 전투만, 19 문서). 둘째 선수 필살기 줄(~510) 아래, 바닥 띠(574) 위 */
+.nkh-team{display:none;position:absolute;left:14px;right:14px;top:518px;height:52px}
+#nkm-hud.story .nkh-team{display:block}
+.nkh-lvr,.nkh-cbr{position:absolute;left:0;right:0;height:24px;display:flex;align-items:center}
+.nkh-cbr{top:28px;opacity:.5}
+.nkh-cbr.act{opacity:1}
+.nkh-lvt{flex:none;width:72px;font:700 20px/24px Galmuri11,monospace;white-space:nowrap;text-shadow:2px 2px 0 #000}
+.nkh-lv{position:relative;flex:1;height:16px;display:flex;gap:2px}
+.nkh-lv i{flex:1;box-sizing:border-box;border:2px solid #4A4660;background:#D8D6E6}
+.nkh-lv i.on{border-color:#fff;background:var(--hp-low);box-shadow:0 0 6px var(--hp-low)}
+.nkh-lv s{position:absolute;left:0;bottom:-6px;height:3px;width:0;background:var(--sub)}
+.nkh-cb{position:relative;flex:1;height:14px;box-sizing:border-box;border:2px solid #4A4660;background:linear-gradient(90deg,#F0F0FA 0 33.333%,var(--hp-low) 33.333% 66.667%,#F0F0FA 66.667%)}
+.nkh-cb i{position:absolute;top:-5px;bottom:-5px;left:0;width:4px;margin-left:-2px;background:#0A0A10;box-shadow:0 0 0 1px #fff}
+.nkh-cbr.act .nkh-cb{box-shadow:0 0 8px var(--hp-low)}
+.nkh-cbr.hit .nkh-lvt{color:var(--hp-low)}
+#nkm-hud:not(.nocap) .nkh-foot{display:none}
+@media (prefers-reduced-motion:reduce){.nkm-scr.on,.nkm-btn.cur,.nkm-brk,.nkh-f.low .nkm-cut{animation:none}.nkm-brk,.nkm-g i{transition:none}}
+/* ── 2단계: 덮개(일시정지) · 세로 화면 · 상대 자동 · 대결 확인 · 결과 · 설정 ── */
+#nkm.ov{background:rgba(6,0,12,.62);z-index:2}
+#nkm.ov .nkm-wall,#nkm.ov .nkm-rot{display:none}
+#nkm.port .nkm-foot{height:70px;border-bottom:4px solid var(--wall-text)} /* 세로: 띠를 화면 끝까지 늘이지 않는다(큰 검은 덩어리 방지) */
+.nkm-rot{display:none;position:absolute;left:50%;bottom:28px;transform:translateX(-50%);padding:6px 16px;border:2px solid #fff;border-radius:6px;background:#0A0A10;font:700 16px/24px Galmuri11,monospace;white-space:nowrap}
+#nkm.port .nkm-rot{display:block}
+.nk-touch #msg{display:none} /* 터치 기기에서는 키보드 조작 안내문을 그리지 않는다 */
+.nkm-auto{font-size:22px}
+.nkm-auto b{display:inline-block;box-sizing:border-box;width:26px;height:26px;line-height:22px;margin-left:12px;border:2px solid #fff;border-radius:5px;text-align:center;font-size:20px}
+.nkm-card-chips{position:absolute;left:140px;top:14px;right:8px;display:flex;gap:6px}
+.nkm-card-chips .nkm-chip{padding:0 5px}
+.nkm-card-name{position:absolute;left:140px;top:54px;right:4px;font:700 30px/40px Galmuri11,monospace;white-space:nowrap;text-shadow:2px 2px 0 #000}
+.nkm-cstat{height:26px;line-height:26px}
+.nkm-cstat .nkm-g{top:5px}
+.nkm-card .nkh-sp{right:8px}
+.nkm-thumb{cursor:default}
+.nkm-sum-stage{position:absolute;left:204px;top:530px;font:700 36px/46px Galmuri11,monospace;white-space:nowrap;text-shadow:3px 3px 0 #000}
+.nkm-sum-rule{position:absolute;left:204px;top:584px;line-height:30px;color:var(--sub);white-space:nowrap}
+.nkm-res-title{position:absolute;left:32px;top:98px;width:600px;text-align:center;font:700 84px/96px Galmuri11,monospace;color:var(--focus);white-space:nowrap;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,225,77,.7)}
+.nkm-res-title.lose{color:#fff;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,70,70,.85)}
+.nkm-res-wins{position:absolute;left:48px;top:206px;width:568px;height:424px;display:flex;justify-content:center;gap:16px}
+.nkm-res-f{position:relative;box-sizing:border-box;flex:0 0 270px;min-width:0}
+.nkm-res-f .nkm-cut{position:relative;width:100%;height:296px}
+.nkm-res-tag{margin-top:10px;font:700 36px/44px Galmuri11,monospace;white-space:nowrap;text-shadow:2px 2px 0 #000}
+.nkm-res-tag .nkm-chip{margin:9px 10px 0 0;text-shadow:none}
+.nkm-res-hp{position:relative;margin-top:8px;height:28px;line-height:28px;color:var(--sub)}
+.nkm-res-hp .nkm-g{position:absolute;left:44px;right:64px;top:5px;height:18px}
+.nkm-res-hp b{position:absolute;right:0;top:0;font-weight:700;color:color-mix(in srgb,var(--c) 65%,#fff)}
+.nkm-res-wins.many .nkm-res-f{flex-basis:178px}
+.nkm-res-wins.many .nkm-cut{height:200px}
+.nkm-res-wins.many .nkm-res-tag{font-size:24px}
+.nkm-res-info{position:absolute;font:20px/30px NKM9,monospace;color:var(--sub);white-space:nowrap}
+.nkm-res-info b{position:absolute;left:84px;top:0;font:20px/30px NKM9,monospace;color:#fff;font-weight:400}
+.nkm-res-loses{position:absolute;left:664px;top:230px;width:568px;height:174px;display:flex;gap:8px}
+.nkm-res-f.lose{flex:1 1 0;border:1.5px solid var(--card-line);border-radius:5px;background:linear-gradient(#28253A,#181624);padding:8px}
+.nkm-res-f.lose .nkm-cut{width:72px;height:72px}
+.nkm-res-f.lose .nkm-cut img{filter:grayscale(1) brightness(.6)}
+.nkm-res-f.lose .nkm-res-tag{position:absolute;left:90px;top:8px;margin:0;font:20px/26px NKM9,monospace}
+.nkm-res-f.lose .nkm-res-tag .nkm-chip{display:table;margin:0 0 8px}
+.nkm-res-f.lose .nkm-res-hp{position:absolute;left:8px;right:8px;bottom:8px;margin:0}
+/* 무승부: 진 선수 4장을 오른쪽 위 패널에 2x2(보통 폭), 스테이지·룰·시간은 왼쪽 패널(ui_manga.js renderResult) */
+.nkm-scr.draw .nkm-res-title{top:140px}
+.nkm-scr.draw .nkm-res-loses{top:100px;height:304px;flex-wrap:wrap;align-content:space-between}
+.nkm-scr.draw .nkm-res-f.lose{flex:0 0 280px;height:148px}
+.nkm-set{position:absolute;box-sizing:border-box;border:2px solid transparent;border-radius:4px;padding-left:16px;line-height:56px;cursor:pointer;white-space:nowrap}
+.nkm-set.cur{background:var(--row-sel);border-color:var(--focus);box-shadow:0 0 12px rgba(255,225,77,.45)}
+.nkm-set em{position:absolute;left:170px;top:0;width:52px;height:56px;text-align:center;font-style:normal;color:var(--sub)}
+.nkm-set em:last-child{left:auto}
+.nkm-set span{position:absolute;left:222px;right:52px;top:0;height:56px;text-align:center}
+.nkm-set span b{font-weight:700}
+.nkm-set span .nkm-g{position:absolute;left:4px;top:19px;width:132px;height:18px}
+.nkm-set span .nkm-g+b{position:absolute;right:0;top:0;width:44px}
+.nkm-set.off{opacity:.38;cursor:default}
+.nkm-set.t46{line-height:46px}.nkm-set.t46 em,.nkm-set.t46 span{height:46px}.nkm-set.t46 span .nkm-g{top:14px} /* 설정 11줄(15 문서 21절): 줄 46 */
+.nkm-set.t42{line-height:42px}.nkm-set.t42 em,.nkm-set.t42 span{height:42px}.nkm-set.t42 span .nkm-g{top:12px} /* 12줄(HD 배경 추가): 줄 42 */
+.nkm-set.t36{line-height:36px}.nkm-set.t36 em,.nkm-set.t36 span{height:36px}.nkm-set.t36 span .nkm-g{top:9px} /* 14줄(카메라 연출 추가, web/cam_fx.js): 줄 36 */
+.nkm-set.t34{line-height:34px}.nkm-set.t34 em,.nkm-set.t34 span{height:34px}.nkm-set.t34 span .nkm-g{top:8px} /* 15줄(튜토리얼 다시 보기 추가, web/tutorial.js): 줄 34 */
+/* 캐릭터 표 밖 슬롯(스토리의 에디트 캐릭터): 중립 그림 */
+.nkm-cut.anon{background:radial-gradient(circle at 50% 40%,#5a5674 0 21%,transparent 22%),radial-gradient(ellipse at 50% 108%,#5a5674 0 46%,transparent 47%),linear-gradient(#262338,#14121e)}
+/* 3단계: 스토리 대진표(ui_manga.js buildBracket). 시합 줄 4개(팀 초상 2 + 이름 + 승패, 가운데 VS) + 내 팀 + 시합 시작 */
+.nkb-round{position:absolute;top:30px}
+.nkb-row{position:absolute;box-sizing:border-box;border:2px solid var(--card-line);border-radius:6px;background:rgba(255,255,255,.03)}
+.nkb-row.mine{border:3px solid var(--focus);background:var(--row-sel);box-shadow:0 0 14px rgba(255,225,77,.35)}
+.nkb-row .nkm-cut{top:20px;width:80px;height:80px}
+.nkb-nm{position:absolute;top:26px;max-width:184px;overflow:hidden;font:700 20px/26px Galmuri11,monospace;white-space:nowrap}
+.nkb-wl{position:absolute;top:62px;white-space:nowrap}
+.nkb-wl .nkm-chip,.nkb-me-wl .nkm-chip{margin:0 3px}
+.nkb-vs{position:absolute;left:356px;width:120px;top:24px;text-align:center;font:44px/48px Galmuri14,monospace;color:#fff;text-shadow:3px 3px 0 #000}
+.nkb-row.mine .nkb-vs{color:var(--focus)}
+.nkb-next{position:absolute!important;left:416px;top:80px;transform:translateX(-50%)}
+.nkb-1p{position:absolute!important;top:10px;z-index:1}
+.nkb-me-nm{position:absolute;left:912px;width:336px;top:292px;text-align:center;font:700 26px/32px Galmuri11,monospace;white-space:nowrap}
+.nkb-me-wl{position:absolute;left:912px;width:336px;top:336px;text-align:center}
+/* 에디트 폼(15 문서 17절): 이름 입력 칸·고르기 상자. 원작 창과 같은 검은 면 + 흰 테두리, 초점 = 노란 테두리 */
+.nkm-edit .nke-lab{position:absolute;width:120px;font:700 26px/36px Galmuri11,monospace;color:var(--sub);white-space:nowrap}
+.nkm-edit .nke-unit{position:absolute;font:26px/36px Galmuri11,monospace}
+.nkm-edit .nke-f{position:absolute;box-sizing:border-box;height:60px;margin:0;padding:0 14px;border:2px solid #fff;border-radius:5px;background:linear-gradient(#0A0A10,#1A1826);color:#fff;font:30px/56px Galmuri11,monospace;outline:none;user-select:text;-webkit-user-select:text;cursor:pointer;color-scheme:dark}
+.nkm-edit input.nke-f{cursor:text;letter-spacing:2px}
+.nkm-edit select.nke-f{padding:0 10px;appearance:auto}
+.nkm-edit select.nke-f option{background:#0A0A10;color:#fff;font:24px Galmuri11,monospace}
+.nkm-edit .nke-f.cur,.nkm-edit .nke-f:focus{border:3px solid var(--focus);box-shadow:0 0 12px rgba(255,225,77,.55)}
+.nkm-edit .nke-f:disabled{opacity:.6}
+.nkm-edit .nke-who{position:absolute}
+.nkm-edit .nke-zod{font-weight:700;color:#fff;white-space:nowrap}
+#nkm.busy .nkm-edit .nke-f{pointer-events:none}
+/* 온라인 O1(ui_manga.js buildOnline): 로비 방 목록 · 대기방 자리 카드 · 결과 · 전투 중 토스트 */
+.nko-th,.nko-row{display:flex;box-sizing:border-box;white-space:nowrap}
+.nko-th{position:absolute;border-bottom:1.5px solid rgba(255,255,255,.3);font:20px/40px NKM9,monospace;color:var(--sub)}
+.nko-th span,.nko-row span{display:block;box-sizing:border-box;padding:0 12px;overflow:hidden;text-overflow:ellipsis}
+.nko-th span:nth-child(1),.nko-row span:nth-child(1){width:220px}
+.nko-th span:nth-child(2),.nko-row span:nth-child(2){width:160px}
+.nko-th span:nth-child(3),.nko-row span:nth-child(3){width:80px;text-align:center}
+.nko-th span:nth-child(4),.nko-row span:nth-child(4){width:100px;text-align:center}
+.nko-th span:nth-child(5),.nko-row span:nth-child(5){width:288px} /* 스테이지 · 룰 이름(RULE_NAME 5자) */
+.nko-rows{position:absolute;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#56526E transparent}
+.nko-row{position:relative;height:56px;line-height:52px;margin-bottom:4px;border:2px solid transparent;border-radius:4px;cursor:pointer}
+.nko-row:nth-child(odd){background:rgba(255,255,255,.04)}
+.nko-row.cur{background:var(--row-sel);border-color:var(--focus);box-shadow:0 0 12px rgba(255,225,77,.45)}
+.nko-row.play{color:var(--dim);cursor:default}
+.nko-row.full{color:var(--dim);cursor:default}
+.nko-row:not(.cur):not(.play):not(.full):hover{border-color:rgba(255,255,255,.35)}
+/* 작은 화면(--tk = 화면 배율, place()): 방 목록 줄·머리줄 「친구 초대」 누름 칸을 실제 46px 이상으로 */
+.nko .nko-rows .nko-row[data-id^="room_"]{height:max(56px,calc(46px / var(--tk,1)));align-items:center}
+.nko .nkm-btn.nko-inv{font-size:22px}
+.nko .nkm-btn.nko-inv::after{content:"";position:absolute;left:0;right:0;top:min(0px,calc((48px - 46px / var(--tk,1)) / 2));bottom:min(0px,calc((48px - 46px / var(--tk,1)) / 2))}
+.nko-empty{position:absolute;text-align:center;color:var(--dim)}
+.nko .nkm-btn.off,.nko .nkm-set.off{opacity:.38;cursor:default}
+.nko .nkm-set.off em{visibility:hidden}
+.nko .nke-f::placeholder{color:var(--dim)}
+.nko-rule{position:absolute;line-height:32px;color:var(--sub);word-break:keep-all}
+.nko-seat.me{border-color:var(--focus);box-shadow:0 0 14px rgba(255,225,77,.45),6px 6px 0 rgba(32,0,46,.85)}
+.nko-seat .nko-who{position:absolute;left:12px;top:12px;z-index:1}
+.nko-nm{position:absolute;left:6px;right:6px;top:158px;font:700 24px/30px Galmuri11,monospace;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nko-nm.dim{color:var(--dim);font-weight:400}
+.nko-ch{position:absolute;left:6px;right:6px;top:190px;font:20px/26px NKM9,monospace;color:var(--sub);text-align:center;white-space:nowrap}
+.nko-st{position:absolute;left:0;right:0;top:220px;text-align:center;white-space:nowrap}
+.nkm-cell.mine{box-shadow:0 0 0 3px var(--focus),0 0 12px rgba(255,225,77,.6)}
+.nko-big{position:absolute;text-align:center;font:700 84px/96px Galmuri11,monospace;color:#fff;white-space:nowrap;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,70,70,.7)}
+.nko-big.win{color:var(--focus);text-shadow:4px 4px 0 #000,0 0 18px rgba(255,225,77,.7)}
+.nko-sub{position:absolute;text-align:center;color:var(--sub);white-space:nowrap}
+#nko-bt{position:fixed;left:50%;top:10px;z-index:4;max-width:90vw;box-sizing:border-box;padding:6px 16px 6px 14px;border:2px solid var(--c,#FFB02E);border-left-width:8px;border-radius:6px;background:#0A0A10;font:16px/24px Galmuri11,monospace;white-space:nowrap;pointer-events:none;opacity:0;transform:translate(-50%,-10px);transition:opacity .25s,transform .18s}
+#nko-bt.on{opacity:1;transform:translate(-50%,0)}
+/* 온라인 보완(analysis/17_online_4p.md 12절): 결과 화면의 승자 줄 · 게이지 패널의 빠진 자리(흐림 + 「나감」) · 대전 중 기권 버튼(화면 오른쪽 위, 2단 눌림) */
+.nko-wn{position:absolute;text-align:center;white-space:nowrap;font:24px/30px NKM9,monospace;color:var(--sub)}
+.nko-wn .nkm-chip{margin:2px 10px 0 12px}
+.nko-wn b{font:700 26px/30px Galmuri11,monospace;color:#fff}
+.nko-wn b+span{margin-left:12px}
+.nkh-out{display:none;position:absolute;left:2px;top:31px;width:92px;height:34px;box-sizing:border-box;border:2px solid var(--hp-low);border-radius:4px;background:#0A0A10;color:#fff;font:700 24px/30px Galmuri11,monospace;text-align:center;transform:rotate(-8deg)}
+.nkh-f.gone .nkh-out{display:block}
+.nkh-f.gone>:not(.nkh-out){opacity:.38;filter:grayscale(1)}
+#nko-ff{display:none;position:fixed;right:10px;top:10px;z-index:3;box-sizing:border-box;min-width:64px;padding:0 10px;border:2px solid #78748C;border-radius:6px;background:rgba(10,10,16,.82);color:#BEBAD2;font:14px/24px Galmuri11,monospace;text-align:center;white-space:nowrap;cursor:pointer;user-select:none;opacity:.75}
+#nko-ff.on{display:block}
+#nko-ff:hover{opacity:1;border-color:#fff;color:#fff}
+#nko-ff.arm{opacity:1;border-color:#fff;background:#D8263C;color:#fff;font-weight:700}
+#nko-ff.sent{opacity:.4;pointer-events:none}
+/* 스토리 1단계(analysis/23 4.1·4.2절): 파트너 선택의 「내 팀」 줄 · 팀·룰 카드 2장과 룰 5줄 */
+.nkp-team{position:absolute;display:flex;align-items:center;justify-content:flex-end;gap:10px;white-space:nowrap;font:700 24px/1 Galmuri11,monospace}
+.nkp-team .nkm-cut{position:relative;flex:none;width:48px;height:48px}
+.nkp-team .nkm-chip{margin-right:4px}
+.nkp-amp{color:var(--sub)}
+.nkt-card .nkm-card-chips{left:164px;top:16px}
+.nkt-card .nkm-card-name{left:164px;top:50px}
+.nkt-info{position:absolute;width:214px;font:20px/26px NKM9,monospace;color:var(--sub);white-space:nowrap}
+.nkt-info b{position:absolute;left:72px;top:0;font:20px/26px NKM9,monospace;color:#fff;font-weight:400}
+.nkt-stat{width:364px;height:30px;line-height:30px}
+.nkt-stat .nkm-g{width:228px;top:7px}
+.nkt-sp-h{position:absolute;font-weight:700;color:var(--focus)}
+.nkt-card .nkh-sp{height:30px;font:22px/30px NKM9,monospace}
+.nkt-card .nkh-sp::before{top:10px}
+.nkt-rule{height:80px}
+/* 스토리 1단계 보완(analysis/23 9절): 파트너 화면은 상세 창을 줄여(84~576) 아래에 뒤로 버튼(팀·룰과 같은 자리). 필살기 칸만 낮춘다 · 구동 대기 표시 */
+.nkp .nkm-sp-h{top:470px}
+.nkp .nkm-sp{top:502px;height:64px;padding-top:32px}
+.nkp .nkm-sp s{top:5px}
+.nkm-hint.wait{animation:nkp-wait 1s steps(2,jump-none) infinite}
+@keyframes nkp-wait{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.nkm-hint.wait{animation:none}}
+/* 스토리 대기실(analysis/23 10절, ui_manga.js buildLobby): 내 팀 카드 2장(레벨 업 띠 · 능력치 증가분 띠) + 직전 시합 · 승패 · 팀 레벨 + 버튼 4 · 스테이터스 패널 · 그만두기 확인 */
+.nkl-view{position:absolute;inset:0;display:none}
+.nkl-view.on{display:block}
+.nkl-up{position:absolute;left:164px;top:104px;display:none;height:36px;padding:0 14px;border-radius:5px;background:linear-gradient(#FFF3A8,var(--focus) 45%,#E0B820);color:#140C00;font:700 24px/36px Galmuri11,monospace;white-space:nowrap;box-shadow:0 0 14px rgba(255,225,77,.7);transform-origin:0 50%;animation:nkl-pop .45s ease-out}
+.nkl-card.lvup .nkl-up{display:block}
+.nkl-card.lvup{border-color:var(--focus);box-shadow:0 0 16px rgba(255,225,77,.45),6px 6px 0 rgba(32,0,46,.85)}
+@keyframes nkl-pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.1)}}
+.nkl-stat .nkm-g{width:180px}
+.nkl-stat s{position:absolute;left:272px;top:0;width:44px;text-decoration:none;font:700 20px/30px Galmuri11,monospace;color:var(--focus)}
+.nkl-stat .nkm-g em{position:absolute;top:0;bottom:0;background:linear-gradient(#FFFDE8,#FFF3A8 45%,var(--focus));box-shadow:0 0 6px var(--focus);animation:nkl-band 1s ease-in-out infinite}
+@keyframes nkl-band{50%{opacity:.55}}
+.nkl-res{position:absolute;left:444px;width:392px;top:372px;text-align:center;font:700 38px/40px Galmuri11,monospace;color:var(--focus);white-space:nowrap;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,225,77,.7)}
+.nkl-res.lose{color:#fff;text-shadow:4px 4px 0 #000,0 0 18px rgba(255,70,70,.85)}
+.nkl-wl{position:absolute;left:444px;width:392px;top:432px;text-align:center;white-space:nowrap}
+.nkl-wl .nkm-chip{margin:0 4px}
+.nkl-team{position:absolute}
+.nkl-gym{position:absolute;box-sizing:border-box;border:4px solid #fff;border-radius:6px;background:#000;overflow:hidden;box-shadow:6px 6px 0 rgba(32,0,46,.85)} /* 원작 체육관 컷(ui_manga.js lobbyBg, 96x64 x4) */
+.nkl-gym canvas{display:block;width:384px;height:256px;image-rendering:pixelated}
+.nkl-rule{position:absolute;font:700 18px/24px Galmuri11,monospace;color:#d8cce8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.nkl .nkm-btn.off{opacity:.38}
+/* 에디트 캐릭터(전용 초상 없음) 카드: 초상 칸 없이 딱지·이름·안내를 왼쪽부터(fillCard 의 nocut) */
+.nkt-card.nocut .nkm-cut{display:none}
+.nkt-card.nocut .nkm-card-chips,.nkt-card.nocut .nkm-card-name,.nkt-card.nocut .nkl-up{left:14px}
+.nkl-ov{position:absolute;inset:0;z-index:5;display:none;background:rgba(6,0,12,.62)}
+.nkl-ov.on{display:block}
+.nkl-q{position:absolute;left:400px;top:286px;width:480px;text-align:center;font:700 30px/40px Galmuri11,monospace;white-space:nowrap}
+.nks-ask-nm{position:absolute;left:400px;top:306px;width:480px;text-align:center;font:700 24px/32px Galmuri11,monospace;color:var(--focus)} /* 맵 확인 창(ui_manga.js buildStage): 미리보기 · STAGE n · 질문 · 예/아니오 */
+.nks-ask-q{top:362px}
+@media (prefers-reduced-motion:reduce){.nkl-up,.nkl-stat .nkm-g em{animation:none}}
+/* 계정·래더·랭킹(analysis/22 10절, analysis/23 11절): 접속 탭 · 로비 탭 · 래더 탭 · 랭킹보드 · 대기방 좌석 티어 · 결과 레이팅 */
+#nkm{--t-bronze:#D08A4E;--t-silver:#C8CCD8;--t-gold:#FFC83C;--t-platinum:#38D6F5;--t-diamond:#6FA8FF;--t-master:#C08BFF}
+.nko .nkm-btn.nko-tab{font-size:22px}
+.nko .nkm-btn.nko-tab.sel:not(.cur){border:3px solid var(--focus);color:var(--focus);background:var(--row-sel)}
+.nko .nkm-btn.dim:not(.cur){opacity:.55}
+.nko-meK{position:absolute;top:30px;white-space:nowrap}
+.nko-ld{position:absolute;text-align:center;white-space:nowrap}
+.nko-ld>div:not(.nkm-btn){position:absolute}
+.nko-ld-season{color:var(--sub);line-height:30px}
+.nko-ld-badge{height:80px;line-height:80px}
+.nko-ld-badge .nkm-chip{height:44px;line-height:44px;padding:0 14px;font-size:30px;vertical-align:middle}
+.nko-ld-badge .nkm-chip.line{line-height:41px}
+.nko-ld-badge b{margin-left:20px;font:700 64px/80px Galmuri11,monospace;vertical-align:middle;text-shadow:3px 3px 0 #000}
+.nko-ld-wl{font:26px/34px Galmuri11,monospace;color:var(--sub)}
+.nko-ld-lock{line-height:30px;color:var(--hp-low)}
+.nko-ld-q b{display:block;font:700 40px/52px Galmuri11,monospace;color:var(--focus);text-shadow:3px 3px 0 #000}
+.nko-ld-q div{margin-top:6px;line-height:30px;color:var(--sub)}
+.nko .nkm-btn.nko-big-btn{font-size:36px}
+.nko-rk{position:absolute;left:8px;top:116px;width:142px;height:34px;box-sizing:border-box;padding-top:4px;background:rgba(6,6,10,.8);text-align:center;white-space:nowrap;border-radius:0 0 4px 4px}
+.nko-rk .nkm-chip{height:24px;line-height:24px;padding:0 5px;font-size:18px}
+.nko-rk .nkm-chip.line{line-height:21px}
+.nko-rk b{margin-left:6px;font:700 20px/26px Galmuri11,monospace}
+.nko-rr{position:absolute;text-align:center;white-space:nowrap;line-height:34px}
+.nko-rr>div{height:36px}
+.nko-rr b{font-weight:700;margin-right:10px}
+.nko-rr .nkm-chip{margin:4px 0 0 8px}
+.nko-rr>div+div .nkm-chip:first-child{margin-left:0}
+.nko-rk-row span:nth-child(1){width:140px;text-align:center}
+.nko-rk-row span:nth-child(2){width:380px;text-align:left}
+.nko-rk-row span:nth-child(3){width:240px;text-align:center}
+.nko-rk-row span:nth-child(4){width:190px;text-align:center}
+.nko-rk-row span:nth-child(5){width:234px;text-align:center}
+.nko-rk-row .nkm-chip{margin-top:13px}
+.nko-row.nko-rk-row{cursor:default}
+.nko-row.me{border-color:var(--focus);background:var(--row-sel);color:var(--focus)}
+.nko-row.pin{position:absolute;margin:0;box-shadow:0 0 12px rgba(255,225,77,.45)}
+/* 메뉴끼리 넘어갈 때(ui_manga.js render 의 nkm-keep): 로고·초상·창·하단 띠는 그대로 두고 머리·버튼만 들어온다(화면 전체가 0 에서 다시 밝아지는 깜박임 제거) */
+.nkm-scr.on.nkm-keep{animation:none}
+.nkm-scr.on.nkm-keep>.nkm-head,.nkm-scr.on.nkm-keep>.nkm-btn{animation:nkm-in .18s ease-out}
+.nkm-scr.on.nkm-keep>.nkm-btn.cur{animation:nkm-in .18s ease-out,nkm-breath 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.nkm-scr.on.nkm-keep>.nkm-head,.nkm-scr.on.nkm-keep>.nkm-btn,.nkm-scr.on.nkm-keep>.nkm-btn.cur{animation:none}}
+/* 스토리 이어하기·슬롯(ui_manga.js buildSlots, analysis/23 11절): 카드 3장(슬롯 · 이름 · 회전 · 승패 · 룰·레벨 · 저장 시각). 빈 칸·쓸 수 없는 칸 = 흐림. 스토리 메뉴 이어하기 흐림 = 서버·DB 없음 */
+.nks-card{flex-direction:column;justify-content:flex-start;gap:14px;padding-top:28px;font-weight:400}
+.nks-card .nkm-chip{margin-bottom:6px}
+.nks-nm{font:700 34px/42px Galmuri11,monospace;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nks-l{font:700 26px/32px Galmuri11,monospace;min-height:32px}
+.nks-s{font:400 20px/26px Galmuri11,monospace;min-height:26px;opacity:.85}
+.nks-dt{position:absolute;bottom:18px;font:400 18px/22px Galmuri11,monospace;opacity:.7}
+.nks-card.nks-empty:not(.cur) .nks-nm{opacity:.5}
+.nks-card.nks-bad{opacity:.45}
+.nkm-btn.nks-off:not(.cur){opacity:.38}
+.nkm-btn.nks-off.cur{filter:saturate(.35) brightness(.8)}
+.nko-ttl{left:600px;color:var(--focus)}
+/* 대기방 4인 개편(analysis/25 7절, ui_manga.js roomLayout·renderRoom): 카드·창·색은 종전 그대로. 하단 띠 = 상태 딱지 1개(고정 높이·안 잘림) · 방장 시작 · 카운트다운 · 랜덤 칩 · 스테이지 썸네일 · 자리별 +CPU/× · 세로(pl) 배치 */
+.nko-seat .nko-st{top:216px;height:32px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.nko-seat .nko-st .nkm-chip{flex:none}
+.nko-seat .nko-hb{position:absolute;right:12px;top:12px;z-index:1;background:#0A0A10}
+.nko .nkm-set.nko-sh em:not(:last-child){left:130px}
+.nko .nkm-set.nko-sh span{left:182px}
+.nko .nkm-set.nko-sh.nko-rl span{overflow:hidden;text-overflow:ellipsis;font-size:22px} /* 룰 줄: 화살표·값 칸은 다른 줄과 같은 자리, 이름(5자)만 조금 작게 */
+.nko .nkm-btn.nko-rnd{font-size:20px}
+.nko .nkm-btn.nko-rnd.sel:not(.cur){border:3px solid var(--focus);color:var(--focus);background:var(--row-sel)}
+.nko .nkm-btn.nko-sb{font-size:20px;z-index:2}
+.nko .nkm-btn.nko-go:not(.cur){border-color:var(--focus);color:var(--focus)}
+.nko-sth{cursor:default;background-size:100% 100%}
+.nko-sth b{width:24px;height:26px;font-size:20px;line-height:22px}
+.nko-sth.rnd,.nko-rth.rnd{background:linear-gradient(#2a1a44,#120a22)}
+.nko-sth.rnd::after,.nko-rth.rnd::after{content:"?";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 56px/1 Galmuri11,monospace;color:var(--focus);text-shadow:3px 3px 0 #000}
+.nko-rth.rnd::after{font-size:30px}
+.nko-cd{position:absolute;display:none;z-index:4;align-items:center;justify-content:center;background:rgba(6,0,12,.55);border-radius:6px;pointer-events:none}
+.nko-cd.on{display:flex}
+.nko-cd b{font:700 168px/1 Galmuri11,monospace;color:var(--focus);text-shadow:6px 6px 0 #000,0 0 24px rgba(255,225,77,.8)}
+.nko-room.cdn .nkm-cell{cursor:default}
+.nko-row .nko-rs{display:flex;align-items:center;gap:8px;padding:0 8px;font:20px/1 NKM9,monospace;overflow:hidden}
+.nko-rs b{font:700 20px/1 Galmuri11,monospace}
+.nko-rs em{font-style:normal;color:var(--sub)}
+.nko-row.play .nko-rs em,.nko-row.full .nko-rs em{color:inherit}
+.nko-rth{position:relative;flex:none;width:64px;height:48px;box-sizing:border-box;border:1.5px solid #fff;border-radius:3px;background:#120a22 0 0/100% 100% no-repeat;image-rendering:pixelated;overflow:hidden}
+.nko-room .nko-plo,.nko-sht,.nko-pbar{display:none}
+.nko-room .nko-rule{font:20px/30px NKM9,monospace}
+/* 세로 대기방(#nkm.pl): 논리 600x1300. 카드 2x2(초상 왼쪽 + 글자 오른쪽) · 설정 창 · 아래 고정 띠(큰 버튼) · 캐릭터 시트(내 카드/「캐릭터」 → 설정 창을 덮음) */
+#nkm.pl .nkm-rot,#nkm.pl .nko-room>.nkm-foot,#nkm.pl .nko-room>.nkm-hint:not(.nko-ttl),#nkm.pl .nko-room>.nkm-keys{display:none}
+#nkm.pl .nko-room .nkm-head{left:16px;top:16px;max-width:568px;overflow:hidden;text-overflow:ellipsis}
+#nkm.pl .nkm-toast{left:16px;width:568px}
+#nkm.pl .nko-room .nko-pbar{display:block;position:absolute;background:#06060A;border-top:4px solid var(--wall-text)}
+#nkm.pl .nko-room .nkm-btn.nko-plo{display:flex}
+#nkm.pl .nko-room .nko-rule.nko-plo{display:block;color:var(--sub)}
+#nkm.pl .nko-room:not(.sheet) .nko-gw,#nkm.pl .nko-room:not(.sheet) .nkm-cell,#nkm.pl .nko-room:not(.sheet) .nko-sho{display:none}
+#nkm.pl .nko-room.sheet .nko-gw{z-index:4}
+#nkm.pl .nko-room.sheet .nkm-cell,#nkm.pl .nko-room.sheet .nko-sho{z-index:5}
+#nkm.pl .nko-room.sheet .nkm-brk{z-index:6}
+#nkm.pl .nko-room.sheet .nko-sht{display:block;position:absolute;z-index:5;font:700 28px/44px Galmuri11,monospace;color:var(--focus)}
+#nkm.pl .nko-seat .nko-rk{left:66px}
+#nkm.pl .nko-room .nkm-btn{font-size:26px}
+#nkm.pl .nko-room .nkm-btn.nko-sb,#nkm.pl .nko-room .nkm-btn.nko-rnd{font-size:22px}
+#nkm.pl .nko-room .nkm-btn.nko-inv{font-size:22px}
+#nkm.pl .nko-room [data-id="start"],#nkm.pl .nko-room [data-id="ready"]{font-size:34px}
+/* 필살기 입력 뱃지(web/skill_inputs.js, analysis/29): 전투 HUD 좌우 패널에서만(2026-11-21 사용자 지시). 이름 왼쪽 · 키캡 뱃지 오른쪽. 흰 = 버튼(리매핑 키 이름), 노랑 = 방향, 조건 = 「앞」 칩(상대 정면) · 작은 「or」(둘 중 하나) · 묶음 뱃지 .cb(같이 누름 →S · 대시 →→). 한 줄 고정: 넘치면 이름 자간 축소(skill_inputs.js fit) → tight. 세로 화면(배율 약 0.3)은 숨김 */
+.nkh-sp.nksi-row{display:flex;align-items:center}
+.nksi-nm{flex:0 1 auto;white-space:nowrap}
+.nksi{display:inline-flex;align-items:center;gap:3px;flex:none;margin-left:auto;padding-left:10px;white-space:nowrap}
+.nksi b{box-sizing:border-box;flex:none;width:24px;height:22px;padding:0;overflow:hidden;border:2px solid #000;border-radius:4px;background:#fff;color:#000;font:700 16px/18px Galmuri11,monospace;text-align:center;letter-spacing:-.5px;box-shadow:0 2px 0 rgba(0,0,0,.6)}
+.nksi b.u2{font-size:12px}
+.nksi b.u3{font-size:10px}
+.nksi b.d{background:var(--focus)}
+.nksi i{flex:none;width:11px;text-align:center;font:700 16px/22px Galmuri11,monospace;font-style:normal;color:var(--focus)}
+.nksi-row.sm .nksi{gap:2px;padding-left:6px}
+.nksi-row.sm .nksi b{width:18px;height:16px;border-width:1.5px;border-radius:3px;font-size:12px;line-height:13px}
+.nksi-row.sm .nksi b.u2{font-size:9px}
+.nksi-row.sm .nksi b.u3{font-size:8px}
+.nksi-row.sm .nksi i{width:9px;font-size:12px;line-height:16px}
+.nkh-sp.nksi-row.wrap{flex-wrap:wrap;height:auto;line-height:17px}
+.nkt-card .nkh-sp.nksi-row.wrap{line-height:26px}
+.nksi-row.wrap .nksi{flex-basis:100%;justify-content:flex-end;padding-left:0}
+#nkm.port .nksi{display:none}
+#nkm-hud .nksi b{width:22px;height:20px;border-width:2px;border-radius:3px;font-size:15px;line-height:16px}
+#nkm-hud .nksi b.u2{font-size:12px}
+#nkm-hud .nksi b.u3{font-size:10px}
+#nkm-hud .nksi i{width:12px;font-size:15px;line-height:20px}
+.nksi b.f{background:#000;color:var(--focus);border-color:var(--focus)} /* 「앞」 = 상대가 정면을 볼 때 */
+.nksi i.or{width:auto;padding:0 1px;font-size:11px;letter-spacing:-.5px;color:#fff}
+.nksi b.cb{display:inline-flex;width:auto;border-radius:11px}
+.nksi b.cb>span{flex:none;width:20px;text-align:center}
+.nksi b.cb>span.a{width:14px;background:var(--focus);font-size:12px;letter-spacing:-1px}
+.nksi b.cb>span.u2{font-size:12px}
+.nksi b.cb>span.u3{font-size:10px}
+#nkm-hud .nksi{gap:2px;padding-left:6px}
+#nkm-hud .nksi b.cb{width:auto;border-radius:10px}
+#nkm-hud .nksi b.cb>span{width:18px}
+#nkm-hud .nksi b.cb>span.a{width:13px;font-size:11px}
+#nkm-hud .nksi i.or{width:auto;font-size:11px}
+#nkm-hud .nksi-row.tight .nksi{gap:1px;padding-left:3px}

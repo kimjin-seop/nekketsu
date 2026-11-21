@@ -1,0 +1,1577 @@
+{
+ "_doc": "열혈격투전설 고정 16명 정체 데이터. 생성: node analysis/ui_rework/p3_status16.js && node analysis/ui_rework/p12_build_characters.js. 설명·근거 수준: analysis/14_manga_ui_research.md 3절. ROM 파생물이므로 공개 저장소에 올리지 않는다.",
+ "generated_from": {
+  "rom_sha1": "13266bc2e52d37bcc1987d04fa6f62b1752a7dbe",
+  "run": "배틀 1인·에디트 안 함 경로의 스테이터스 화면(5:5:4), 레벨 1"
+ },
+ "order": "id = row*4 + col. row = 캐릭터 선택 화면의 줄(= 유파 = RAM $0401+슬롯), col = 칸(= RAM $0409+슬롯)",
+ "fields": {
+  "name_ja": "확정: ROM 레코드[0..4](글자 타일 코드) = 스테이터스 머리줄 = 캐릭터 선택 이름 칸 (16/16)",
+  "name_ko": "번역 초안(analysis/ko/translation_ko.json character_names). 사용자 확정 전",
+  "school": "판독: 캐릭터 선택 화면 왼쪽 라벨(그림 타일)과 줄의 대응. 13 문서 13.7절. ko 는 그 문서의 적용 표기",
+  "birthday": "확정: ROM 레코드[14]=월, [15]=일 → RAM $05B3+12s/$05B4+12s, $06F2+s/$06F6+s = 스테이터스 6행 (16/16)",
+  "blood_type": "확정: ROM 레코드[7] (0=A 1=B 2=O 3=AB 4=?) → RAM $05AC+12s = 스테이터스 8행 (16/16). りき 는 원작 표기가 「?型」",
+  "zodiac": "확정: ROM 레코드[6] (0=양 … 11=물고기) → RAM $05B6+12s = 스테이터스 8행 (16/16). ko 는 번역 초안",
+  "specials": "확정: 세트 = (월+일) mod 20 → bank9 $B461 표 → RAM $0605+s/$0609+s 비트 → 스테이터스 12·15·18행 (16/16). 순서 = 화면 순서(비트 낮은 쪽부터), null = 화면의 「ナ シ」(없음). ko 는 번역 초안",
+  "stats_l1": "실행 확인: 스테이터스 화면 숫자 = 그 시점 RAM($05EB HP, $05EF 손기술, $05F3 발기술, $05F7 던지기, $05FB 방어, $05FF×9 민첩). 배틀 모드 레벨 1 값이다",
+  "stats_rom_base": "확정(위치): ROM 레코드[8] HP, [9] 손기술, [10] 발기술, [11] 던지기, [12] 방어, [13] 속도 등급(화면 민첩 = 등급×9)",
+  "stats_l1_minus_base": "화면 값 − ROM 기본값. 이 차이를 만드는 계산식은 해독하지 못했다(미확인). 화면에 보일 값은 stats_l1 을 쓴다"
+ },
+ "screen_labels": {
+  "hp": [
+   "HP",
+   "HP"
+  ],
+  "te": [
+   "てわざ",
+   "손기술"
+  ],
+  "ashi": [
+   "あしわざ",
+   "발기술"
+  ],
+  "nage": [
+   "なげわざ",
+   "던지기"
+  ],
+  "subaya": [
+   "すばやさ",
+   "민첩"
+  ],
+  "bougyo": [
+   "ぼうぎょ",
+   "방어"
+  ]
+ },
+ "stat_ranges_l1": {
+  "hp": {
+   "min": 169,
+   "max": 206
+  },
+  "te": {
+   "min": 26,
+   "max": 55
+  },
+  "ashi": {
+   "min": 29,
+   "max": 64
+  },
+  "nage": {
+   "min": 29,
+   "max": 68
+  },
+  "subaya": {
+   "min": 81,
+   "max": 99
+  },
+  "bougyo": {
+   "min": 27,
+   "max": 60
+  }
+ },
+ "special_moves": [
+  {
+   "id": 0,
+   "ja": "マッハふみふみ",
+   "ko": "마하 밟기밟기",
+   "ram": "$0605+슬롯 & 0x01",
+   "rom_name_prg_offset": "0x131B9",
+   "input": "다운된 상대 곁에서 A(요청 0x62)"
+  },
+  {
+   "id": 1,
+   "ja": "ジャンプギロチン",
+   "ko": "점프 기요틴",
+   "ram": "$0605+슬롯 & 0x02",
+   "rom_name_prg_offset": "0x131C2",
+   "input": "점프 하강 중 B(0x57)"
+  },
+  {
+   "id": 2,
+   "ja": "ジャンプエルボー",
+   "ko": "점프 엘보",
+   "ram": "$0605+슬롯 & 0x04",
+   "rom_name_prg_offset": "0x131CB",
+   "input": "점프 하강 중 A(0x56)"
+  },
+  {
+   "id": 3,
+   "ja": "ストーンガード",
+   "ko": "스톤 가드",
+   "ram": "$0605+슬롯 & 0x08",
+   "rom_name_prg_offset": "0x131D4",
+   "input": "등 뒤 상대에게 A·B(0x48)"
+  },
+  {
+   "id": 4,
+   "ja": "スピンアタック",
+   "ko": "스핀 어택",
+   "ram": "$0605+슬롯 & 0x10",
+   "rom_name_prg_offset": "0x131DD",
+   "input": "착지 직후 A(0x54)"
+  },
+  {
+   "id": 5,
+   "ja": "バクレツキック",
+   "ko": "폭렬 킥",
+   "ram": "$0605+슬롯 & 0x20",
+   "rom_name_prg_offset": "0x131E6",
+   "input": "착지 직후 B(0x53)"
+  },
+  {
+   "id": 6,
+   "ja": "マッハキック",
+   "ko": "마하 킥",
+   "ram": "$0605+슬롯 & 0x40",
+   "rom_name_prg_offset": "0x131EF",
+   "input": "지상 B(0x4B)·점프 중 B(0x6A)"
+  },
+  {
+   "id": 7,
+   "ja": "マッハパンチ",
+   "ko": "마하 펀치",
+   "ram": "$0605+슬롯 & 0x80",
+   "rom_name_prg_offset": "0x131F8",
+   "input": "지상 A(0x4A)·점프 중 A(0x69)"
+  },
+  {
+   "id": 8,
+   "ja": "トルネードアタック",
+   "ko": "토네이도 어택",
+   "ram": "$0609+슬롯 & 0x40",
+   "rom_name_prg_offset": "0x13201",
+   "input": null
+  },
+  {
+   "id": 9,
+   "ja": "ハイスピンキック",
+   "ko": "하이 스핀 킥",
+   "ram": "$0609+슬롯 & 0x80",
+   "rom_name_prg_offset": "0x1320A",
+   "input": "달리기 점프 중 ↓(0x55)"
+  }
+ ],
+ "special_sets": {
+  "rom_prg_offset": "0x13461",
+  "rule": "세트 = (생일 월 + 일) mod 20",
+  "table": [
+   {
+    "set": 0,
+    "b0605": 96,
+    "b0609": 0
+   },
+   {
+    "set": 1,
+    "b0605": 80,
+    "b0609": 0
+   },
+   {
+    "set": 2,
+    "b0605": 56,
+    "b0609": 0
+   },
+   {
+    "set": 3,
+    "b0605": 28,
+    "b0609": 0
+   },
+   {
+    "set": 4,
+    "b0605": 14,
+    "b0609": 0
+   },
+   {
+    "set": 5,
+    "b0605": 7,
+    "b0609": 0
+   },
+   {
+    "set": 6,
+    "b0605": 48,
+    "b0609": 128
+   },
+   {
+    "set": 7,
+    "b0605": 1,
+    "b0609": 192
+   },
+   {
+    "set": 8,
+    "b0605": 128,
+    "b0609": 192
+   },
+   {
+    "set": 9,
+    "b0605": 144,
+    "b0609": 0
+   },
+   {
+    "set": 10,
+    "b0605": 144,
+    "b0609": 64
+   },
+   {
+    "set": 11,
+    "b0605": 36,
+    "b0609": 0
+   },
+   {
+    "set": 12,
+    "b0605": 0,
+    "b0609": 192
+   },
+   {
+    "set": 13,
+    "b0605": 65,
+    "b0609": 64
+   },
+   {
+    "set": 14,
+    "b0605": 2,
+    "b0609": 128
+   },
+   {
+    "set": 15,
+    "b0605": 68,
+    "b0609": 0
+   },
+   {
+    "set": 16,
+    "b0605": 32,
+    "b0609": 192
+   },
+   {
+    "set": 17,
+    "b0605": 0,
+    "b0609": 128
+   },
+   {
+    "set": 18,
+    "b0605": 112,
+    "b0609": 0
+   },
+   {
+    "set": 19,
+    "b0605": 0,
+    "b0609": 64
+   }
+  ]
+ },
+ "characters": [
+  {
+   "id": 0,
+   "row": 0,
+   "col": 0,
+   "school": {
+    "ja": "格闘家",
+    "ko": "격투가"
+   },
+   "name_ja": "くにお",
+   "name_ko": "쿠니오",
+   "birthday": {
+    "month": 11,
+    "day": 27
+   },
+   "blood_type": "AB",
+   "zodiac": {
+    "index": 8,
+    "ja": "いて",
+    "ko": "사수"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 5,
+     "ja": "バクレツキック",
+     "ko": "폭렬 킥"
+    },
+    {
+     "id": 6,
+     "ja": "マッハキック",
+     "ko": "마하 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 198,
+    "te": 49,
+    "ashi": 57,
+    "nage": 45,
+    "subaya": 90,
+    "bougyo": 47
+   },
+   "stats_rom_base": {
+    "hp": 195,
+    "te": 46,
+    "ashi": 55,
+    "nage": 40,
+    "bougyo": 42,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 3,
+    "te": 3,
+    "ashi": 2,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 18,
+   "rom": {
+    "record_file_offset": "0x10AF1",
+    "record_prg_offset": "0x10AE1",
+    "record": [
+     63,
+     91,
+     58,
+     0,
+     0,
+     0,
+     8,
+     3,
+     195,
+     46,
+     55,
+     40,
+     42,
+     10,
+     11,
+     27
+    ]
+   }
+  },
+  {
+   "id": 1,
+   "row": 0,
+   "col": 1,
+   "school": {
+    "ja": "格闘家",
+    "ko": "격투가"
+   },
+   "name_ja": "しばた",
+   "name_ko": "시바타",
+   "birthday": {
+    "month": 10,
+    "day": 17
+   },
+   "blood_type": "AB",
+   "zodiac": {
+    "index": 6,
+    "ja": "てんびん",
+    "ko": "천칭"
+   },
+   "specials": [
+    {
+     "id": 0,
+     "ja": "マッハふみふみ",
+     "ko": "마하 밟기밟기"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 190,
+    "te": 42,
+    "ashi": 35,
+    "nage": 39,
+    "subaya": 90,
+    "bougyo": 51
+   },
+   "stats_rom_base": {
+    "hp": 185,
+    "te": 34,
+    "ashi": 32,
+    "nage": 34,
+    "bougyo": 46,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 5,
+    "te": 8,
+    "ashi": 3,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 7,
+   "rom": {
+    "record_file_offset": "0x10B01",
+    "record_prg_offset": "0x10AF1",
+    "record": [
+     71,
+     96,
+     79,
+     0,
+     0,
+     2,
+     6,
+     3,
+     185,
+     34,
+     32,
+     34,
+     46,
+     10,
+     10,
+     17
+    ]
+   }
+  },
+  {
+   "id": 2,
+   "row": 0,
+   "col": 2,
+   "school": {
+    "ja": "格闘家",
+    "ko": "격투가"
+   },
+   "name_ja": "いしづき",
+   "name_ko": "이시즈키",
+   "birthday": {
+    "month": 4,
+    "day": 4
+   },
+   "blood_type": "O",
+   "zodiac": {
+    "index": 0,
+    "ja": "おひつじ",
+    "ko": "양"
+   },
+   "specials": [
+    {
+     "id": 7,
+     "ja": "マッハパンチ",
+     "ko": "마하 펀치"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 179,
+    "te": 26,
+    "ashi": 31,
+    "nage": 29,
+    "subaya": 81,
+    "bougyo": 48
+   },
+   "stats_rom_base": {
+    "hp": 174,
+    "te": 20,
+    "ashi": 26,
+    "nage": 27,
+    "bougyo": 43,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 5,
+    "te": 6,
+    "ashi": 5,
+    "nage": 2,
+    "bougyo": 5
+   },
+   "special_set": 8,
+   "rom": {
+    "record_file_offset": "0x10B11",
+    "record_prg_offset": "0x10B01",
+    "record": [
+     52,
+     71,
+     85,
+     61,
+     0,
+     4,
+     0,
+     2,
+     174,
+     20,
+     26,
+     27,
+     43,
+     9,
+     4,
+     4
+    ]
+   }
+  },
+  {
+   "id": 3,
+   "row": 0,
+   "col": 3,
+   "school": {
+    "ja": "格闘家",
+    "ko": "격투가"
+   },
+   "name_ja": "やまいし",
+   "name_ko": "야마이시",
+   "birthday": {
+    "month": 6,
+    "day": 28
+   },
+   "blood_type": "A",
+   "zodiac": {
+    "index": 3,
+    "ja": "かに",
+    "ko": "게"
+   },
+   "specials": [
+    {
+     "id": 1,
+     "ja": "ジャンプギロチン",
+     "ko": "점프 기요틴"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    },
+    null
+   ],
+   "stats_l1": {
+    "hp": 175,
+    "te": 40,
+    "ashi": 41,
+    "nage": 44,
+    "subaya": 90,
+    "bougyo": 27
+   },
+   "stats_rom_base": {
+    "hp": 170,
+    "te": 36,
+    "ashi": 38,
+    "nage": 39,
+    "bougyo": 22,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 5,
+    "te": 4,
+    "ashi": 3,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 14,
+   "rom": {
+    "record_file_offset": "0x10B21",
+    "record_prg_offset": "0x10B11",
+    "record": [
+     116,
+     110,
+     52,
+     71,
+     0,
+     6,
+     3,
+     0,
+     170,
+     36,
+     38,
+     39,
+     22,
+     10,
+     6,
+     28
+    ]
+   }
+  },
+  {
+   "id": 4,
+   "row": 1,
+   "col": 0,
+   "school": {
+    "ja": "マーシャルアーツ",
+    "ko": "무술"
+   },
+   "name_ja": "りき",
+   "name_ko": "리키",
+   "birthday": {
+    "month": 5,
+    "day": 5
+   },
+   "blood_type": "?",
+   "zodiac": {
+    "index": 1,
+    "ja": "おうし",
+    "ko": "황소"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 7,
+     "ja": "マッハパンチ",
+     "ko": "마하 펀치"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    }
+   ],
+   "stats_l1": {
+    "hp": 204,
+    "te": 55,
+    "ashi": 44,
+    "nage": 51,
+    "subaya": 81,
+    "bougyo": 43
+   },
+   "stats_rom_base": {
+    "hp": 200,
+    "te": 50,
+    "ashi": 42,
+    "nage": 46,
+    "bougyo": 38,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 4,
+    "te": 5,
+    "ashi": 2,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 10,
+   "rom": {
+    "record_file_offset": "0x10B31",
+    "record_prg_offset": "0x10B21",
+    "record": [
+     122,
+     61,
+     0,
+     0,
+     0,
+     10,
+     1,
+     4,
+     200,
+     50,
+     42,
+     46,
+     38,
+     9,
+     5,
+     5
+    ]
+   }
+  },
+  {
+   "id": 5,
+   "row": 1,
+   "col": 1,
+   "school": {
+    "ja": "マーシャルアーツ",
+    "ko": "무술"
+   },
+   "name_ja": "えびはら",
+   "name_ko": "에비하라",
+   "birthday": {
+    "month": 9,
+    "day": 2
+   },
+   "blood_type": "AB",
+   "zodiac": {
+    "index": 5,
+    "ja": "おとめ",
+    "ko": "처녀"
+   },
+   "specials": [
+    {
+     "id": 2,
+     "ja": "ジャンプエルボー",
+     "ko": "점프 엘보"
+    },
+    {
+     "id": 5,
+     "ja": "バクレツキック",
+     "ko": "폭렬 킥"
+    },
+    null
+   ],
+   "stats_l1": {
+    "hp": 198,
+    "te": 52,
+    "ashi": 42,
+    "nage": 48,
+    "subaya": 81,
+    "bougyo": 44
+   },
+   "stats_rom_base": {
+    "hp": 192,
+    "te": 47,
+    "ashi": 36,
+    "nage": 40,
+    "bougyo": 39,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 6,
+    "te": 5,
+    "ashi": 6,
+    "nage": 8,
+    "bougyo": 5
+   },
+   "special_set": 11,
+   "rom": {
+    "record_file_offset": "0x10B41",
+    "record_prg_offset": "0x10B31",
+    "record": [
+     56,
+     99,
+     95,
+     121,
+     0,
+     12,
+     5,
+     3,
+     192,
+     47,
+     36,
+     40,
+     39,
+     9,
+     9,
+     2
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "row": 1,
+   "col": 2,
+   "school": {
+    "ja": "マーシャルアーツ",
+    "ko": "무술"
+   },
+   "name_ja": "ましば",
+   "name_ko": "마시바",
+   "birthday": {
+    "month": 8,
+    "day": 20
+   },
+   "blood_type": "A",
+   "zodiac": {
+    "index": 4,
+    "ja": "しし",
+    "ko": "사자"
+   },
+   "specials": [
+    {
+     "id": 7,
+     "ja": "マッハパンチ",
+     "ko": "마하 펀치"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 188,
+    "te": 39,
+    "ashi": 29,
+    "nage": 32,
+    "subaya": 99,
+    "bougyo": 47
+   },
+   "stats_rom_base": {
+    "hp": 181,
+    "te": 36,
+    "ashi": 24,
+    "nage": 27,
+    "bougyo": 42,
+    "speed_grade": 11
+   },
+   "stats_l1_minus_base": {
+    "hp": 7,
+    "te": 3,
+    "ashi": 5,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 8,
+   "rom": {
+    "record_file_offset": "0x10B51",
+    "record_prg_offset": "0x10B41",
+    "record": [
+     110,
+     71,
+     96,
+     0,
+     0,
+     14,
+     4,
+     0,
+     181,
+     36,
+     24,
+     27,
+     42,
+     11,
+     8,
+     20
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "row": 1,
+   "col": 3,
+   "school": {
+    "ja": "マーシャルアーツ",
+    "ko": "무술"
+   },
+   "name_ja": "じんない",
+   "name_ko": "진나이",
+   "birthday": {
+    "month": 6,
+    "day": 11
+   },
+   "blood_type": "O",
+   "zodiac": {
+    "index": 2,
+    "ja": "ふたご",
+    "ko": "쌍둥이"
+   },
+   "specials": [
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    },
+    null,
+    null
+   ],
+   "stats_l1": {
+    "hp": 169,
+    "te": 48,
+    "ashi": 31,
+    "nage": 43,
+    "subaya": 90,
+    "bougyo": 51
+   },
+   "stats_rom_base": {
+    "hp": 166,
+    "te": 46,
+    "ashi": 27,
+    "nage": 39,
+    "bougyo": 46,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 3,
+    "te": 2,
+    "ashi": 4,
+    "nage": 4,
+    "bougyo": 5
+   },
+   "special_set": 17,
+   "rom": {
+    "record_file_offset": "0x10B61",
+    "record_prg_offset": "0x10B51",
+    "record": [
+     72,
+     131,
+     90,
+     52,
+     0,
+     16,
+     2,
+     2,
+     166,
+     46,
+     27,
+     39,
+     46,
+     10,
+     6,
+     11
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "row": 2,
+   "col": 0,
+   "school": {
+    "ja": "カンフー",
+    "ko": "쿵푸"
+   },
+   "name_ja": "ひめやま",
+   "name_ko": "히메야마",
+   "birthday": {
+    "month": 1,
+    "day": 19
+   },
+   "blood_type": "B",
+   "zodiac": {
+    "index": 9,
+    "ja": "やぎ",
+    "ko": "염소"
+   },
+   "specials": [
+    {
+     "id": 5,
+     "ja": "バクレツキック",
+     "ko": "폭렬 킥"
+    },
+    {
+     "id": 6,
+     "ja": "マッハキック",
+     "ko": "마하 킥"
+    },
+    null
+   ],
+   "stats_l1": {
+    "hp": 202,
+    "te": 46,
+    "ashi": 64,
+    "nage": 43,
+    "subaya": 99,
+    "bougyo": 58
+   },
+   "stats_rom_base": {
+    "hp": 196,
+    "te": 40,
+    "ashi": 60,
+    "nage": 40,
+    "bougyo": 53,
+    "speed_grade": 11
+   },
+   "stats_l1_minus_base": {
+    "hp": 6,
+    "te": 6,
+    "ashi": 4,
+    "nage": 3,
+    "bougyo": 5
+   },
+   "special_set": 0,
+   "rom": {
+    "record_file_offset": "0x10B71",
+    "record_prg_offset": "0x10B61",
+    "record": [
+     98,
+     113,
+     116,
+     110,
+     0,
+     20,
+     9,
+     1,
+     196,
+     40,
+     60,
+     40,
+     53,
+     11,
+     1,
+     19
+    ]
+   }
+  },
+  {
+   "id": 9,
+   "row": 2,
+   "col": 1,
+   "school": {
+    "ja": "カンフー",
+    "ko": "쿵푸"
+   },
+   "name_ja": "らいどう",
+   "name_ko": "라이도우",
+   "birthday": {
+    "month": 12,
+    "day": 20
+   },
+   "blood_type": "O",
+   "zodiac": {
+    "index": 8,
+    "ja": "いて",
+    "ko": "사수"
+   },
+   "specials": [
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    },
+    null
+   ],
+   "stats_l1": {
+    "hp": 175,
+    "te": 37,
+    "ashi": 52,
+    "nage": 39,
+    "subaya": 81,
+    "bougyo": 51
+   },
+   "stats_rom_base": {
+    "hp": 171,
+    "te": 33,
+    "ashi": 48,
+    "nage": 34,
+    "bougyo": 46,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 4,
+    "te": 4,
+    "ashi": 4,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 12,
+   "rom": {
+    "record_file_offset": "0x10B81",
+    "record_prg_offset": "0x10B71",
+    "record": [
+     121,
+     52,
+     89,
+     54,
+     0,
+     22,
+     8,
+     2,
+     171,
+     33,
+     48,
+     34,
+     46,
+     9,
+     12,
+     20
+    ]
+   }
+  },
+  {
+   "id": 10,
+   "row": 2,
+   "col": 2,
+   "school": {
+    "ja": "カンフー",
+    "ko": "쿵푸"
+   },
+   "name_ja": "あおい",
+   "name_ko": "아오이",
+   "birthday": {
+    "month": 3,
+    "day": 3
+   },
+   "blood_type": "AB",
+   "zodiac": {
+    "index": 11,
+    "ja": "うお",
+    "ko": "물고기"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 5,
+     "ja": "バクレツキック",
+     "ko": "폭렬 킥"
+    },
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 171,
+    "te": 36,
+    "ashi": 59,
+    "nage": 45,
+    "subaya": 90,
+    "bougyo": 60
+   },
+   "stats_rom_base": {
+    "hp": 168,
+    "te": 32,
+    "ashi": 56,
+    "nage": 40,
+    "bougyo": 55,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 3,
+    "te": 4,
+    "ashi": 3,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 6,
+   "rom": {
+    "record_file_offset": "0x10B91",
+    "record_prg_offset": "0x10B81",
+    "record": [
+     50,
+     58,
+     52,
+     0,
+     0,
+     24,
+     11,
+     3,
+     168,
+     32,
+     56,
+     40,
+     55,
+     10,
+     3,
+     3
+    ]
+   }
+  },
+  {
+   "id": 11,
+   "row": 2,
+   "col": 3,
+   "school": {
+    "ja": "カンフー",
+    "ko": "쿵푸"
+   },
+   "name_ja": "あんざわ",
+   "name_ko": "안자와",
+   "birthday": {
+    "month": 7,
+    "day": 3
+   },
+   "blood_type": "B",
+   "zodiac": {
+    "index": 3,
+    "ja": "かに",
+    "ko": "게"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 7,
+     "ja": "マッハパンチ",
+     "ko": "마하 펀치"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    }
+   ],
+   "stats_l1": {
+    "hp": 178,
+    "te": 37,
+    "ashi": 55,
+    "nage": 45,
+    "subaya": 81,
+    "bougyo": 51
+   },
+   "stats_rom_base": {
+    "hp": 175,
+    "te": 34,
+    "ashi": 51,
+    "nage": 40,
+    "bougyo": 46,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 3,
+    "te": 3,
+    "ashi": 4,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 10,
+   "rom": {
+    "record_file_offset": "0x10BA1",
+    "record_prg_offset": "0x10B91",
+    "record": [
+     50,
+     131,
+     70,
+     127,
+     0,
+     26,
+     3,
+     1,
+     175,
+     34,
+     51,
+     40,
+     46,
+     9,
+     7,
+     3
+    ]
+   }
+  },
+  {
+   "id": 12,
+   "row": 3,
+   "col": 0,
+   "school": {
+    "ja": "柔道家",
+    "ko": "유도가"
+   },
+   "name_ja": "みどう",
+   "name_ko": "미도우",
+   "birthday": {
+    "month": 1,
+    "day": 1
+   },
+   "blood_type": "B",
+   "zodiac": {
+    "index": 9,
+    "ja": "やぎ",
+    "ko": "염소"
+   },
+   "specials": [
+    {
+     "id": 3,
+     "ja": "ストーンガード",
+     "ko": "스톤 가드"
+    },
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 5,
+     "ja": "バクレツキック",
+     "ko": "폭렬 킥"
+    }
+   ],
+   "stats_l1": {
+    "hp": 203,
+    "te": 32,
+    "ashi": 34,
+    "nage": 66,
+    "subaya": 81,
+    "bougyo": 59
+   },
+   "stats_rom_base": {
+    "hp": 195,
+    "te": 27,
+    "ashi": 30,
+    "nage": 61,
+    "bougyo": 54,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 8,
+    "te": 5,
+    "ashi": 4,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 2,
+   "rom": {
+    "record_file_offset": "0x10BB1",
+    "record_prg_offset": "0x10BA1",
+    "record": [
+     111,
+     89,
+     54,
+     0,
+     0,
+     30,
+     9,
+     1,
+     195,
+     27,
+     30,
+     61,
+     54,
+     9,
+     1,
+     1
+    ]
+   }
+  },
+  {
+   "id": 13,
+   "row": 3,
+   "col": 1,
+   "school": {
+    "ja": "柔道家",
+    "ko": "유도가"
+   },
+   "name_ja": "ふじくら",
+   "name_ko": "후지쿠라",
+   "birthday": {
+    "month": 11,
+    "day": 6
+   },
+   "blood_type": "A",
+   "zodiac": {
+    "index": 7,
+    "ja": "さそり",
+    "ko": "전갈"
+   },
+   "specials": [
+    {
+     "id": 9,
+     "ja": "ハイスピンキック",
+     "ko": "하이 스핀 킥"
+    },
+    null,
+    null
+   ],
+   "stats_l1": {
+    "hp": 206,
+    "te": 35,
+    "ashi": 30,
+    "nage": 68,
+    "subaya": 90,
+    "bougyo": 53
+   },
+   "stats_rom_base": {
+    "hp": 198,
+    "te": 33,
+    "ashi": 28,
+    "nage": 60,
+    "bougyo": 48,
+    "speed_grade": 10
+   },
+   "stats_l1_minus_base": {
+    "hp": 8,
+    "te": 2,
+    "ashi": 2,
+    "nage": 8,
+    "bougyo": 5
+   },
+   "special_set": 17,
+   "rom": {
+    "record_file_offset": "0x10BC1",
+    "record_prg_offset": "0x10BB1",
+    "record": [
+     101,
+     72,
+     63,
+     121,
+     0,
+     32,
+     7,
+     0,
+     198,
+     33,
+     28,
+     60,
+     48,
+     10,
+     11,
+     6
+    ]
+   }
+  },
+  {
+   "id": 14,
+   "row": 3,
+   "col": 2,
+   "school": {
+    "ja": "柔道家",
+    "ko": "유도가"
+   },
+   "name_ja": "すが",
+   "name_ko": "스가",
+   "birthday": {
+    "month": 5,
+    "day": 25
+   },
+   "blood_type": "A",
+   "zodiac": {
+    "index": 2,
+    "ja": "ふたご",
+    "ko": "쌍둥이"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 7,
+     "ja": "マッハパンチ",
+     "ko": "마하 펀치"
+    },
+    {
+     "id": 8,
+     "ja": "トルネードアタック",
+     "ko": "토네이도 어택"
+    }
+   ],
+   "stats_l1": {
+    "hp": 194,
+    "te": 39,
+    "ashi": 38,
+    "nage": 63,
+    "subaya": 81,
+    "bougyo": 56
+   },
+   "stats_rom_base": {
+    "hp": 190,
+    "te": 34,
+    "ashi": 34,
+    "nage": 58,
+    "bougyo": 51,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 4,
+    "te": 5,
+    "ashi": 4,
+    "nage": 5,
+    "bougyo": 5
+   },
+   "special_set": 10,
+   "rom": {
+    "record_file_offset": "0x10BD1",
+    "record_prg_offset": "0x10BC1",
+    "record": [
+     73,
+     60,
+     0,
+     0,
+     0,
+     34,
+     2,
+     0,
+     190,
+     34,
+     34,
+     58,
+     51,
+     9,
+     5,
+     25
+    ]
+   }
+  },
+  {
+   "id": 15,
+   "row": 3,
+   "col": 3,
+   "school": {
+    "ja": "柔道家",
+    "ko": "유도가"
+   },
+   "name_ja": "おおくま",
+   "name_ko": "오오쿠마",
+   "birthday": {
+    "month": 2,
+    "day": 19
+   },
+   "blood_type": "O",
+   "zodiac": {
+    "index": 11,
+    "ja": "うお",
+    "ko": "물고기"
+   },
+   "specials": [
+    {
+     "id": 4,
+     "ja": "スピンアタック",
+     "ko": "스핀 어택"
+    },
+    {
+     "id": 6,
+     "ja": "マッハキック",
+     "ko": "마하 킥"
+    },
+    null
+   ],
+   "stats_l1": {
+    "hp": 190,
+    "te": 32,
+    "ashi": 38,
+    "nage": 63,
+    "subaya": 81,
+    "bougyo": 49
+   },
+   "stats_rom_base": {
+    "hp": 185,
+    "te": 30,
+    "ashi": 35,
+    "nage": 60,
+    "bougyo": 44,
+    "speed_grade": 9
+   },
+   "stats_l1_minus_base": {
+    "hp": 5,
+    "te": 2,
+    "ashi": 3,
+    "nage": 3,
+    "bougyo": 5
+   },
+   "special_set": 1,
+   "rom": {
+    "record_file_offset": "0x10BE1",
+    "record_prg_offset": "0x10BD1",
+    "record": [
+     58,
+     58,
+     63,
+     110,
+     0,
+     36,
+     11,
+     2,
+     185,
+     30,
+     35,
+     60,
+     44,
+     9,
+     2,
+     19
+    ]
+   }
+  }
+ ],
+ "unverified": [
+  "능력치 보정식(stats_l1 − stats_rom_base): 미해독. 레벨이 오르면 값이 달라진다(스토리 모드). 표시 상한은 bank8 $9208 루틴의 99 고정(판독)·민첩 등급 11(= 99) 까지만 봤다",
+  "name_ko·필살기 ko·별자리 ko·유파 ko: 번역 초안(사용자 확정 전)",
+  "필살기 input: 09 문서 4절의 코드 해독을 옮긴 것이고 화면에서 그 기술이 나가는 것을 대조하지 않았다",
+  "에디트 캐릭터·とらいち·とらじ(레코드 16·17)는 넣지 않았다"
+ ],
+ "problems": []
+}
