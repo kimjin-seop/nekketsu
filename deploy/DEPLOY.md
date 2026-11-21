@@ -5,11 +5,10 @@
 
 ## 0. 먼저 알아야 할 것 (차단·결정 사항)
 
-1. **차단: 현재 클라이언트는 원격 접속에서 게임이 뜨지 않는다.** 서버는 원작 ROM·시작 상태·초상 등(`/rom/ /state/ /ui/ /engine/gen/`)을 루프백 요청에만 주거나(NK_REMOTE_ASSETS=off, 원격 403),
-   `session` 모드에서 **HTTPS + 쿠키 `nk_sess`(손님 sid 또는 계정 토큰) 또는 헤더 `X-NK-Session`** 이 있는 요청에만 준다(analysis/27 「M0 접근 정책」). 그런데 `web/` 에는 `nk_sess` 쿠키를 세우는 코드가 아직 없고
-   (grep 0건), `game.js`·`opening_scene.js`·`worker.js` 는 페이지 로드 즉시 `/rom/nekketsu.nes`·`/state/boot_title.json`·`/engine/gen/code.js` 를 받는다 → 원격에서는 403 으로 「ROM 불러오기 실패」가 난다.
-   M0 문서의 「필요한 클라이언트 변경(윤프론)」 ①②③(로그인·손님 welcome 뒤 쿠키 설정, 세션 확보 뒤로 ROM 로드 지연, 403 시 로그인 안내)이 구현돼야 「현재 버전 배포」가 실제로 플레이된다.
-   `smoke.js` 가 이를 확인한다(원격 흉내 요청 + 세션 쿠키 → 200, 쿠키 없음 → 403). 브라우저 실화면 원격 검증은 하지 못했다.
+1. **(해소 2026-11-21) 원격 세션 클라이언트.** 서버는 원작 ROM·시작 상태·초상 등(`/rom/ /state/ /ui/ /engine/gen/`)을 `session` 모드에서 **HTTPS + 쿠키 `nk_sess`(손님 sid 또는 계정 토큰) 또는 헤더 `X-NK-Session`** 이 있는 원격 요청에만 준다(analysis/27 「M0 접근 정책」).
+   클라이언트 `web/asset_session.js`(index.html 맨 앞)가 https·비루프백 접속에서 전용 웹소켓으로 손님 hello → welcome{sid} 를 받아 `nk_sess` 쿠키(Secure·SameSite=Strict)를 세우고 소켓을 유지하며, `game.js` 는 UI 초기화·ROM/state fetch·워커 생성을 그 뒤로 미룬다(로컬·루프백은 종전 그대로).
+   확인: 원격 흉내(TLS 프록시 + XFF/X-Forwarded-Proto 주입 + 헤드리스 Edge, `_verify/remote_session/`)에서 ROM 로딩·타이틀·1인 배틀 전투 진입·모바일 세로 타이틀·콘솔 오류 0, 세션 없는 직접 요청 403 유지.
+   **미확인**: 실제 `https://nekketsu.oddplay.kr`(실제 nginx·인증서·실기기) 접속은 배포 후 첫 확인 항목으로 남는다. 배포 묶음(`deploy/dist`)에 새 파일 `web/asset_session.js` 가 들어가도록 다시 묶어야 한다(`node deploy/pack.js`).
 2. **결정: ROM·ROM 파생물을 공개 서버에 올린다**(아래 5절 목록). 사용자 결정 「현재 버전으로 배포」에 포함된 사실이며 법무는 개발을 막지 않는다. 다만 `oddplay_portal/docs/RIGHTS_NOTES.md` 가 열혈을 「여섯 중 위험 최대」로 적어 두었다.
 3. **결정: 계정·랭킹 데이터 이전 여부** → 7절. 권고 = 이전하지 않고 빈 DB 로 시작.
 4. 포털(`oddplay_portal`)의 열혈 카드는 `soon` 이다. 배포 후 `play` 로 바꾸려면 포털 쪽 별도 작업(이 폴더 밖).
@@ -159,7 +158,7 @@ curl -s http://127.0.0.1:3600/online/status -H 'Host: nekketsu.oddplay.kr'   # {
 
 ## 11. 알려진 위험
 
-1. **원격 세션 클라이언트 미구현(0절 1번)** — 이대로 배포하면 접속자는 「ROM 불러오기 실패」 화면을 본다. 서버 쪽 게이트는 시험 통과(`node --test test/asset_gate.test.js` 3/3 은 별도 기록, 이번 작업에서 재실행하지 않음).
+1. **원격 세션 클라이언트(0절 1번, 해소)** — 흉내 환경에서만 확인. 실제 HTTPS 도메인 첫 접속에서 타이틀까지 뜨는지 확인 필요. 탭마다 웹소켓 1개가 더 붙어 `MAX_CONNS_PER_IP`(8)에 포함된다. 서버 쪽 게이트는 시험 통과(`node --test test/asset_gate.test.js` 3/3 은 별도 기록, 이번 작업에서 재실행하지 않음).
 2. **세션 게이트 밖 ROM 파생물**: `web/hd/`(31.8 MB)·`ko_table.json`(ROM 일본어 원문)·`mid_frames.json`·`title_bg_A*.png` 는 누구나 받을 수 있다(5절).
 3. **원작 ROM 이 세션 있는 모든 방문자에게 전달된다**(손님 sid 만으로 충분 — 로그인 불필요). 권리 문제는 개발 비차단이지만 포털 RIGHTS_NOTES 의 최고 위험 항목이다.
 4. `NK_TRUST_PROXY` 누락 시 전원 동일 IP 로 계산(통키 사고 재현) → 6절. nginx 가 XFF 를 안 넘기면 같은 효과(nginx 파일은 넘기도록 썼다).

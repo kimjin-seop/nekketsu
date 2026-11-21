@@ -628,13 +628,15 @@
     get ko() { return { on: ko, ready: !!koMod, error: koErr, stats: koMod ? koMod.stats : null }; },
     get rec() { return rec ? { from: rec.from, n: rec.n, live: rec.live, bad: rec.bad, point: rec.point, key: rec.key } : null; }, get load() { return { wait: !!loadWait, ms: loadMs, boot: curBoot === titleBoot ? 'title' : curBoot && curBoot === holdBoot ? 'hold' : curBoot ? 'state' : '' }; },
     get online() { const o = online; return o ? { phase: o.phase, slot: o.slot, humans: o.H, exec: o.ls.exec, have: o.ls.have, sent: o.ls.sent, drive: o.drvState, result: o.resSent, cover: menuOn } : null; } };
+  // 원격(https·비루프백) 접속 = 보호 경로(/rom/ /state/ /ui/ /engine/gen/)를 받기 전에 세션 쿠키부터(web/asset_session.js, analysis/27 M0). 로컬은 바로 동기 실행 = 종전 그대로
+  const NKS = window.NKSess, bootAll = () => {
   if (MENU) { // 신규 층 초기화가 실패하면 종전 층으로 폴백
     try { UI.init({ canvas: cv, onPick: pick, onSettings }); } catch (e) { if (UI === window.NKMenu) throw e; console.warn('신규 UI 층 초기화 실패(종전 메뉴 층을 씁니다): ' + (e && e.message || e)); UI = window.NKMenu; UI.init({ canvas: cv, onPick: pick }); }
     openMenu();
   }
   if (!CLASSIC && window.NKManga && window.NKManga.enabled) { try { window.NKManga.initHud({ canvas: cv, mirror, onPick: pick, onSettings }); } catch (e) { console.warn('전투 HUD 층 초기화 실패(원작 HUD 만 씁니다): ' + (e && e.message || e)); } } // 전투 게이지 패널(코어 캔버스 밖, RAM 읽기 전용)
   if (typeof SharedArrayBuffer === 'undefined' || !window.crossOriginIsolated) { info.style.display = ''; info.textContent = '실행 불가: 공유 메모리를 쓸 수 없습니다(node server_game.js 로 연 127.0.0.1 주소에서 실행).'; return; }
-  Promise.all([
+  const boot = n => Promise.all([
     fetch('/rom/nekketsu.nes').then(r => { if (!r.ok) throw new Error('ROM 불러오기 실패 ' + r.status); return r.arrayBuffer(); }),
     fetch('/state/' + STATE + '.json').then(r => { if (!r.ok) throw new Error('시작 상태 불러오기 실패 ' + r.status + ' (node tools/make_boot_state.js 필요)'); return r.json(); }),
     MENU && STATE === 'boot_title' && window.NKManga && window.NKManga.enabled ? fetch('/state/title_fight.json').then(r => r.ok ? r.json() : null, () => null) : null, // 없으면 종전(boot_title 인트로부터)
@@ -649,5 +651,11 @@
     if (hdWant()) loadHd(); // 전투 배경 HD 층(기본 꺼짐): 한글 층 PPU 사본(ctl[5])·스프라이트 사본(ctl[8])을 같이 켠다(?ko=0 이어도 글자는 그리지 않는다. 워커는 읽기 전용 관측만 한다)
     startWorker(MENU ? holdOf() : st); // 신규 층 타이틀 = 대련 상태로 바로(온라인 프레임 번호 bootFrame 은 titleBoot 기준 그대로, 온라인은 시작 때 titleBoot 로 다시 만든다)
     if (MENU) setTimeout(() => { if (!actx) (window.requestIdleCallback || setTimeout)(preAudio); }, 1500); // 타이틀 대기 중 소리 컨텍스트 미리 만들기(위 preAudio)
-  }).catch(e => { info.style.display = ''; info.textContent = String(e); });
+  }).catch(e => {
+    if (NKS && NKS.need && n < 2 && /\s(403|429)\b/.test(String(e))) { NKS.toast('접속 확인 중 — 다시 불러옵니다'); return NKS.renew().then(() => setTimeout(() => { NKS.hideToast(); boot(n + 1); }, n ? 3000 : 300)); } // 원격 세션 만료·쿠키 어긋남 = 세션 갱신 후 2번까지 다시
+    info.style.display = ''; info.textContent = String(e);
+  });
+  boot(0);
+  };
+  if (NKS) NKS.whenReady(bootAll); else bootAll();
 })();
