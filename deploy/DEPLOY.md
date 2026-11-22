@@ -126,7 +126,7 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 pm2 status                                   # nekketsu online, 재시작 횟수 0
 pm2 logs nekketsu --lines 30                 # "http://127.0.0.1:3600/ (웹소켓 /ws, 정적 서빙 켬, 계정·랭킹 DB …)"
-curl -s http://127.0.0.1:3600/online/status -H 'Host: nekketsu.oddplay.kr'   # {"proto":3,"rooms":0,...}
+curl -s http://127.0.0.1:3600/online/status -H 'Host: nekketsu.oddplay.kr'   # {"proto":6,"rooms":0,...}
 ```
 밖에서(DNS·인증서 뒤):
 | URL | 기대 |

@@ -1426,7 +1426,7 @@
   //   소켓·로비·대기방은 이 층이 맡는다. start 를 받으면 onPick('online', { cfg, slot, send, attach }) 로 game.js 에 넘기고, 대전 메시지(f·start 재개·peer·desync·end)는 game.js 가 attach 로 건 쪽에 그대로 넘긴다.
   //   서버·상대가 준 문자열(이름·제목·오류)은 textContent 로만 넣는다. 오류는 토스트. 주소: ?ws=포트|ws://… > 같은 출처에 /online/status 가 있으면 그 서버 > ws://<호스트>:3500/ws
   const OSCR = new Set(['oname', 'olobby', 'ocreate', 'oroom', 'oend', 'orank', 'oprof']), O_KEY = 'nk_online', NAME_RE = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9 _.!?-]{2,8}$/; // 이름 규칙 = 서버 hello(2~8자, NFC, 허용 글자)
-  const OERR = { name_taken: '이미 접속 중인 이름입니다', name_bad: '이름: 2~8자 한글·영문·숫자', noname: '이름을 먼저 정해 주세요', noroom: '없는 방입니다', busy: '들어갈 수 없는 방입니다', char_taken: '이미 고른 캐릭터입니다', seat_taken: '그 자리에 사람이 있습니다', host: '방장만 바꿀 수 있습니다', nochar: '캐릭터를 먼저 고르세요', rate: '잠시 뒤에 다시 시도하세요', full: '방을 더 만들 수 없습니다', build: '버전이 달라 시작할 수 없습니다', replaced: '다른 창에서 접속했습니다', stall: '입력이 끊겨 연결이 끊겼습니다', norejoin: '재접속할 수 없습니다', state: '지금은 할 수 없습니다', server: '서버 오류',
+  const OERR = { name_taken: '이미 접속 중인 이름입니다', name_bad: '이름: 2~8자 한글·영문·숫자', noname: '이름을 먼저 정해 주세요', noroom: '없는 방입니다', busy: '들어갈 수 없는 방입니다', char_taken: '이미 고른 캐릭터입니다', seat_taken: '그 자리에 사람이 있습니다', host: '방장만 바꿀 수 있습니다', nochar: '캐릭터를 먼저 고르세요', rate: '잠시 뒤에 다시 시도하세요', full: '방을 더 만들 수 없습니다', build: '버전이 달라 시작할 수 없습니다', proto: '새로 고침이 필요합니다', replaced: '다른 창에서 접속했습니다', stall: '입력이 끊겨 연결이 끊겼습니다', norejoin: '재접속할 수 없습니다', state: '지금은 할 수 없습니다', server: '서버 오류',
     // 계정·래더(analysis/22 2·3·10절)
     acct_off: '계정 기능이 꺼져 있습니다', name_registered: '가입된 이름입니다 · 로그인하세요', acct_exists: '이미 가입된 이름입니다', pw_bad: '비밀번호: 6~64자', pw_empty: '비밀번호를 입력하세요', login_failed: '이름 또는 비밀번호가 맞지 않습니다', login_locked: '로그인 실패가 많아 잠시 막힘', token_bad: '로그인이 만료되었습니다', acct_required: '래더는 가입한 계정만 할 수 있습니다', ranked_fixed: '래더 방은 설정을 바꿀 수 없습니다', ranked_locked: '기권·분쟁이 많아 래더 잠금' };
   // 래더 티어(analysis/22 10.1절, 통키 i18n TIER 와 같은 이름). 배치 중 = tier null → 「배치 n/5」
@@ -1677,7 +1677,7 @@
     return p;
   }
   const ffUnsend = () => { if (ffEl) ffEl.classList.remove('sent'); }; // 기권(leave)을 보낸 직후 끊기면 서버에 닿지 않았을 수 있다: 끊김·재접속 때 풀어 다시 누를 수 있게 한다
-  const PROTO_C = 5; // (5 = 대전 뒤 같은 방 대기실 유지 end{stay}·back) 클라이언트 프로토콜(analysis/30 10.1): hello 에 실어 보낸다(4 이상 = 팀전 방 사용). login·register 에도 싣는다(서버가 아직 읽지 않으면 아래 welcome 에서 hello{token} 로 한 번 더 알린다)
+  const PROTO_C = 6; // (6 = 롤백 넷코드 r 중계·cfg.rollback, 5 = 대전 뒤 같은 방 대기실 유지 end{stay}·back) 클라이언트 프로토콜(analysis/30 10.1): hello 에 실어 보낸다(4 이상 = 팀전 방 사용). login·register 에도 싣는다(서버가 아직 읽지 않으면 아래 welcome 에서 hello{token} 로 한 번 더 알린다)
   const nsend = m => { if (net.ws && net.ws.readyState === 1) { if (m.t === 'hello' || m.t === 'login' || m.t === 'register') { m = Object.assign({}, m, { proto: PROTO_C }); if (m.t === 'hello') net.ws.p4 = true; } net.ws.send(JSON.stringify(m)); } };
   function onClose(ws, ev) {
     if (ws !== net.ws) return; net.ws = null;
@@ -1741,7 +1741,7 @@
         if (m.cancel) { cdSet(null); net.stAt = 0; net.cxAt = Date.now(); if (active && scr === 'oroom') { toast(CWHY[m.why] || '시작 취소', 'hp-low'); render(); } return; }
         net.stAt = 0; net.cntAt = Date.now(); /* cntAt = 카운트 받은 시각(직후 0.7초 취소 클릭 무시, roomMain) */ cdSet(Math.max(0, +m.ms || 0)); if (oPl() && og.zone === 'grid') og.zone = 'side'; if (active && scr === 'oroom') render(); return;
       case 'start': if (m.resume) { ffUnsend(); if (net.sink) net.sink.msg(m); return; } cdSet(null); return startBattle(m.cfg);
-      case 'f': case 'peer': case 'desync': if (m.t === 'peer' && m.ev === 'gone' && net.playing) setGone(Array.isArray(m.left) ? m.left : net.gone.concat(m.slot | 0)); if (net.sink) net.sink.msg(m); return;
+      case 'f': case 'r': case 'rbd': case 'peer': case 'desync': if (m.t === 'peer' && m.ev === 'gone' && net.playing) setGone(Array.isArray(m.left) ? m.left : net.gone.concat(m.slot | 0)); if (net.sink) net.sink.msg(m); return;
       case 'end':
         if (net.playing) { if (net.sink) net.sink.msg(m); return; }
         if (R) { net.room = null; toLobby(); toast(m.reason === 'host_left' ? '방장이 나가 방이 닫혔습니다' : m.reason === 'ladder_cancel' ? '상대가 나가 래더 대전 취소' : m.reason === 'ladder_timeout' ? '시간 초과로 래더 대전 취소' : '방이 닫혔습니다'); } return;
@@ -1776,7 +1776,7 @@
   function loadLs() { if (window.NKLockstep || lsLoad) return; lsLoad = true; const sc = document.createElement('script'); sc.src = 'online_lockstep.js'; sc.onerror = () => { lsLoad = false; }; document.head.appendChild(sc); }
   function buildPrint() { // 지문(ready.build): 엔진·워커·구동기·이 층(구동 계획)·락스텝·시작 상태·ROM 의 SHA-1. 양쪽이 같은 서버 파일을 받으면 같다
     if (net.buildP) return net.buildP;
-    const fs = ['/engine/core.js', '/engine/atk_step.js', '/engine/guard_as.js', '/engine/no_winner.js', '/engine/gen/code.js', '/engine/core_team.js', '/engine/gen/code_team.js', '/engine/render.js', '/engine/apu.js', 'worker.js', 'menu_driver.js', 'ui_manga.js', 'online_lockstep.js', '/state/boot_title.json', '/rom/nekketsu.nes'];
+    const fs = ['/engine/core.js', '/engine/atk_step.js', '/engine/guard_as.js', '/engine/no_winner.js', '/engine/gen/code.js', '/engine/core_team.js', '/engine/gen/code_team.js', '/engine/render.js', '/engine/apu.js', 'worker.js', 'menu_driver.js', 'ui_manga.js', 'game.js', 'online_lockstep.js', '/state/boot_title.json', '/rom/nekketsu.nes'];
     return net.buildP = Promise.all(fs.map(u => pfetch(u, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.arrayBuffer(); })))
       .then(bs => { const n = bs.reduce((a, b) => a + b.byteLength, 0), all = new Uint8Array(n); let o = 0; for (const b of bs) { all.set(new Uint8Array(b), o); o += b.byteLength; } return crypto.subtle.digest('SHA-1', all); })
       .then(h => 'w1:' + Array.from(new Uint8Array(h)).map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 24))
@@ -1861,7 +1861,8 @@
     if (window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => done(true), () => done(fb())); else done(fb());
   }
   const T_SEATS = { 2: ['human', 'cpu', 'human', 'cpu'], 3: ['human', 'human', 'human', 'cpu'], 4: ['human', 'human', 'human', 'human'] }; // 팀전 기본 자리(사람 2 = 팀마다 1명 + COM). 방에서 방장이 바꾼다
-  function createRoom() { nsend({ t: 'create', title: (els.ocreate.tin.value || '').trim(), opts: Object.assign({ stage: oc.stage, rule: oc.rule }, oc.humans > 2 ? { humans: oc.humans } : null, oc.teams === '2v2' ? { teams: '2v2', seats: T_SEATS[oc.humans] } : null) }); } // 2인 난투는 종전 메시지 그대로(humans 없음 = 서버 기본 2)
+  const RB_Q = (/[?&]rb=([01])(&|$)/.exec(location.search) || [])[1]; // ?rb=1 · ?rb=0 = 이 방의 롤백 넷코드 켬·끔 요청(없으면 서버 기본 NK_ROLLBACK). 서버는 방 사람 전원이 PROTO 6 일 때만 쓴다
+  function createRoom() { nsend({ t: 'create', title: (els.ocreate.tin.value || '').trim(), opts: Object.assign({ stage: oc.stage, rule: oc.rule }, oc.humans > 2 ? { humans: oc.humans } : null, oc.teams === '2v2' ? { teams: '2v2', seats: T_SEATS[oc.humans] } : null, RB_Q !== undefined ? { rollback: RB_Q === '1' } : null) }); } // 2인 난투는 종전 메시지 그대로(humans 없음 = 서버 기본 2)
   const owner = c => net.room ? net.room.seats.findIndex(x => x && x.char === c) : -1;
   function pickCell(i) {
     const R = net.room; if (!R) return; if (net.count) return toast(LOCKT); const o = owner(i);
@@ -2331,7 +2332,7 @@
     if (og.cpu >= 0 && (!isHost() || R.opts.ranked || cd || (S[og.cpu] && S[og.cpu].kind === 'human') || (pl && og.zone !== 'grid'))) og.cpu = -1; // 고른 COM 카드가 사람 자리가 됨·잠금·시트 닫음 = 해제
     const sel = og.cpu >= 0 ? og.cpu : me; // 캐릭터 칸이 지금 고르는 자리(방장이 고른 COM 또는 나)
     s.classList.toggle('sheet', pl && og.zone === 'grid'); s.classList.toggle('cdn', cd); s.classList.toggle('tm2', tm); cdTick();
-    s.headEl.textContent = String(R.title || '');
+    s.headEl.textContent = String(R.title || '') + (R.opts && R.opts.rollback ? ' · RB' : ''); // RB = 롤백 넷코드를 켠 방(방 설정 opts.rollback, 약어 한 칸)
     s.tabT.forEach(it => { it.el.classList.toggle('sel', (it.tk === '2v2') === tm); it.el.style.display = ''; }); // 랭크·래더 방도 같은 자리에 표시(notHost = 흐림, 지금 값만 또렷)
     s.cells.forEach((e, i) => {
       const o = owner(i), t = o >= 0; e.classList.toggle('taken', t); e.classList.toggle('mine', o === sel); e.nm.textContent = cname(i);

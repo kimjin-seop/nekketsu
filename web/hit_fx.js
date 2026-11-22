@@ -137,11 +137,26 @@
         raf = requestAnimationFrame(tick);
       } catch (e) { err = String(e && e.message || e); FL = null; console.warn('타격 이펙트 층 준비 실패(끔): ' + err); }
     },
+    // 롤백 재시뮬 뒤 같은 프레임 번호의 정정된 RAM(web/game.js redo): 되감기 전 마지막으로 본 RAM(옛 시간선) ↔ 정정 RAM 을 한 번 비교해, 되감은 구간에서 새로 생긴 이벤트(명중·체력 감소·다운)만 낸다.
+    //   이미 낸 이벤트는 양쪽 RAM 에 같은 흔적이 있어 다시 나오지 않는다. 옛 시간선에서만 난 이벤트(유령)는 되돌리지 않는다. redo 없이 다음 프레임이 바로 오면 game.js 가 워커 rb.h 의 마지막 RAM(정정된 N)으로 먼저 replace 를 부른 뒤 frame(N+1) 을 부른다
+    replace(f, m) {
+      if (!FL || !prev || prev.f !== f) return;
+      let pm = prev.m; // 때린 쪽의 행동은 정정 RAM 값으로 본다(옛 시간선에서는 공격하지 않았을 수 있어 그대로 두면 「공격 판정 없는 행동」으로 걸러진다). 맞은 쪽의 직전 행동·체력·명중 표시는 옛 RAM 그대로
+      for (let s = 0; s < 4; s++) { const y = m[0x4BE + s]; if (y < 4 && pm[0x49E + y] !== m[0x49E + y]) { if (pm === prev.m) pm = pm.slice(); pm[0x49E + y] = m[0x49E + y]; } }
+      const ev = emit(f, m, pm); prev = { f, m }; st.redo = (st.redo | 0) + 1; if (ev.length) st.redoEv = (st.redoEv | 0) + ev.length;
+      const S = root.NKFxSubs; if (S) for (let i = S.length - 1; i >= 0; i--) try { S[i](f, m, pm, ev); } catch (x) { console.warn('전투 연출 구독자 오류(끔): ' + (x && x.message || x)); S.splice(i, 1); }
+    },
     frame(f, m) { // game.js: 워커 프레임마다(로컬·온라인 공통). m 은 그 프레임 RAM 사본(읽기만)
       if (!FL) return; st.frames++;
       const pm = prev && prev.f === f - 1 ? prev.m : null; let ev = null;
-      if (pm) {
-        ev = detect(prev.m, m, FL);
+      if (pm) ev = emit(f, m, pm); else pend.length = 0;
+      prev = { f, m };
+      // 전투 연출 구독자(web/dmg_fx.js · combo_fx.js · cam_triggers.js): (f, 이번 RAM, 직전 RAM 또는 null, 이번 이벤트 또는 null). 읽기만, 오류 난 구독자는 뺀다
+      const S = root.NKFxSubs; if (S) for (let i = S.length - 1; i >= 0; i--) try { S[i](f, m, pm, ev); } catch (x) { console.warn('전투 연출 구독자 오류(끔): ' + (x && x.message || x)); S.splice(i, 1); }
+    },
+  };
+  function emit(f, m, pm) { // 직전 RAM pm → 이번 RAM m 의 이벤트를 대기열(pend)·기록에 넣고 돌려준다(frame·replace 공용)
+        const ev = detect(pm, m, FL);
         if (ev.length) {
           if (!boxes && root.NKTags && root.NKTags.parseBoxes) try { boxes = root.NKTags.parseBoxes(romU8); } catch (x) { boxes = []; } // 몸 위 끝 표(unit_tags.js 와 같은 표). 없으면 발 위 28픽셀
           for (const e of ev) {
@@ -153,11 +168,7 @@
             st.log.push({ f, s: e.s, a: e.a, kind: e.kind, dmg: e.dmg, x: Math.round(x), y: hy }); if (st.log.length > 400) st.log.shift();
           }
         }
-      } else pend.length = 0;
-      prev = { f, m };
-      // 전투 연출 구독자(web/dmg_fx.js · combo_fx.js · cam_triggers.js): (f, 이번 RAM, 직전 RAM 또는 null, 이번 이벤트 또는 null). 읽기만, 오류 난 구독자는 뺀다
-      const S = root.NKFxSubs; if (S) for (let i = S.length - 1; i >= 0; i--) try { S[i](f, m, pm, ev); } catch (x) { console.warn('전투 연출 구독자 오류(끔): ' + (x && x.message || x)); S.splice(i, 1); }
-    },
-  };
+        return ev;
+  }
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.NKHitFx = api;
 })(typeof self !== 'undefined' ? self : this);

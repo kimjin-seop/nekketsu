@@ -40,7 +40,7 @@ const msg = (w, pred) => new Promise(res => { const t = setTimeout(() => res(nul
       ok(m && /^[0-9a-f]{32}$/.test(m.sid || ''), 'hello → welcome(손님 sid 발급)'); sid = m && m.sid;
       r = await get('/rom/nekketsu.nes', remote({ Cookie: 'nk_sess=' + sid })); ok(r.code === 200 && r.h['cache-control'] === 'private, no-cache', '원격 + 세션 쿠키 + https → /rom/ ' + r.code + ' (private)');
       r = await get('/rom/nekketsu.nes', remote({ Cookie: 'nk_sess=' + sid, 'X-Forwarded-Proto': 'http' })); ok(r.code === 403, '원격 + 세션 + http → ' + r.code + ' (403 기대)');
-      const st = await get('/online/status', remote()); ok(st.code === 200 && /"proto":3/.test(st.body.toString()), '/online/status → ' + st.body.toString().slice(0, 80));
+      const st = await get('/online/status', remote()); ok(st.code === 200 && /"proto":6/.test(st.body.toString()), '/online/status → ' + st.body.toString().slice(0, 80));
       w.close();
     }
     w = await wsOpen('ws://127.0.0.1:' + PORT + '/ws', remote({ Origin: 'https://evil.example' })); ok(!!w.err, '다른 Origin /ws 거절 → ' + (w.err || '열림'));

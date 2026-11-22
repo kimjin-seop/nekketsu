@@ -22,6 +22,7 @@
 //   대기 중 이탈 = 자리 당기기 + 방장 승계(room{moved,from} 재송신), 사람 0명 = 방 닫기. set·create 의 stage/rule -1 = 랜덤(시작 때 서버가 정함). peers.changes[{who,key,value}]. 환경변수 COUNT_MS(기본 3000)
 // 프로토콜(클라 → 서버): create{name,opts} join{code,name} rejoin{code,token,have} ready{on,build} pong{id} in{f,p[]} hash{f,h} result{f,r} leave
 // 프로토콜(서버 → 클라): room{code,slot,token,opts,players} peers{players} ping{id} start{cfg} f{f,p[]} desync{f,h} peer{ev,slot} end{reason,...} err{code,msg}
+//   롤백 방(PROTO 6)만: 클라 → 서버 rbd{up|down|off,why}, 서버 → 클라 r{s,f,p[],x?,a?} rbd{delay,off?,why?,by}
 // O1(온라인 MVP, analysis/16_wide_hd_online_plan.md 6절 + 부록 A): hello{name,sid} → welcome{sid,name} / lobby{on} → rooms{list} / pick{char} / set{stage,rule,cpu[]}
 //   hello 로 이름을 등록한 소켓이 만든 방 = 자리 4개 방(사람 H = 2 + CPU 2). start.cfg 에 plan(battle_full 구동 계획)·prefill·humans·chars 를 싣는다.
 //   hello 없이 create{name} 으로 만든 방 = 종전 방(구동 계획 없음, 검증 도구 A~F 그대로). LEGACY_ROOMS=1 일 때만 만들 수 있고(기본 err noname) 로비 목록에는 나오지 않는다.
@@ -35,6 +36,9 @@
 //   클라이언트는 hello{proto:4} 를 보내야 팀전 방을 만들고 들어가고 로비 목록에서 본다(없으면 PROTO 3 취급: 팀전만 err proto + 목록 숨김, 난투 방은 종전 그대로).
 //   결과: result{f, r:{team: 0|1|-1}}(승리 팀, $0611 bit3 = 팀 0 전멸 → 팀 1 승 / $0612 bit3 = 팀 1 전멸 → 팀 0 승, -1 = 무승부·불명) → end{winTeam, res:[사람 j 별 'win'|'lose'|'draw'|null]}.
 //   이탈(D5): 한 명이 나가면 그 사람은 팀 승패와 무관하게 패배(res 'lose'), 그 자리 입력은 0 으로 확정하며 판은 계속(사람이 0명 되면 종료). 팀전은 전적·랭크 기록 없음(친선 기록 정책 = 기록 없음).
+// 롤백 넷코드(PROTO 6, 2026-11-22, analysis/online_sync.md 9절): 방 설정 opts.rollback(true|false, 없으면 서버 기본 NK_ROLLBACK=1 일 때만 켬 = 기본 끔)이고 방 사람 전원이 hello{proto >= 6} 이면 start.cfg.rollback = { limit, fb } 를 싣는다.
+//   롤백 방은 입력 지연을 낮게(start.cfg.delay = 상대에게 닿는 시간 - 예측 흡수분, 최소 2. NK_RB_DELAY 로 고정) 잡고, 각 자리 입력을 확정 대기 없이 도착 즉시 나머지 사람에게 중계한다: 서버 → 클라 r{s: 보낸 사람, f, p[], x?, a?}(in 과 같은 모양 + 자리 s).
+//   확정 프레임 방송 f·지문 비교·결과 판정은 그대로(확정 값 = 중계 값). hello{proto < 6} 는 err proto 로 거절한다(웹이라 서버·클라 동시 교체, 구 분기 없음). cfg.rollback 이 없는 방(꺼짐·proto 를 안 보내는 검증 도구 섞임)은 종전 락스텝 그대로.
 // 대전 뒤 방 유지(PROTO 5, 2026-11-22): 자리 방(랭크·래더 제외)은 대전이 끝나도 닫지 않고 대기실(lobby)로 되돌린다. end{stay:true} 를 받은 사람은 결과 화면 「대기실로」에서 back → room 재수신(준비·시작은 다시), 「로비로」 = leave. 기권·빠진·끊긴 사람·hello proto < 5 는 종전처럼 방 소속이 풀린다.
 // 계정·2인 랭크(analysis/22_accounts_ranking_protocol.md): NK_DB_PATH(또는 createServer({ dbPath }))가 있을 때만 SQLite 를 열고 켠다(없으면 계정 메시지 = err acct_off, 종전 동작 그대로).
 //   register{name,pw} login{name,pw} hello{token,sid?} logout{} ranking_list{top?} / create{opts{ranked:true}} → welcome{…,account,token} logged_out ranking_list{top,me} ranking_result{…}
@@ -87,7 +91,7 @@ const LOOP_HOST = /^(127(\.\d{1,3}){3}|localhost|::1|\[::1\])$/i, LOOP_ADDR = /^
 const list = v => (v || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 // ---------- 방 ----------
-const PROTO = 5, LEAD = 2;         // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
+const PROTO = 6, LEAD = 2;        // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
 // PROTO 3 = 자리 방 방장 시작·카운트다운·자리 당기기·랜덤(analysis/25). 2 → 3 은 대기방 규칙만 바뀌고 cfg·락스텝 형식은 같다(값 cfg.proto 만 3)          // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
 const MAX_ROOMS = 200, MAX_AHEAD = 3600, MAX_FRAMES = 60 * 60 * 30, MAX_BATCH = 120, HASH_EVERY = 30, HASH_KEEP = 4096;
 const HASH_BACK = 600; // 지문은 HASH_EVERY 의 배수이면서 [확정 - 지연 - HASH_BACK, 확정] 안(또는 미리 확정 구간)인 프레임만 받는다(정상 클라이언트의 실행 위치는 확정 - 지연 - 1 이상)
@@ -96,6 +100,7 @@ const MSG_MAX = 16 * 1024, MSG_MAX_STORY = 128 * 1024;
 const ATK_STEP = ({ 0: false, dir: 'dir', auto: 'auto' })[process.env.NK_ATK_STEP] === undefined ? 'auto' : ({ 0: false, dir: 'dir', auto: 'auto' })[process.env.NK_ATK_STEP];
 // 온라인 가드(server/engine/guard_as.js, 사용자 결정 2026-11-22: 온라인 락스텝 대전만 켬, 키 = 스페이스바 → 패드 Select 비트). start.cfg.guardAS = 1 을 모든 참가자 워커가 같게 받는다(없음 = 끔). NK_GUARD_AS=0|1 로 서버 설정, 기본 켬
 const GUARD_AS = process.env.NK_GUARD_AS === '1' ? 1 : 0;
+const RB_ABSORB = 10, RB_LIMIT_MIN = 6, RB_LIMIT_MAX = 12, RB_X_BACK = 60, RB_STEP_MS = 2000, RB_CALM_MS = 15000, RB_REUP_MS = 20000; // 롤백 방: 입력 지연은 (상대에게 닿는 시간 - RB_ABSORB 프레임)로 줄이고 그만큼은 예측으로 흡수, 예측 한도 6~12 프레임(analysis/online_sync.md 9절)
 const ONLINE_SPEED = 1.3; // 온라인 진행 배율(프레임 진행의 벽시계 속도만. 엔진·프레임 수·결과 무관). start.cfg.speed 로 모든 참가자에게 같은 값을 알린다(옛 서버 = 없음 = 1배)
 const LOBBY_TTL = 30 * 60 * 1000, FRAME_MS = 1000 / 60.0988, MAX_STALLS = 3; // MAX_STALLS: 같은 자리가 멈춤으로 이만큼 걸리면 재접속 대기 없이 바로 기권
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 글자(0 O 1 I) 제외
@@ -141,8 +146,11 @@ function createServer(opt) {
   //   기본 1100 = 구동 계획(battle_full 2인+CPU2)이 끝나는 프레임의 실측 최소 1118 보다 작게(analysis/16 부록 C). 구동이 끝나기 전 프레임은 구동기 값이 덮어쓰므로 0 으로 확정해도 무해하고,
   //   구동이 끝난 뒤 프레임을 미리 확정하면 그만큼 사람 입력이 버려진다(종전 1500 = 전투 시작 뒤 2~3초 조작 불가). 남은 구동 프레임(1100 ~ 구동 끝)은 보통 중계로 확정된다(그 구간 입력도 구동기가 덮어쓴다)
   const lobbyIdleMs = num('lobbyIdleMs', 'LOBBY_IDLE_MS', 10 * 60 * 1000);
+  // 롤백 넷코드 기본값(방 opts.rollback 이 없을 때): 끔. NK_ROLLBACK=1 이면 새 자리 방이 기본 켬. NK_RB_DELAY(>0) = 롤백 방 입력 지연 고정(없으면 지연 시간에 맞춰 최소 2 ~ 24 로 자동)
+  const rbDefault = opt.rollback !== undefined ? !!opt.rollback : process.env.NK_ROLLBACK === '1', rbDelayFixed = num('rbDelay', 'NK_RB_DELAY', 0);
   // 분쟁·느린 진행 규칙(analysis/16 부록 D). 모두 되돌리기 쉬운 값: STALL_RATE=0 이면 느린 진행 감시 끔. 임시 채택은 PROVISIONAL=1 일 때만(기본 끔)
   const num0 = (k, e, d) => opt[k] !== undefined ? opt[k] : (process.env[e] !== undefined && process.env[e] !== '' && +process.env[e] >= 0 ? +process.env[e] : d);
+  const rbStepMs = num0('rbStepMs', 'NK_RB_STEP_MS', RB_STEP_MS), rbCalmMs = num0('rbCalmMs', 'NK_RB_CALM_MS', RB_CALM_MS), rbReupMs = num0('rbReupMs', 'NK_RB_REUP_MS', RB_REUP_MS); // 롤백 방 지연 조정 간격(아래 H.rbd. 시험용으로 줄일 수 있다)
   const countMs = num0('countMs', 'COUNT_MS', 3000); // 방장 시작 카운트다운(analysis/25, 기본 3초. 시험용으로 줄일 수 있다)
   const stallRate = Math.min(1, num0('stallRate', 'STALL_RATE', 0.25)), maxDrops = num('maxDrops', 'MAX_DROPS', 5), matchMaxMs = num('matchMaxMs', 'MATCH_MAX_MS', 40 * 60 * 1000);
   const provisional = opt.provisional !== undefined ? !!opt.provisional : process.env.PROVISIONAL === '1', legacyRooms = opt.legacyRooms !== undefined ? !!opt.legacyRooms : process.env.LEGACY_ROOMS === '1';
@@ -280,6 +288,7 @@ function createServer(opt) {
     const r = { view: o.view === 'wide' ? 'wide' : 'classic', state: typeof o.state === 'string' && /^[a-z0-9_]{1,32}$/.test(o.state) ? o.state : 'boot_title', mode: clean(o.mode, 16) || 'battle2p', delay: d >= 1 && d <= 60 ? d : 0 };
     if (seats) { const st = int(o.stage), ru = int(o.rule); Object.assign(r, { mode: 'battle_full', humans: humansOk(o.humans) ? o.humans : HUMANS, stage: stageOk(st) ? st : 0, rule: ruleOk(ru) ? ru : 1 }); } // -1 = 랜덤(시작 때 서버가 정한다)
     if (seats && o.teams === '2v2') r.teams = '2v2'; // 값이 없으면 난투(종전 JSON 과 글자 단위로 같다)
+    if (seats && (o.rollback === true || (o.rollback !== false && rbDefault))) r.rollback = true; // 롤백 요청(실제 사용은 시작 때 전원 PROTO 6 일 때만). 꺼짐 = 필드 없음(종전 JSON 그대로)
     return r;
   };
   // 방 없는 소켓은 idleMs 뒤 끊는다(접속만 해 두고 자리를 차지하는 것 방지). 이름을 등록한 소켓(로비)은 lobbyIdleMs. 방에 들어가면 멈추고, 방에서 나오면 다시 잰다
@@ -486,8 +495,12 @@ function createServer(opt) {
       const rtt = room.players.map(med), top = rtt.slice().sort((x, y) => y - x);
       // 내 입력이 상대에게 닿는 시간 = (내 왕복 + 상대 왕복) / 2 → 가장 느린 두 자리로 잰다(H = 2 면 종전 식과 같다). 여유 2프레임(표본화 1 + 흔들림 1). 모두 같은 값(공정성)
       const jit = Math.max(...room.players.map(p => p.rtt.length ? Math.max(...p.rtt) - Math.min(...p.rtt) : 1e9)), margin = jit <= FRAME_MS / ONLINE_SPEED ? 1 : 2; // 여유: 핑 표본 흔들림이 한 프레임 이하면 1(표본화 1), 크거나 표본이 없으면 종전 2(표본화 1 + 흔들림 1)
-      const auto = Math.max(2, Math.min(12, Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin)); // 프레임 길이 = FRAME_MS / 배율(같은 지연 시간을 덮도록 입력 지연 프레임을 배율만큼 늘림)
-      room.cfg = { proto: PROTO, speed: ONLINE_SPEED, delay: room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined, guardAS: GUARD_AS || undefined };
+      const auto = Math.max(2, Math.min(24, Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin)); // 프레임 길이 = FRAME_MS / 배율(같은 지연 시간을 덮도록 입력 지연 프레임을 배율만큼 늘림) 상한 24(2026-11-22: 종전 12 = 1.3배속 약 154ms 라 RTT 200ms 이상 방이 늘 기다렸다. 계산값이 12 이하인 방은 종전과 같다)
+      const rbOn = !!room.opts.rollback && !room.opts.ranked && !room.ladder && room.players.every(p => p.ws && p.ws.proto >= PROTO); // 롤백 방: 전원이 PROTO 6 일 때만(한 명이라도 아니면 이 판은 종전 락스텝)
+      const base = Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin; // 입력이 상대에게 닿는 시간(프레임) = auto 의 상한 자르기 전 값
+      const rbDelay = room.opts.delay || rbDelayFixed || Math.max(2, Math.min(24, base - RB_ABSORB)), rbLimit = Math.max(RB_LIMIT_MIN, Math.min(RB_LIMIT_MAX, base - rbDelay + 3)); // 지연 = 닿는 시간 - 롤백이 흡수할 프레임(RB_ABSORB), 예측 한도 = 남은 시간 + 여유 3(6~12)
+      room.cfg = { proto: PROTO, speed: ONLINE_SPEED, delay: rbOn ? rbDelay : room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined, guardAS: GUARD_AS || undefined };
+      room.rb = rbOn; room.rbFloor = rbOn ? rbDelay : 0; room.rbAt = room.rbUpAt = room.rbDownAt = 0; for (const p of room.players) p.rbDown = false; if (rbOn) room.cfg.rollback = { limit: rbLimit, fb: Math.max(rbDelay, room.opts.delay || auto) }; // fb = 자동 후퇴(델레이 방식) 때 클라이언트가 올릴 입력 지연
       if (room.team) room.cfg.team = { mode: '2v2', cpu: room.kinds.map(k => k === 'cpu' ? 1 : 0), seatOf: humanSeats(room) }; // 팀전: 엔진 teamCfg.cpu · 락스텝 j 번째 사람 → 자리
       let prefill = 0;
       if (room.seats) { // 대기방에서 고른 값 → 양쪽이 똑같이 돌릴 구동 계획(battle_full, 형식 = web/ui_manga.js addPlan 의 설정)
@@ -508,16 +521,24 @@ function createServer(opt) {
         room.log = new Array(prefill * room.H).fill(0); room.conf = prefill; stats.frames += prefill; room.adv = Date.now() + prefill * FRAME_MS; resetWin(room, room.adv);
       }
       lobbyDirty();
-      log('대전 시작', room.code, '지연', room.cfg.delay, 'rtt', room.cfg.rtt.join('/'), prefill ? '미리 확정 ' + prefill : '');
+      log('대전 시작', room.code, '지연', room.cfg.delay, rbOn ? '롤백 한도 ' + rbLimit : '', 'rtt', room.cfg.rtt.join('/'), prefill ? '미리 확정 ' + prefill : '');
     }, 50);
     n = 1; shot();
+  }
+  // 롤백 방 입력 중계: 보낸 사람 빼고 접속 중인 사람에게 r{s,f,p[],x?,a?}. x = 보낸 사람이 입력을 보낼 때의 실행 프레임, a = 보낸 사람이 잰 앞섬(클라이언트 프레임 어드밴티지 보정용, 서버는 값만 걸러 전달)
+  //   x 는 서버가 아는 진행 범위로 자른다: 보낸 사람의 실행 프레임은 이번에 보낸 마지막 입력 프레임(top) 이하이고 top - RB_X_BACK 이상(입력은 실행 + 지연까지만 보낸다). 범위를 벗어난 값으로 상대의 속도 보정을 흔들지 못하게
+  function relayIn(room, slot, runs, m, top) {
+    const x = int(m.x), ex = x >= 0 && x < MAX_FRAMES ? { x: Math.max(Math.max(0, top - RB_X_BACK), Math.min(top, x)), a: Number.isInteger(m.a) && Math.abs(m.a) <= 1000 ? m.a : 0 } : null;
+    room.players.forEach((q, i) => { if (q && i !== slot && !q.gone && q.ws) for (const r of runs) send(q.ws, Object.assign({ t: 'r', s: slot, f: r.f, p: r.p }, ex)); });
+    stats.relayed = (stats.relayed || 0) + runs.length;
   }
   // 사람 H 명의 입력이 모인 프레임을 차례로 확정해 보낸다(f.p = 프레임마다 자리 0..H-1 순서)
   function confirm(room) {
     const ps = room.players, H = room.H, start = room.conf, out = [];
     while (room.conf < MAX_FRAMES && ps.every(p => p.gone || p.ins[room.conf] !== undefined)) { // 빠진 자리(gone, H >= 3)는 기다리지 않고 0
       const f = room.conf;
-      for (const p of ps) { const v = f < LEAD || p.gone ? 0 : p.ins[f]; room.log.push(v); out.push(v); p.ins[f] = 0; } // 확정 뒤 원본은 필요 없다(중복 판정용으로 값만 남김)
+      // 롤백 방(room.rb): 빠진 자리라도 이미 받은 입력은 다른 사람에게 중계(r)했으므로 그 값으로 확정한다(확정 값 = 중계 값 계약. 0 으로 덮으면 중계를 먼저 받아 굳힌 창과 갈린다). 못 받은 프레임만 0. 꺼진 방은 종전 그대로 0
+      for (const p of ps) { const v = f < LEAD ? 0 : p.gone ? (room.rb && p.ins[f] !== undefined ? p.ins[f] : 0) : p.ins[f]; room.log.push(v); out.push(v); p.ins[f] = 0; } // 확정 뒤 원본은 필요 없다(중복 판정용으로 값만 남김)
       room.conf++;
       if (out.length >= MAX_BATCH * H) cast(room, { t: 'f', f: room.conf - out.length / H, p: out.splice(0) });
     }
@@ -629,6 +650,7 @@ function createServer(opt) {
   const pre = (ws, m) => { // register·login 공통 앞 검사. 통과하면 { name, key, pw }
     if (acctOff(ws)) return null;
     if (ws.room) { err(ws, 'state', '방 안에서는 할 수 없습니다'); return null; }
+    if (Number.isInteger(m.proto)) { if (m.proto < PROTO) { err(ws, 'proto', '버전이 바뀌었습니다. 새로 고침한 뒤 이용해 주세요'); return null; } ws.proto = m.proto; } // hello 와 같은 검사(구 클라이언트가 login·register 로 계정 세션을 얻어 방에 들어오지 못하게)
     if (authLimited(ws)) { err(ws, 'rate', '잠시 뒤에 다시 시도하세요'); return null; }
     const n = nameOf(m.name); if (!n) { err(ws, 'name_bad', '이름은 2~8자(한글·영문·숫자)로 정해 주세요'); return null; }
     return n;
@@ -683,7 +705,7 @@ function createServer(opt) {
   function openRoom(ws, code, rawOpts, seats, ranked, name, title, ladder) {
     const opts = cleanOpts(rawOpts, seats); // 사람 자리 수: 자리 방 = opts.humans(2·3·4, 기본 2), 종전 방 = 2
     if (ranked) Object.assign(opts, RANK.rules, { ranked: true }, ladder ? { ladder: true } : null);
-    if (ranked) delete opts.teams; // 랭크·래더는 팀전 불가
+    if (ranked) { delete opts.teams; delete opts.rollback; } // 랭크·래더는 팀전 불가 · 롤백 넷코드 강제 끔(NK_ROLLBACK=1·opts.rollback 이어도. 입력 지연이 판마다·창마다 달라질 수 있는 방식은 레이팅 판에 쓰지 않는다)
     const kinds = opts.teams === '2v2' ? (kindsOk(rawOpts && rawOpts.seats) ? rawOpts.seats.slice() : frontKinds(opts.humans)) : null; // 팀전: 자리별 사람/COM
     if (kinds) opts.humans = kinds.filter(k => k === 'human').length;
     const nH = seats ? opts.humans : HUMANS;
@@ -944,7 +966,7 @@ function createServer(opt) {
     ranking_list(ws, m) { boardReply(ws, m, 'ranking_list'); }, // 종전 이름(내용은 ladder_board 와 같다. 하위 호환 = top·me 필드 유지 + 추가 필드)
     hello(ws, m) { // 이름 등록(가입 없음) / 같은 sid 로 되찾기 / token = 계정 자동 로그인. m.proto = 클라이언트 프로토콜(4 이상이어야 팀전 방을 쓴다)
       if (ws.room) return err(ws, 'state', '방 안에서는 이름을 바꿀 수 없습니다');
-      if (Number.isInteger(m.proto)) ws.proto = m.proto;
+      if (Number.isInteger(m.proto)) { if (m.proto < PROTO) return err(ws, 'proto', '버전이 바뀌었습니다. 새로 고침한 뒤 이용해 주세요'); ws.proto = m.proto; } // 구 클라이언트(PROTO 5 이하) 거절: 서버·클라 동시 교체
       if (m.token !== undefined) { // 계정 로그인 토큰(30일)
         if (acctOff(ws)) return;
         if (authLimited(ws)) return err(ws, 'rate', '잠시 뒤에 다시 시도하세요');
@@ -1155,13 +1177,38 @@ function createServer(opt) {
       if (f0 < 0 || !Array.isArray(a) || a.length < 1 || a.length > MAX_BATCH) return err(ws, 'bad', '입력 형식 오류');
       if (f0 + a.length > room.conf + MAX_AHEAD) return err(ws, 'ahead', '입력이 너무 앞서 있습니다');
       blame(room, Date.now());
+      const runs = []; let run = null; // 롤백 방: 이번에 새로 받아들인 입력의 연속 구간(확정 값과 같은 값만 중계한다)
       for (let i = 0; i < a.length; i++) {
         const f = f0 + i, v = a[i];
         if (!Number.isInteger(v) || v < 0 || v > 255) return err(ws, 'bad', '패드 값 오류');
         if (f < room.conf || p.ins[f] !== undefined) continue;
         p.ins[f] = v;
+        if (room.rb) { const w = f < LEAD ? 0 : v; if (run && run.f + run.p.length === f) run.p.push(w); else runs.push(run = { f, p: [w] }); }
       }
+      if (room.rb && runs.length) relayIn(room, ws.slot, runs, m, f0 + a.length - 1);
       if (room.players.every(Boolean)) confirm(room);
+    },
+    // 롤백 방 지연 조정(방 단위, analysis/online_sync.md 10절): 한 창이 예측 한도에 걸려 자주 서면 그 창만 지연을 올리지 않고 서버에 알려 방 전원이 같은 입력 지연을 쓴다(공정성 + 한쪽만 뒤처지지 않게).
+    //   rbd{up: 1|2} = 지연 올리기(상한 cfg.rollback.fb = 델레이 방식 지연, RB_STEP_MS 안의 겹친 요청은 한 번만), rbd{down: true} = 내 창은 잠잠하다(남은 사람 전원이 표를 내고 마지막 올림 뒤 RB_CALM_MS 가 지나면 1 내림.
+    //   내린 뒤 RB_REUP_MS 안에 다시 올라가면 그 값이 바닥 = 더 내리지 않는다), rbd{off: true, why} = 예측 끄기(스냅샷 부족·재시뮬 과다: 방 전원 델레이 방식으로, 이 판에서는 다시 안 켠다).
+    //   → 방 전원에게 rbd{delay, off?, why?, by}. 입력 지연은 「내 입력을 어느 프레임에 싣는가」뿐이라 창마다 적용 시점이 달라도 프레임마다 값은 한 번씩만 확정된다(지문 불일치 없음). cfg 를 고쳐 두므로 재접속한 사람도 같은 값을 받는다
+    rbd(ws, m) {
+      const room = ws.room; if (!room || room.state !== 'playing' || !room.rb || !room.cfg || !room.cfg.rollback) return;
+      const p = room.players[ws.slot]; if (!p || p.gone) return;
+      const rb = room.cfg.rollback, now = Date.now(), cur = room.cfg.delay; let d = cur, off = false;
+      if (m.off === true) { if (rb.off) return; off = true; d = Math.max(cur, rb.fb); }
+      else if (rb.off) return;
+      else if (m.up === 1 || m.up === 2) {
+        if (now - room.rbAt < rbStepMs || cur >= rb.fb) return;
+        d = Math.min(rb.fb, cur + m.up); room.rbUpAt = now; if (room.rbDownAt && now - room.rbDownAt < rbReupMs) room.rbFloor = Math.max(room.rbFloor, d);
+      } else if (m.down === true) {
+        p.rbDown = true;
+        if (cur <= room.rbFloor || now - room.rbUpAt < rbCalmMs || now - room.rbAt < rbStepMs || !room.players.every(q => q.gone || q.rbDown)) return;
+        d = cur - 1; room.rbDownAt = now;
+      } else return;
+      room.cfg.delay = d; if (off) rb.off = true; room.rbAt = now; for (const q of room.players) if (q) q.rbDown = false;
+      cast(room, Object.assign({ t: 'rbd', delay: d, by: ws.slot }, off ? { off: true, why: clean(m.why, 12) } : null));
+      log('롤백 지연', room.code, cur + ' → ' + d, off ? '예측 끔 ' + clean(m.why, 12) : '', '자리', ws.slot);
     },
     hash(ws, m) { // RAM 지문 비교(부정·어긋남 감지). 서버는 값이 같은지만 본다. 같은 프레임의 지문을 사람 자리마다 모아 하나라도 다르면 경고
       const room = ws.room; if (!room || room.state !== 'playing') return;

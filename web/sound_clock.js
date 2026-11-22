@@ -23,7 +23,7 @@ const sfxQuiet = () => typeof ctl !== 'undefined' && !!ctl && ctl.length > SFXQ 
 
 // main = 본 엔진(core.js Engine, attachApu 된 상태), makeShadow() = 같은 시작 상태로 만든 두 번째 Engine(처음 배속에 들어갈 때만 부른다)
 function create(main, makeShadow) {
-  const synth = main.apu, F = main.code.F, origReq = F[REQ_OFF], origUpd = F[UPD_OFF];
+  const synth = main.apu; let F = main.code.F, origReq = F[REQ_OFF], origUpd = F[UPD_OFF]; // main·F·orig* 는 rollback.rebind(롤백 복원으로 엔진 인스턴스가 바뀔 때)만 바뀐다
   if (!synth || !origReq || !origUpd) throw new Error('sound_clock: 엔진·합성기·드라이버 진입점 없음');
   let mode = 0;                    // 0 = 본 엔진이 합성기에 씀(종전), 1 = 그림자가 씀
   let ev = [], depth = 0, exp = main.m[0x700], lastUpdC = 0;
@@ -38,24 +38,30 @@ function create(main, makeShadow) {
     const m = main.m, a = !!(m[0x611] & 8), b = !!(m[0x612] & 8), w = a && !b ? 1 : b && !a ? 0 : -1;
     return w < 0 ? id : w === c - 1 ? 0x32 : 0x33;
   };
-  const cyc = () => main.code.cyc;
-  const see700 = () => { const v = main.m[0x700]; if (v !== exp) { exp = v; if (mode) ev.push({ t: 2, c: cyc(), v }); } }; // 드라이버 밖(게임)이 쓴 $0700
+  let cycOff = 0; // 롤백 복원으로 엔진을 새로 만들면 code.cyc 가 0 부근에서 다시 시작한다. cycOff = (되감기 전 연속 시간축) - (새 엔진 code.cyc). 롤백을 안 쓰면 늘 0
+  const cyc = () => main.code.cyc + cycOff;
+  let rb = null; // 롤백 모드 상태(아래 rollback 훅 주석). null = 꺼짐 = 종전과 같은 호출 순서·사이클·샘플
+  const put = e => { if (rb) rbPut(e); else ev.push(e); };
+  const see700 = () => { const v = main.m[0x700]; if (v !== exp) { exp = v; if (mode || rb) put({ t: 2, c: cyc(), v }); } }; // 드라이버 밖(게임)이 쓴 $0700
   // 관측 덮개: 원래 함수를 그대로 부르고 값만 읽는다(본 엔진의 RAM·레지스터·사이클에 손대지 않음)
+  const install = () => {
   F[REQ_OFF] = function (s0) {
     if (!depth) see700();
     if (isSfx(main.m[0x7FF])) st.sfxReq++;
-    if (mode) { const id = main.m[0x7FF], to = jingle(id); if (to !== id) st.remap++; ev.push({ t: 0, c: cyc(), id: to }); }
+    if (mode || rb) { const id = main.m[0x7FF], to = jingle(id); if (to !== id) st.remap++; put({ t: 0, c: cyc(), id: to }); }
     depth++; let r; try { r = origReq(s0); } finally { depth--; }
     if (!depth) exp = main.m[0x700];
     return r;
   };
   F[UPD_OFF] = function (s0) {
     if (!depth) see700();
-    const c = cyc(); lastUpdC = c; if (mode) ev.push({ t: 1, c });
+    const c = cyc(); lastUpdC = c; if (mode || rb) put({ t: 1, c });
     depth++; let r; try { r = origUpd(s0); } finally { depth--; }
     if (!depth) exp = main.m[0x700];
     return r;
   };
+  };
+  install();
   let base0 = 0, at = 0;
   function shadowCall(entry, A) {
     const sh = shadow, m = sh.m;
@@ -80,6 +86,7 @@ function create(main, makeShadow) {
   // 프레임 경계(워커 onFrameEnd)에서 부른다. C1 = 이 프레임 끝의 본 엔진 누적 사이클, r = 이 프레임에 적용할 배율(1 = 1배속).
   // 돌려주는 값 = 이 프레임의 소리 샘플(종전 apu.runTo(C1) + drain() 자리)
   function frameEnd(C1, r) {
+    if (rb && rb.resim) { if (!depth) see700(); return new Float32Array(0); } // 롤백 재시뮬 프레임: 그림자 시계 정지(C0·sc 그대로), 이벤트만 rbPut 이 거른다($0700 관측은 프레임 경계에서 하므로 본 경로와 같은 프레임에 귀속되게 부른다)
     if (!depth) see700();
     if (C0 === null) C0 = C1 - FRAME_CYC;
     const q = sfxQuiet(); st.sfxQuiet = q ? 1 : 0;
@@ -105,15 +112,72 @@ function create(main, makeShadow) {
         mirrorN++;
         let same = true; for (let a = 0x700; a < 0x800; a++) if (shadow.m[a] !== main.m[a]) { same = false; break; }
         if (q) mirrorN = 0;
-        else if (!depth && (same || kick || mirrorN >= MIRROR_MAX)) leave(C1, !same && !kick);
+        else if (!(rb && rb.force) && !depth && (same || kick || mirrorN >= MIRROR_MAX)) leave(C1, !same && !kick);
       } else mirrorN = 0;
     }
-    if (!mode && (r > 1 || q) && !depth) enter(); // 요청·갱신 도중(프레임 경계가 드라이버 실행 중에 걸림)이면 다음 경계로 미룬다(반쯤 처리된 드라이버 RAM 을 복사하지 않게)
+    if (!mode && (r > 1 || q || (rb && rb.force)) && !depth) enter(); // 요청·갱신 도중(프레임 경계가 드라이버 실행 중에 걸림)이면 다음 경계로 미룬다(반쯤 처리된 드라이버 RAM 을 복사하지 않게)
     C0 = C1; st.mode = mode;
     if (typeof ctl !== 'undefined' && ctl && ctl.length > SFXQ + 3) { Atomics.store(ctl, SFXQ + 1, st.sfxReq); Atomics.store(ctl, SFXQ + 2, st.sfxDrop); Atomics.store(ctl, SFXQ + 3, mode); } // 점검용 ctl[17~19] = 효과음 요청 수·차단 수·모드(web/game.js __game.sfxStat 이 읽기만)
     return out;
   }
-  return { frameEnd, stats: st, get mode() { return mode; } };
+  // ---- 롤백 넷코드 대응 훅(2026-11-22, 1단계. 기본 꺼짐: enable() 전에는 위 코드 경로가 종전과 호출 순서·사이클·샘플까지 같다) ----
+  // 롤백(되감기 후 재시뮬)에서 엔진은 같은 프레임을 여러 번 돈다. 효과음은 예측 프레임에서 이미 그림자에 먹여 소리가 났으므로 재시뮬이 같은 요청을 다시 내면 두 번 울린다.
+  //   중복 제거 표 played[프레임][종류:id] = 이미 그림자에 넘긴 횟수. 이벤트 키 = (엔진 프레임 번호, 종류·id, 같은 프레임 안에서 같은 종류·id 의 순번).
+  //   순번 n 이 표의 횟수 이내면 이미 낸 것 → 버림(dup). 넘으면 새 것 → 표에 올리고 ev 로(재시뮬이면 c = 다음 실제 프레임 시작 C0 로 당겨 다음 frameEnd 시작에 투입).
+  //   예측에서 났는데 재시뮬에는 없는 것 = 유령(ghost): 이미 울렸으니 되돌리지 않는다(허용).
+  //   재시뮬 중 frameEnd 는 빈 샘플을 돌려주고 아무것도 하지 않는다(그림자 시계·C0 정지). 호스트는 재시뮬 프레임에서 화면·소리를 내보내지 않는다.
+  //   소거 범위: 표는 가장 최근 이벤트 프레임 - limit(기본 120, 롤백 한도보다 크게) 보다 오래된 프레임을 버린다(pruned). 그보다 깊이 되감으면 그 프레임 이벤트는 새 것으로 보여 다시 울린다.
+  //   스냅샷은 프레임 중간(onLoop)에서 뜨므로 mark() 가 그 시점까지 이 프레임에서 센 순번을 같이 담고, beginResim(mark) 가 거기서 이어 센다.
+  //   enable(limit, { force: true }) 면 배율 1·효과음 끔이 아니어도 첫 프레임 경계에서 그림자로 넘어가 거울 모드에서 돌아오지 않는다(2단계: 합성기에 직접 쓰는 mode 0 에서는 되감기 뒤 새 시간선의 소리를 낼 수 없어서).
+  //   enable(limit, { mute: false }) 면 mode 0 재시뮬에서도 main.apu 를 떼지 않는다(도구용: 시뮬이 자기 apu 로 스냅샷을 뜰 때).
+  //   본 엔진이 1배속(mode 0, 그림자 진입 전: 온라인 배속 1.3 에서는 첫 프레임들뿐)이면 이벤트가 없어 표도 비어 있고, 재시뮬 동안 main.apu 를 떼어 소리를 막는다(endResim 에서 복구).
+  function rbPut(e) {
+    const f = main.code.frameNo, key = e.t === 0 ? '0:' + e.id : e.t === 2 ? '2:' + e.v : '1:';
+    if (rb.cur.f !== f) { rb.cur = { f, counts: new Map() }; rb.seen.set(f, rb.cur.counts); }
+    const n = (rb.cur.counts.get(key) || 0) + 1; rb.cur.counts.set(key, n);
+    let pl = rb.played.get(f); if (!pl) { pl = new Map(); rb.played.set(f, pl); }
+    if (f > rb.maxF) { rb.maxF = f; for (const g of rb.played.keys()) { if (g >= f - rb.limit) break; rb.played.delete(g); rb.seen.delete(g); rb.gh.delete(g); rb.stats.pruned++; } }
+    if (n <= (pl.get(key) || 0)) { rb.stats.dup++; return; } // 이미 낸 이벤트
+    pl.set(key, n); rb.stats.fresh++; if (rollback.tap) rollback.tap(e, f, rb.resim);
+    if (!mode) return; // 본 엔진이 합성기에 직접 쓰는 구간(그림자 진입 전)은 표에만 적고 그림자로 넘기지 않는다
+    if (rb.resim) { rb.stats.late++; if (C0 !== null) e.c = C0; }
+    ev.push(e);
+  }
+  const rollback = {
+    stats: null, tap: null, // tap(e, 프레임, 재시뮬 여부) = 새 이벤트마다 부르는 점검용 갈고리(시뮬·시험이 읽기만 함)
+    get on() { return !!rb; }, get resim() { return !!(rb && rb.resim); },
+    // 켠다. limit = 표 보존 프레임 수(롤백 최대 깊이보다 크게)
+    enable(limit, opt) {
+      rb = { force: !!(opt && opt.force), limit: limit > 0 ? limit : 120, mute: !(opt && opt.mute === false), played: new Map(), seen: new Map(), gh: new Map(), cur: { f: -1, counts: new Map() }, maxF: -1, resim: false, muted: false, stats: { resims: 0, fresh: 0, dup: 0, late: 0, ghost: 0, ghostLive: 0, pruned: 0 } };
+      rollback.stats = rb.stats;
+    },
+    disable() { if (rb && rb.muted) { main.apu = synth; } rb = null; },
+    // 스냅샷을 뜰 때(onLoop 안) 함께 부른다. 돌려준 값을 beginResim 에 넘긴다
+    mark() { if (!rb) return null; const f = main.code.frameNo; return { f, counts: rb.cur.f === f ? new Map(rb.cur.counts) : new Map() }; },
+    // 엔진을 되감은 직후(복원이 끝난 뒤, 첫 loop() 전) 부른다. mk = 그 스냅샷의 mark() 값
+    beginResim(mk) {
+      if (!rb || rb.resim) return false;
+      rb.resim = true; rb.stats.resims++; rb.mk = mk;
+      rb.cur = mk ? { f: mk.f, counts: new Map(mk.counts) } : { f: -1, counts: new Map() }; if (mk) rb.seen.set(mk.f, rb.cur.counts);
+      if (!mode && main.apu && rb.mute) { main.apu = null; rb.muted = true; }
+      depth = 0; exp = main.m[0x700]; return true;
+    },
+    // 재시뮬이 되감기 전 최전선(프레임)까지 따라잡았을 때 부른다. 이 뒤의 frameEnd 는 다시 실제로 동작한다
+    endResim() {
+      if (!rb || !rb.resim) return false;
+      rb.resim = false; if (rb.muted) { main.apu = synth; rb.muted = false; }
+      const from = rb.mk ? rb.mk.f : -1; rb.mk = null;
+      for (const [f, pl] of rb.played) { if (f < from) continue; const sn = rb.seen.get(f) || new Map(); let gm = rb.gh.get(f); if (!gm) { gm = new Map(); rb.gh.set(f, gm); } for (const [k, c] of pl) { const g = Math.max(0, c - (sn.get(k) || 0)), pv = gm.get(k) || 0; if (g > pv) rb.stats.ghost += g - pv; gm.set(k, g); } }
+      let live = 0; for (const gm of rb.gh.values()) for (const g of gm.values()) live += g; rb.stats.ghostLive = live;
+      exp = main.m[0x700]; return true;
+    },
+    // 복원이 새 Engine 인스턴스를 만들 때(snapshot.restore): 새 엔진에 관측 덮개를 다시 건다. 합성기·그림자·표는 그대로. 새 엔진의 apu 는 이 모듈이 정한다(그림자 중 = 없음)
+    rebind(eng, off) { // off = 연속 시간축 보정(cycOff). 워커는 frameEnd 의 C1 에도 같은 값을 더해 넘긴다
+      cycOff = off | 0; main = eng; F = main.code.F; origReq = F[REQ_OFF]; origUpd = F[UPD_OFF]; install();
+      if (!rb || rb.mute) { main.apu = mode || (rb && rb.resim) ? null : synth; if (rb && rb.resim && !mode) rb.muted = true; } depth = 0; exp = main.m[0x700];
+    },
+  };
+  return { frameEnd, stats: st, rollback, get mode() { return mode; } };
 }
 const api = { create, FRAME_CYC, MIRROR_MAX, SFXQ };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;

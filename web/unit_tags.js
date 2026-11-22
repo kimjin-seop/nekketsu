@@ -121,6 +121,8 @@
         raf = requestAnimationFrame(tick);
       } catch (e) { err = String(e && e.message || e); boxes = null; console.warn('선수 표시 층 준비 실패(끔): ' + err); }
     },
+    replace(f, m) { if (!boxes) return; const h = hist[hist.length - 1]; if (h && h.f === f) h.m = m; }, // 롤백 재시뮬 뒤 같은 프레임 번호의 정정된 RAM(web/game.js redo): 마지막 기록을 교체
+    fix(list) { if (!boxes || !Array.isArray(list)) return; for (const x of list) for (const h of hist) if (h.f === x.f) { h.m = x.m; st.fixed = (st.fixed | 0) + 1; } }, // 되감은 구간의 정정 RAM [{ f, m }](워커 rb.h): 같은 프레임 번호의 기록을 교체(이름표가 4프레임 전 RAM 으로 그리므로 옛 시간선 좌표가 남지 않게)
     frame(f, m) { if (!boxes) return; hist.push({ f, m }); if (hist.length > 8) hist.shift(); }, // game.js: 워커 프레임마다(로컬·온라인 공통). m 은 그 프레임 RAM 사본(읽기만, 보관만)
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.NKTags = api;
