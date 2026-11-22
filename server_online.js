@@ -52,6 +52,7 @@ const R = __dirname;
 
 // ---------- 정적 파일(server_game.js 와 같은 마운트·검사) ----------
 const mounts = [['/engine/', path.join(R, 'server', 'engine')], ['/state/', path.join(R, 'data', 'rom_derived', 'states')], ['/fonts/', path.join(R, 'art', 'fonts', 'galmuri')], ['/logo/', path.join(R, 'art', 'logo')], ['/', path.join(R, 'web')]];
+const SHARE_IMAGES = new Set(['/og_nekketsu.png']); // 공유 미리보기용 이미지(로고뿐, ROM 파생물 아님). 추가할 때는 여기에만 넣는다
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.ttf': 'font/ttf' };
 function resolve(url, local) {
   let u;
@@ -204,7 +205,8 @@ function createServer(opt) {
     if (!r.file || !st || !st.isFile()) { const code = r.code || 404; res.writeHead(code, g.priv ? { 'Cache-Control': 'no-store' } : {}); return res.end(code === 400 ? 'bad request' : code === 403 ? 'forbidden' : code === 429 ? 'too many requests' : 'not found'); }
     // 캐시: server_game.js 와 같다(no-cache + ETag/Last-Modified → 안 바뀐 파일은 304, 고치면 다음 요청에 바로 반영)
     const tag = 'W/"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '"', lm = st.mtime.toUTCString();
-    const hd = { 'Cache-Control': 'no-cache', ETag: tag, 'Last-Modified': lm, 'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Resource-Policy': 'same-origin' };
+    // 링크 미리보기 이미지(og:image)는 다른 출처(메신저·메일·게시판)가 서브리소스로 불러가므로 CORP 를 cross-origin 으로 연다(이 허용 목록의 파일만. COOP/COEP 와 그 밖의 경로는 그대로)
+    const hd = { 'Cache-Control': 'no-cache', ETag: tag, 'Last-Modified': lm, 'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Resource-Policy': !g.priv && SHARE_IMAGES.has((req.url || '').split('?')[0]) ? 'cross-origin' : 'same-origin' };
     const inm = req.headers['if-none-match'], ims = Date.parse(req.headers['if-modified-since'] || '');
     Object.assign(hd, SC.vary(r.file, st.size)); if (g.priv) AG.privateHeaders(hd); const hit = inm && inm.split(',').find(v => SC.sameTag(v, tag)); // 압축본 태그(…-br")도 같은 파일로 본다. 보호 경로(session 모드) = private
     if (inm ? hit : ims >= Math.floor(st.mtimeMs / 1000) * 1000) { res.writeHead(304, Object.assign({}, hd, hit ? { ETag: hit.trim() } : {})); return res.end(); }

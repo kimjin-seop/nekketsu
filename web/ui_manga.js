@@ -115,6 +115,14 @@
     players: { head: '인원', back: 'mode', items: [{ id: 'p1', t: '1인', players: 1 }, { id: 'p2', t: '2인', players: 2 }, { id: 'back', t: '뒤로', back: true }] },
     pause: { head: '일시정지', ov: true, items: [{ id: 'resume', t: '계속', back: true }, { id: 'settings', t: '설정', go: 'settings' }, { id: 'quit', t: '종료', pick: 'quit' }] }, // 전투 위 덮개(로고·인물 컷·하단 띠 없음). 뒤로 = 계속
   };
+  // 다른 게임(타이틀 맨 아래 작은 링크 → 팝업). 목록은 이 한 곳만 고친다. self = 이 게임 키(목록에서 뺀다, 같은 표를 다른 게임에 그대로 옮겨 self 만 바꾸면 된다)
+  //   status: 'play' = 새 탭 링크 | 'soon' = 「준비 중」(링크 없음). url 은 https 만 받는다. 그림 없음(글자 + ↗)
+  const OTHER_GAMES = { self: 'nekketsu', list: [
+    { key: 'tongki', name: '불꽃의 피구소년 통키', url: 'https://tongki.oddplay.kr', genre: '피구 액션', status: 'play' },
+    { key: 'scorched', name: '스코치드 어스 포에버', url: 'https://tank.oddplay.kr', genre: '턴제 포격', status: 'play' },
+    { key: 'liero', name: '리에로 포에버', url: 'https://liero.oddplay.kr', genre: '포격 난투', status: 'play' },
+    { key: 'nekketsu', name: '열혈격투전설', url: 'https://nekketsu.oddplay.kr', genre: '격투', status: 'play' }] };
+  const OG_I = MENUS.title.items.length, OG_LIST = OTHER_GAMES.list.filter(g => g && g.key !== OTHER_GAMES.self && (g.status === 'soon' || (g.status === 'play' && /^https:\/\//.test(g.url))));
   // 설정(localStorage). vol 0~10(소리 음량), scale = SCALES 의 번호(화면 배율), hud 1/0(전투 게이지 패널), nf 1/0(스프라이트 깜박임 제거, analysis/24), speed = SPEEDS 값(전투 속도 = 시합 진행 중만, 혼자 하기 기본 1.3, 범위 밖(옛 1.25·2 포함) = 1.3). game.js 가 onSettings 로 받아 음량·배율·깜박임 제거·속도에 쓴다(온라인·?classic=1 은 game.js 가 늘 1배)
   const SET_KEY = 'nk_manga_settings', SCALES = ['자동', '꽉 채우기', '2배', '3배', '4배'], SPEEDS = [1, 1.15, 1.3, 1.5], SPEED_T = ['1배', '1.15배', '1.3배', '1.5배'], set = window.NKSettings ? window.NKSettings.data : { vol: 8, scale: 0, hud: 1, nf: 1, speed: 1.3, tags: 2, hitfx: 1, op: 1, fxlv: 2, mute: 0 }, /* fxlv = 이펙트 강도 0 끔 · 1 약 · 2 보통 · 3 강(hitfx = fxlv > 0), mute = 음소거. hitfx = 타격 효과(web/hit_fx.js): 0 끔 · 1 보통(기본), op = 오프닝 장면(web/opening_scene.js): 0 끔 · 1 켬(기본) */ TAGS_T = ['끔', '자리', '자리+이름']; // tags = 선수 표시(web/unit_tags.js): 0 끔 · 1 팀 표식만 · 2 팀 표식 + 이름(기본)
   const NKS = window.NKSettings || null; // 설정 모듈(web/settings.js, 21절): 같은 키·값을 읽어 둔 살아 있는 객체를 그대로 쓴다(fxlv·mute 칸 추가). 없으면 아래 종전 읽기
@@ -132,6 +140,7 @@
       const s = els[k]; if (!s || !s.btns) continue; const h = row && !s.ov;
       if (h) { abs(s.win, 208, 254, 864, 124); abs(s.sep, s.n4 ? 640 : 774, 290, 1, 52); } else { abs(s.win, 430, 276, 420, 340); abs(s.sep, 476, s.n4 ? 469 : 500, 328, 1); }
       s.btns.forEach((e, i) => abs(e, ...(h ? (s.n4 ? BTN_ROW4 : BTN_ROW) : (s.n4 ? BTN_RECT4 : BTN_RECT))[i]));
+      if (s.og) abs(s.og, 520, h ? 386 : 618, 240); // 「다른 게임」: 메뉴 창 바로 아래 한 줄(높이 = CSS, 누름 칸 실제 44px 이상)
     }
   }
   // 초상 = 원작 ROM 전투 HUD 얼굴 16x17(표정 1종, 승패도 같은 그림 + 프레임·딱지). 크기는 CSS 가 칸에 맞는 정수배로(ui_manga.css .nkm-cut img)
@@ -424,6 +433,41 @@
     return h;
   }
 
+  // 「다른 게임」 팝업(타이틀 전용). 화면 고정 덮개(#nkm 안, 실제 px 배치라 세로·가로 모두 맞는다). 열린 동안 키(잡기 단계)·패드는 이 창만 받는다(포커스 트랩)
+  //   닫기 = ✕ · Esc/B 키 · 패드 B · 바깥 누름. 줄 = <a target=_blank rel="noopener noreferrer">(같은 탭 이동 없음 → 온라인 연결·진행 상태 그대로)
+  const ogm = { open: false, el: null, box: null, items: [], cur: 0 };
+  function buildOg() {
+    const w = ogm.el = el('div', 'nkog', root); w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-label', '다른 게임');
+    const b = ogm.box = el('div', 'nkm-win nkog-box', w), hd = el('div', 'nkog-hd', b); el('span', '', hd, '다른 게임');
+    const x = el('button', 'nkog-x', hd, '✕'); x.type = 'button'; x.setAttribute('aria-label', '닫기'); x.addEventListener('click', e => { e.stopPropagation(); ogClose(); });
+    const rows = OG_LIST.map(g => {
+      const r = el(g.status === 'play' ? 'a' : 'div', 'nkog-row' + (g.status === 'play' ? '' : ' soon'), b); r.dataset.key = g.key;
+      el('b', '', r, g.name); el('span', '', r, g.genre); el('i', '', r, g.status === 'play' ? '↗' : '준비 중');
+      if (g.status === 'play') { r.href = g.url; r.target = '_blank'; r.rel = 'noopener noreferrer'; r.addEventListener('click', () => setTimeout(ogClose, 0)); } else { r.setAttribute('aria-disabled', 'true'); r.tabIndex = -1; }
+      return r;
+    });
+    ogm.items = rows.filter(r => r.tagName === 'A').concat(x); // 키·패드 순서 = 링크 줄들 → ✕
+    ogm.items.forEach((e, i) => e.addEventListener('focus', () => { ogm.cur = i; ogCur(); }));
+    w.addEventListener('click', e => { if (e.target === w) ogClose(); }); // 바깥(덮개) 누름
+    window.addEventListener('keydown', ogKey, true);
+  }
+  function ogCur() { ogm.items.forEach((e, i) => e.classList.toggle('cur', i === ogm.cur)); }
+  function ogFocus(i) { const n = ogm.items.length; if (!n) return; ogm.cur = (i + n) % n; ogCur(); try { ogm.items[ogm.cur].focus({ preventScroll: true }); } catch (e) { ogm.items[ogm.cur].focus(); } }
+  function ogOpen() { if (!ogm.el || ogm.open || scr !== 'title') return; ogm.open = true; ogm.el.classList.add('on'); ogFocus(0); }
+  function ogClose() { if (!ogm.open) return; ogm.open = false; ogm.el.classList.remove('on'); const a = document.activeElement; if (a && ogm.el.contains(a)) a.blur(); if (active && scr === 'title') render(); }
+  function ogGo() { const e = ogm.items[ogm.cur]; if (e) e.click(); } // 링크 = 새 탭(브라우저 기본 동작), ✕ = 닫기
+  function ogKey(e) { // 잡기 단계: 열린 동안 모든 키를 이 창이 먹는다(타이틀·game.js 에 새지 않게)
+    if (!ogm.open) return; if (e.isComposing) return;
+    e.stopImmediatePropagation(); const c = e.code;
+    if (c === 'Tab') { e.preventDefault(); return ogFocus(ogm.cur + (e.shiftKey ? -1 : 1)); }
+    const k = menuKey(c); e.preventDefault();
+    if (k.dy || k.dx) return ogFocus(ogm.cur + (k.dy || k.dx));
+    if (e.repeat) return;
+    if (k.bk) return ogClose();
+    if (k.ok || c === 'Space') return ogGo();
+  }
+  function ogPad(hit) { if (hit & 1 || hit & 16) ogFocus(ogm.cur - 1); else if (hit & 2 || hit & 32) ogFocus(ogm.cur + 1); else if (hit & 4) ogGo(); else if (hit & 8) ogClose(); }
+
   function build() {
     root = el('div', '', document.body); root.id = 'nkm'; wall = el('div', 'nkm-wall', root); buildTbg(); stageEl = el('div', 'nkm-root', root); noBroken(root);
     // 타이틀·모드·인원: 같은 창, 목록만 바뀐다
@@ -441,8 +485,14 @@
         b.addEventListener('click', () => { if (!active || busy || scr !== k) return; idx[k] = i; render(); confirm(); });
         return b;
       });
+      if (k === 'title' && OG_LIST.length) { // 다른 게임: 주 메뉴 버튼(.nkm-btn 4개)과 별개인 작은 글자 링크. 커서 순서 = 메뉴 맨 끝(idx.title = OG_I)
+        const o = s.og = el('div', 'nkm-og', s); el('span', '', o, '다른 게임'); o.dataset.id = 'others'; o.setAttribute('role', 'button'); o.setAttribute('aria-haspopup', 'dialog');
+        hoverable(o, () => { if (scr === 'title' && idx.title !== OG_I && !ogm.open) { idx.title = OG_I; render(); } });
+        o.addEventListener('click', () => { if (!active || busy || scr !== 'title' || ogm.open) return; idx.title = OG_I; render(); ogOpen(); });
+      }
       if (!d.ov) foot(s, '', !!d.back);
     }
+    buildOg();
     buildChar('charsel'); buildChar('partner'); buildTeam(); buildStage(); buildStatus(); buildResult(); buildSettings(); buildVs(); buildBracket(); buildLobby(); buildEdit(); buildOnline(); buildSlots();
     els.rot = el('div', 'nkm-rot', root, '가로 화면 권장'); // 세로 화면 안내(전용 세로 배치는 없다)
     // 메인 메뉴 하단 저작권 줄(타이틀·모드·스토리·인원 = #nkm.tbg 일 때만, CSS). 1줄 = 원작 타이틀 화면 저작권 줄 원문(3:5 네임테이블 1 26행 타일 f0 f1 f3 f3 f2 · f4~fa · fb fc fd fc f8 · f6 f9 fe fd ff = 「©1992 TECHNOS JAPAN CORP.」, 오라클 캡처 idle_f07560 육안 대조)
@@ -1209,6 +1259,7 @@
     if (scr !== shown) { if (els[scr]) els[scr].classList.toggle('nkm-keep', menuFam(scr) && menuFam(shown)); shown = scr; }
     for (const k of Object.keys(els)) if (k !== 'toast' && k !== 'rot') els[k].classList.toggle('on', k === scr);
     if (els[scr] && els[scr].btns) els[scr].btns.forEach((b, i) => b.classList.toggle('cur', i === idx[scr]));
+    if (els.title && els.title.og) els.title.og.classList.toggle('cur', scr === 'title' && idx.title === OG_I); if (ogm.open && scr !== 'title') ogClose(); // 다른 게임: 타이틀 밖으로 나가면 팝업도 닫는다
     if (scr === 'charsel' || scr === 'partner') renderChar(scr); else if (scr === 'steam') renderTeam(); else if (scr === 'stage') renderStage(); else if (scr === 'status') renderStatus(); else if (scr === 'result') renderResult(); else if (scr === 'settings') renderSettings(); else if (scr === 'bracket') renderBracket(); else if (scr === 'lobby') renderStoryLobby(); else if (scr === 'edit') renderEdit(); else if (OSCR.has(scr)) renderOnline();
     place();
   }
@@ -1250,7 +1301,7 @@
     if (OSCR.has(scr)) return omove(dx, dy);
     if (scr === 'sslots') return slotsMove(dx, dy);
     if (scr === 'lobby') return lobbyMove(dx, dy);
-    if (els[scr] && els[scr].btns) { const n = els[scr].btns.length, v = dy || (menuFam(scr) ? dx : 0); if (v) { idx[scr] = (idx[scr] + v + n) % n; render(); } return; } // 메인 메뉴(가로 한 줄)는 ←→ 도
+    if (els[scr] && els[scr].btns) { const n = els[scr].btns.length + (scr === 'title' && els.title.og ? 1 : 0), v = dy || (menuFam(scr) ? dx : 0); if (v) { idx[scr] = (idx[scr] + v + n) % n; render(); } return; } // 메인 메뉴(가로 한 줄)는 ←→ 도
     if (scr === 'settings') { if (dy) { setIdx = (setIdx + dy + SET_BACK + 1) % (SET_BACK + 1); render(); } else if (dx) adjust(dx); return; }
     if (scr === 'charsel' || scr === 'partner') { pt.tap = -1; const v = curOf(scr), r = ((v >> 2) + dy + 4) & 3, c = ((v & 3) + dx + 4) & 3; setCur(scr, r * 4 + c); render(); return; }
     if (scr === 'steam') { if (dy) { idx.steam = (idx.steam + dy + 7) % 7; render(); } return; }
@@ -1280,6 +1331,7 @@
     if (OSCR.has(scr)) return oconfirm();
     if (scr === 'sslots') return slotsConfirm();
     if (scr === 'lobby') return lobbyConfirm();
+    if (scr === 'title' && idx.title === OG_I) return ogOpen(); // 다른 게임(메뉴 끝의 작은 링크)
     if (MENUS[scr]) {
       const it = MENUS[scr].items[idx[scr]];
       if (it.online) enterOnline(); else if (it.prof) openProfile(null); else if (it.story) storyPick(it.story); else if (it.go === 'story') storyEnter(); else if (it.go === 'settings') { setBack = scr; setIdx = 0; go('settings'); } else if (it.go === 'edit') openEdit(); else if (it.go) { idx[it.go] = 0; go(it.go); } else if (it.toast) toast(it.toast); else if (it.back) back();
@@ -1343,7 +1395,7 @@
   // 메뉴 키 = 키 표(web/keymap.js nav: 방향키·Enter·Esc + 1P·2P 방향·A 결정·B 뒤로, 표에 없는 Z·X 는 종전대로). keymap.js 가 없으면 종전 고정 키
   const menuKey = c => window.NKKeymap ? window.NKKeymap.nav(c) : { dy: c === 'ArrowUp' || c === 'KeyW' ? -1 : c === 'ArrowDown' || c === 'KeyS' ? 1 : 0, dx: c === 'ArrowLeft' || c === 'KeyA' ? -1 : c === 'ArrowRight' || c === 'KeyD' ? 1 : 0, ok: c === 'KeyZ' || c === 'Enter' || c === 'NumpadEnter' || c === 'KeyG', bk: c === 'KeyX' || c === 'Escape' || c === 'KeyH' };
   function onKey(e) {
-    if (!active || e === skipKey) return;
+    if (!active || e === skipKey || ogm.open) return;
     if (OSCR.has(scr)) return okey(e);
     if (scr === 'edit') { // 에디트 폼: 글자·Tab·방향키(고르기 값)는 브라우저 기본 동작. Enter = 확인(뒤로 버튼에 초점이면 뒤로), Esc = 뒤로. 한글 조합 중(isComposing)은 건드리지 않는다
       if (e.isComposing || e.keyCode === 229) return;
@@ -1367,7 +1419,7 @@
       if (!g) continue; const p = i => !!(g.buttons[i] && g.buttons[i].pressed);
       if (p(12) || g.axes[1] < -0.5) v |= 1; if (p(13) || g.axes[1] > 0.5) v |= 2; if (p(14) || g.axes[0] < -0.5) v |= 16; if (p(15) || g.axes[0] > 0.5) v |= 32; if (p(0)) v |= 4; if (p(1) || p(2)) v |= 8; if (p(9)) v |= 64;
     }
-    const hit = v & ~gpPrev; gpPrev = v; if (busy || (window.NKKeymap && window.NKKeymap.isOpen) || (window.NKTouch && window.NKTouch.isOpen)) return; // 조작 설정 창(web/keymap.js)이 떠 있으면 그 창이 읽는다
+    const hit = v & ~gpPrev; gpPrev = v; if (ogm.open) { if (!busy) ogPad(hit); return; } if (busy || (window.NKKeymap && window.NKKeymap.isOpen) || (window.NKTouch && window.NKTouch.isOpen)) return; // 조작 설정 창(web/keymap.js)이 떠 있으면 그 창이 읽는다
     if (hit & 1) move(0, -1); else if (hit & 2) move(0, 1); else if (hit & 16) move(-1, 0); else if (hit & 32) move(1, 0); else if (hit & 4) confirm(); else if (hit & 8) back(); else if ((hit & 64) && scr === 'pause') back();
   }
   // ── 온라인 O1(analysis/16_wide_hd_online_plan.md 6절·부록 A·B). 이름 입력(oname) → 로비(olobby) → 방 만들기(ocreate) → 대기방(oroom) → 시합 준비 컷(vs) → 전투(game.js 락스텝) → 결과(oend) ──
@@ -2246,7 +2298,7 @@
     sel.picks = []; sel.ran = null;
     if (pt.run) { pt.run = ''; pt.driven = ''; pt.team = null; setTimeout(() => toast('자동 진행 실패 · 원작 화면으로 이어 갑니다', 'hp-low', 3000), 0); }
   }
-  function hide() { active = false; busy = false; ovl = false; shown = null; if (root) { root.classList.remove('on', 'busy', 'ov'); if (document.activeElement && root.contains(document.activeElement)) document.activeElement.blur(); } ffSync(); }
+  function hide() { ogClose(); active = false; busy = false; ovl = false; shown = null; if (root) { root.classList.remove('on', 'busy', 'ov'); if (document.activeElement && root.contains(document.activeElement)) document.activeElement.blur(); } ffSync(); }
   // 일시정지 메뉴(game.js 가 전투 1:2 에서 Esc·START 로 부른다. 엔진은 game.js 가 프레임 허가를 멈춰 세운다). ev = 연 키 이벤트(같은 이벤트로 바로 닫히지 않게)
   function pause(ev) { if (!root || active) return false; skipKey = ev || null; idx.pause = 0; open('pause', true); return true; }
   // 결과 화면(game.js 가 전투 종료 1:5 → 모드 0 을 감지해 부른다). m = 1:5 진입 프레임의 RAM 사본. 띄웠으면 true
@@ -2264,7 +2316,7 @@
     sel.players = m[0x645] === 3 ? 2 : 1; sel.picks = fs.map(f => f.id); const r = sel.ran; sel.stage = r ? r.stage : STAGE_ID.indexOf(m[0x644]); sel.rule = r ? r.rule : hud.rule >= 0 ? hud.rule : m[0x647]; /* 룰: 구동한 값(없으면 전투 시작 때 받아 둔 값). 1:5 의 $0647 은 전투 중 줄어 있을 수 있다 */ sel.zone = 'stage'; sel.again = true; idx.result = 0;
     open('result'); return true;
   }
-  const itemId = () => OSCR.has(scr) ? oItemId() : scr === 'lobby' ? (lb.view === 'quit' ? (lb.q ? 'quit_no' : 'quit_yes') : LB_IDS[idx.lobby]) : els[scr] && els[scr].btns ? els[scr].btns[idx[scr]].dataset.id : scr === 'settings' ? (setIdx < SET_BACK ? SET_ROWS[setIdx][0] : 'back') : scr === 'charsel' ? IDS[sel.cur] : scr === 'partner' ? IDS[pt.cur] : scr === 'steam' ? (idx.steam < 5 ? 'rule' + (idx.steam + 1) : idx.steam === 5 ? 'start' : 'back') : scr === 'stage' ? (sel.zone === 'rule' ? 'rule' + (sel.rule + 1) : sel.stageCur === 7 ? 'exit' : 'stage' + (sel.stageCur + 1)) : scr;
+  const itemId = () => scr === 'title' && idx.title === OG_I ? 'others' : OSCR.has(scr) ? oItemId() : scr === 'lobby' ? (lb.view === 'quit' ? (lb.q ? 'quit_no' : 'quit_yes') : LB_IDS[idx.lobby]) : els[scr] && els[scr].btns ? els[scr].btns[idx[scr]].dataset.id : scr === 'settings' ? (setIdx < SET_BACK ? SET_ROWS[setIdx][0] : 'back') : scr === 'charsel' ? IDS[sel.cur] : scr === 'partner' ? IDS[pt.cur] : scr === 'steam' ? (idx.steam < 5 ? 'rule' + (idx.steam + 1) : idx.steam === 5 ? 'start' : 'back') : scr === 'stage' ? (sel.zone === 'rule' ? 'rule' + (sel.rule + 1) : sel.stageCur === 7 ? 'exit' : 'stage' + (sel.stageCur + 1)) : scr;
 
   // ── 전투 HUD(코어 캔버스 밖 게이지 패널). RAM 읽기 전용: HP $04C2+i, 최대 HP $05EB+s(전투 시작 때 $04C2 로 복사되는 값), 캐릭터 $0401+s·$0409+s,
   //    사람·CPU 배틀은 $0645(앞 $0645 − 1 슬롯이 사람: 2 = 슬롯 0, 3 = 0·1, 4 = 0·1·2, 5 = 전원), 스토리는 $04A2+s bit7, 필살기 보유 $0605+s(bit0~7 = id 0~7)·$0609+s(bit6 = id 8, bit7 = id 9), 스테이지 id $0644, 룰 $0647(전투 시작 때 한 번만 받는다 — 전투 중 줄어든다) ──
@@ -2312,16 +2364,16 @@
   const wf = { el: null, on: false, n: 0, last: null };
   function winFx(m) {
     const v15 = !!data && m.length > 0x700 && m[0x641] === 1 && (m[0x642] & 0x7F) === 5 && (!active || ovl);
-    if (!v15) { if (wf.on) { wf.on = false; wf.el.classList.remove('on'); } return; }
+    if (!v15) { if (wf.on) { wf.on = false; if (wf.el) wf.el.classList.remove('on'); } return; } // wf.el 없음 = 첫 종료가 무승부(표시 없이 끝남)
     if (wf.on) return; wf.on = true;
-    const ffa = m[0x645] >= 2, humans = Math.min(4, m[0x645] - 1), S4 = [0, 1, 2, 3];
+    const ffa = m[0x645] >= 2, S4 = [0, 1, 2, 3];
     let won = S4.filter(s => !(m[0x4A2 + s] & 4)); if (!won.length || won.length === 4) won = S4.filter(s => m[0x4C2 + s] > 0);
     if (!ffa && won.length) { const T = won[0] >> 1; won = won.every(s => s >> 1 === T) ? [2 * T, 2 * T + 1] : []; } else if (ffa && won.length !== 1) won = [];
     wf.last = { won, ffa }; if (!won.length) return;
     if (!wf.el) { const st = document.getElementById('stage') || document.body; wf.el = el('div', '', st); wf.el.id = 'nkw'; wf.t = el('div', 't', wf.el, 'WINNER'); wf.p = el('div', 'p', wf.el); }
     wf.p.textContent = '';
     for (const s of won) {
-      const id = hud.ids[s], ch = id >= 0 ? data.characters[id] : null, es = ch ? -1 : hud.es[s], cpu = ffa ? s >= humans : !!(m[0x4A2 + s] & 0x80), who = cpu ? 'com' : s < 2 || ffa ? 'p' + (s + 1) : 'com';
+      const id = hud.ids[s], ch = id >= 0 ? data.characters[id] : null, es = ch ? -1 : hud.es[s], who = seatTok(s, ffa);
       const f = el('figure', '', wf.p); cvar(f, who); const src = ch ? face(id) : es >= 0 ? eface(es) : '';
       if (src) { const im = el('img', '', f); im.alt = ''; im.src = src; } else el('i', '', f);
       el('b', '', f, ch ? ch.name_ko : editLabel(m.slice(0x5AD + 12 * s, 0x5B2 + 12 * s)));
@@ -2329,6 +2381,8 @@
     const S = window.NKSettings; wf.el.classList.toggle('calm', !!(S && S.get('impact') === 0));
     wf.el.classList.remove('on'); void wf.el.offsetWidth; wf.el.classList.add('on'); wf.n++;
   }
+  // 자리 칩 색(HUD·WINNER, web/unit_tags.js 뱃지와 같은 규칙): 스토리(2팀, 팀 = 슬롯 >> 1) = 사람·COM 모두 팀 색 — 내 팀(온라인 내 자리, 로컬·좌석 없음 = 팀 0) 빨강(ally)·상대 팀 파랑(foe). 배틀(개인전) = 슬롯 색 p1~p4(COM 포함)
+  const seatTok = (s, ffa) => ffa ? 'p' + (s + 1) : (s >> 1) === (net.playing && net.room && net.room.you >= 0 ? net.room.you >> 1 : 0) ? 'ally' : 'foe';
   function hudTick() {
     requestAnimationFrame(hudTick);
     const m = hud.mirror.m, sub = m[0x642] & 0x7F, battle = (!active || ovl) && m.length > 0x700 && m[0x641] === 1 && (sub === 2 || sub === 4 || sub === 5);
@@ -2352,11 +2406,11 @@
     }
     for (let s = 0; s < 4; s++) {
       const f = hud.f[s], id = hud.ids[s], ch = id >= 0 ? data.characters[id] : null, hp = m[0x4C2 + s], max = Math.max(m[0x5EB + s], hp, 1), pct = hp / max * 100, cpu = ffa ? s >= humans : !!(m[0x4A2 + s] & 0x80);
-      const who = cpu ? OCOM : s < 2 || ffa ? OROLE[s] : [(s + 1) + 'P', 'com'], col = pct > 50 ? 'hp' : pct > 25 ? 'hp-mid' : 'hp-low';
+      const who = [cpu ? 'COM' : (s + 1) + 'P', seatTok(s, ffa)], col =pct > 50 ? 'hp' : pct > 25 ? 'hp-mid' : 'hp-low';
       const nm = ch ? ch.name_ko : editLabel(m.slice(0x5AD + 12 * s, 0x5B2 + 12 * s)); /* 캐릭터 표 밖(스토리의 에디트 캐릭터): 그 슬롯 기록의 이름 타일($05AD+12s, 14 문서 3.1절) → 보관한 한글 → 음역 → 「에디트」 */
       const es = ch ? -1 : hud.es[s], r = ch ? id >> 2 : es, has = r >= 0;
       if (f.id !== id || f.nmv !== nm || f.es !== es) { f.id = id; f.es = es; f.nmv = nm; f.im.style.display = has ? '' : 'none'; f.cut.classList.toggle('anon', !has); if (has) f.im.src = ch ? face(id) : eface(es); f.nm.textContent = nm; f.sch.textContent = has ? SCHOOLS[r] : ''; /* 에디트 캐릭터 = 유파 얼굴, 유파를 모르면 중립 그림 + 에디트 이름 */ f.sch.style.display = has ? '' : 'none'; cvar(f.sch, 'sch' + r); cvar(f.cut, has ? 'sch' + r : 'com'); }
-      f.who.textContent = who[0]; cvar(f.who, who[1]); f.cut.style.setProperty('--pc', 'var(--' + who[1] + ')');
+      f.who.textContent = who[0]; cvar(f.who, who[1]); f.who.classList.toggle('tm', !ffa); f.who.classList.toggle('foe', who[1] === 'foe'); f.cut.style.setProperty('--pc', 'var(--' + who[1] + ')');
       f.g.fill.style.width = pct + '%'; cvar(f.g, col); cvar(f.num, col); f.num.textContent = hp;
       if (hp !== hud.hp[s]) { f.g.lag.style.transition = hud.hp[s] >= 0 && hp < hud.hp[s] ? '' : 'none'; f.g.lag.style.width = pct + '%'; hud.hp[s] = hp; } // 피해 직후 흰 잔상: 0.4초 남았다가 0.3초 동안 줄어든다(CSS). 회복·새 시합은 바로
       f.g.style.setProperty('--tick', 50 / max * 100 + '%'); // HP 눈금 50 단위
@@ -2385,7 +2439,7 @@
     buildHud(); placeHud(); requestAnimationFrame(hudTick); setTimeout(warmHud, 2000);
     if (!data && !dataErr && !fetched) pfetch('/ui/characters.json').then(r => r.ok ? r.json() : null).then(j => { if (j && j.characters && !data) data = j; }).catch(() => { /* 자료 없음 = HUD 없음(원작 HUD 만) */ });
   }
-  window.NKManga = { enabled, relayout: () => { if (hud.root) placeHud(); }, get fieldOnly() { const m = hud.mirror && hud.mirror.m, sub = m ? m[0x642] & 0x7F : 0; return !!m && !!data && !!set.hud && (!active || ovl) && m.length > 0x700 && m[0x641] === 1 && (sub === 2 || sub === 4 || sub === 5); } /* 게이지 패널을 띄울 전투(hudTick 의 battle·on 과 같은 조건, 패널 배율은 game.js 가 본다) → 원작 하단 HUD 를 가리고 필드를 키운다 */, addPlans: addPlan /* 구동 계획만 등록(Node 검증용, DOM 없음) */, teamCards /* 팀·룰 카드 수치(Node 대조용, DOM 없음) */, lobbyInfo, lobbySnap /* 대기실 자료(Node 대조용, DOM 없음) */, init, show, hide, driveFailed, driveDone, toast, titleBg /* game.js: 타이틀 대기 중 원작 타이틀 프레임 */, lobbyBg /* game.js: 대기실 덮개 동안 원작 체육관 컷 */, get lobbyLive() { return { on: lg.on, frames: lg.frames }; }, get titleLive() { return { on: tl.on, frames: tl.frames, skip: tl.skip, tile: !!tl.tile }; }, initHud, pause, result, bracket, lobby, onlineEnd, forfeitTap, storyPoint /* game.js: 저장 지점 */, get storyState() { return storyState(); }, get online() { return (active && OSCR.has(scr)) || net.playing; }, get onlineState() { return onlineState(); }, get active() { return active; }, get overlay() { return active && ovl; }, get settings() { return Object.assign({}, set); }, get tagInfo() { return tagInfo(); }, get winFx() { return { on: wf.on, n: wf.n, last: wf.last }; },
+  window.NKManga = { enabled, relayout: () => { if (hud.root) placeHud(); }, get fieldOnly() { const m = hud.mirror && hud.mirror.m, sub = m ? m[0x642] & 0x7F : 0; return !!m && !!data && !!set.hud && (!active || ovl) && m.length > 0x700 && m[0x641] === 1 && (sub === 2 || sub === 4 || sub === 5); } /* 게이지 패널을 띄울 전투(hudTick 의 battle·on 과 같은 조건, 패널 배율은 game.js 가 본다) → 원작 하단 HUD 를 가리고 필드를 키운다 */, addPlans: addPlan /* 구동 계획만 등록(Node 검증용, DOM 없음) */, teamCards /* 팀·룰 카드 수치(Node 대조용, DOM 없음) */, lobbyInfo, lobbySnap /* 대기실 자료(Node 대조용, DOM 없음) */, init, show, hide, otherGames: { config: OTHER_GAMES, list: OG_LIST.map(g => Object.assign({}, g)), open: ogOpen, close: ogClose, get isOpen() { return ogm.open; } } /* 다른 게임 팝업(타이틀 전용) */, driveFailed, driveDone, toast, titleBg /* game.js: 타이틀 대기 중 원작 타이틀 프레임 */, lobbyBg /* game.js: 대기실 덮개 동안 원작 체육관 컷 */, get lobbyLive() { return { on: lg.on, frames: lg.frames }; }, get titleLive() { return { on: tl.on, frames: tl.frames, skip: tl.skip, tile: !!tl.tile }; }, initHud, pause, result, bracket, lobby, onlineEnd, forfeitTap, storyPoint /* game.js: 저장 지점 */, get storyState() { return storyState(); }, get online() { return (active && OSCR.has(scr)) || net.playing; }, get onlineState() { return onlineState(); }, get active() { return active; }, get overlay() { return active && ovl; }, get settings() { return Object.assign({}, set); }, get tagInfo() { return tagInfo(); }, get winFx() { return { on: wf.on, n: wf.n, last: wf.last }; },
     get state() { return { active, busy, overlay: ovl, screen: scr, index: scr in idx ? idx[scr] : scr === 'settings' ? setIdx : -1, settings: Object.assign({}, set), again: sel.again, result: { title: els.result ? els.result.ttl.textContent : '', win: res.win.map(f => IDS[f.id]), lose: res.lose.map(f => IDS[f.id]), sec: res.sec }, item: itemId(), toast: !!els.toast && els.toast.classList.contains('on'), data: !!data, dataErr, bracket: { round: brk.round, order: brk.order.slice(), teams: brk.order.map(t => ({ t, ids: brk.team[t].ids.slice(), w: brk.team[t].w, l: brk.team[t].l })), names: els.bracket ? els.bracket.rows.map(r => r.side.map(o => o.nm.textContent)) : [], me: els.bracket ? els.bracket.meNm.textContent : '' }, edit: { name: ed.name, month: ed.month, day: ed.day, blood: BLOOD[ed.blood], zodiac: ZOD[zodiacOf(ed.month, ed.day)], focus: els.edit ? (document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id || '' : '') : '' }, lobby: { view: lb.view, wait: lb.wait, q: lb.q, pre: !!lb.pre, info: lb.info ? { cards: lb.info.cards.map(c => ({ id: c.id >= 0 ? IDS[c.id] : null, name: c.name, lv: c.lv, up: c.up, stats: Object.assign({}, c.stats), prev: c.prev ? Object.assign({}, c.prev) : null, sp: c.sp.slice() })), w: lb.info.w, l: lb.info.l, last: lb.info.last, next: lb.info.next, team: lb.info.team, rule: lb.info.rule } : null }, story: { partner: IDS[pt.cur], picked: pt.partner >= 0 ? IDS[pt.partner] : null, rule: pt.rule, driven: !!pt.driven, run: pt.run, team: pt.team ? pt.team.map(t => ({ id: t.id >= 0 ? IDS[t.id] : null, name: t.name, lv: t.lv, month: t.month, day: t.day, blood: t.blood, zodiac: t.zodiac, stats: Object.assign({}, t.stats), sp: t.sp.slice() })) : null }, players: sel.players, picks: sel.picks.map(i => IDS[i]), cursor: IDS[sel.cur], zone: sel.zone, stage: sel.stage, rule: sel.rule }; },
     resultCard: () => { const sp = cardSpec(); return sp ? cardCanvas(sp).then(c => c.toDataURL('image/png')) : Promise.resolve(null); }, // 검증용: 지금 결과 화면의 카드 PNG(data URL)
     get chalState() { return { data: ch.data, wait: ch.wait, q: pf.q.slice() }; },

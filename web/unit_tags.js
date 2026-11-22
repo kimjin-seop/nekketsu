@@ -3,7 +3,7 @@
 // 위치(RAM 읽기만): 발 기준점 화면 X $0411+s · 화면 Y $0421+s(높이 포함), 그림 $5B+s(bit7 = 0 이면 좌우 반전), 몸통 시트 $0401+s(08 문서 1절).
 //   머리 위 = 그 그림의 메타스프라이트 조각 중 가장 위(ROM bank4 $800F 표를 여기서 읽는다), 가로 = 조각 폭의 가운데.
 //   화면은 RAM 보다 4프레임 늦다(측정: 표시 OAM 과 RAM 으로 계산한 조각 일치 — 4프레임 전 RAM 95~97%, 지금 RAM 57~72%) → game.js 가 넘긴 프레임별 RAM 중 4프레임 전 것을 쓴다.
-// 편(자료만, 2026-11-22 부터 그리지 않음): 스토리($0645 < 2) = 팀 = 슬롯 >> 1. 배틀($0645 ≥ 2) = 기준 자리(온라인 내 자리 · 로컬 1P) red, 나머지 blue. 화면 표식 = 자리 뱃지(1P~4P·COM, HUD 칩과 같은 글자·색).
+// 편(자료만, 2026-11-22 부터 그리지 않음): 스토리($0645 < 2) = 팀 = 슬롯 >> 1. 배틀($0645 ≥ 2) = 기준 자리(온라인 내 자리 · 로컬 1P) red, 나머지 blue. 화면 표식 = 자리 뱃지(1P~4P·COM, HUD 칩과 같은 글자·색: 스토리 = 팀 색 아군 빨강·적군 파랑, 배틀 = 슬롯 4색).
 // 사람: 배틀 = 앞 $0645 − 1 슬롯, 스토리 = $04A2+s bit7 이 꺼진 슬롯(ui_manga.js HUD 와 같은 식). 내 선수(온라인 내 자리 · 로컬 사람) = 뱃지 흰 테.
 // 설정(NKManga.tagInfo.mode): 0 끔 · 1 자리 뱃지만 · 2 자리 뱃지 + 이름(기본). 쓰러진 선수(HP 0)·전투 밖·메뉴 덮개 중에는 그리지 않는다.
 (function (root) {
@@ -45,11 +45,13 @@
     const ffa = v >= 2, humans = Math.min(4, v - 1), human = ffa ? s < humans : !(m[0x4A2 + s] & 0x80);
     const mine = human && (info.you >= 0 ? s === info.you : true);
     const red = ffa ? s === (info.you >= 0 ? info.you : 0) : !(s >> 1);
-    const badge = human ? (s + 1) + 'P' : 'COM', bk = !human ? 'com' : (s < 2 || ffa ? 'p' + (s + 1) : 'com'); // 뱃지 = ui_manga.js HUD 패널의 자리 칩과 같은 글자·색(스토리 3·4P 사람 = 회색 칩)
+    const myT = info.you >= 0 ? info.you >> 1 : 0; // 스토리(팀전) 내 팀 = 온라인 내 자리의 팀, 로컬(1P = 슬롯 0)·좌석 없음 = 팀 0
+    const badge = human ? (s + 1) + 'P' : 'COM', bk = ffa ? 'p' + (s + 1) : (s >> 1) === myT ? 'ally' : 'foe'; // 뱃지 색 = ui_manga.js HUD 패널의 자리 칩과 같은 규칙: 스토리(2팀) = 사람·COM 모두 팀 색(아군 빨강·적군 파랑), 배틀(개인전) = 슬롯 색(1P 빨강·2P 파랑·3P 초록·4P 노랑, COM 포함)
     return { c: red ? 'red' : 'blue', shape: red ? 'tri' : 'dot', human, mine, badge, bk }; // c·shape = 편(내 편/상대) 자료만 남김(그리지 않음)
   }
   // 뱃지 색 = ui_manga.css --p1~p4·--com, 색약 보정(NKA11y.colorblind) = a11y.css 와 같은 Okabe-Ito 계열. 색만으로 가르지 않게 글자(1P~4P·COM)를 같이 쓴다
-  const BCOL = { p1: '#FF5252', p2: '#409CFF', p3: '#3DDC84', p4: '#FF9F1C', com: '#AAAABE' }, BCOL_CB = { p1: '#E69F00', p2: '#56B4E9', p3: '#F0E442', p4: '#CC79A7', com: '#AAAABE' };
+  const BCOL = { p1: '#FF5252', p2: '#409CFF', p3: '#3DDC84', p4: '#FFD23F', com: '#AAAABE', ally: '#E5383B', foe: '#2F6FE0' }, BCOL_CB = { p1: '#E69F00', p2: '#56B4E9', p3: '#F0E442', p4: '#CC79A7', com: '#AAAABE', ally: '#D55E00', foe: '#0072B2' };
+  const TEAMK = { ally: 1, foe: 1 }; // 팀 뱃지 = 흰 글씨. 색약 보정 중에는 「COM」 앞에 도형(아군 ▲ · 적군 ●)을 같이 그린다
   // 이름: 온라인 사람 = 대기실 닉네임. 로컬 = 1P 사람은 로그인한 계정 닉네임 → 없으면(그 외 모두) 캐릭터 이름(에디트 = 음역 이름). 6자 넘으면 5자 + …
   const clip = t => { const a = Array.from(String(t || '').trim()); return a.length > 6 ? a.slice(0, 5).join('') + '…' : a.join(''); };
   const nameOf = (s, sy, info) => clip((info.seats && info.seats[s]) || (info.you < 0 && sy.human && s === 0 && info.nick) || (info.names && info.names[s]) || '');
@@ -81,20 +83,22 @@
     st.lag = cur.f - R.f;
     const S = place(FIELD), pts = locate(boxes, R.m), withName = info.mode === 2;
     const dpr = window.devicePixelRatio || 1, fpx = Math.max(10 * Math.max(1, Math.round(S / 3)), Math.round(10 * dpr)); ctx.font = fpx + 'px NKM9,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const out = [], boxesL = [], PAL = root.NKA11y && root.NKA11y.colorblind ? BCOL_CB : BCOL; // boxesL = 이미 그린 띠(겹치면 위로 한 줄씩 비킨다)
+    const CB = !!(root.NKA11y && root.NKA11y.colorblind), out = [], boxesL = [], PAL = CB ? BCOL_CB : BCOL; // boxesL = 이미 그린 띠(겹치면 위로 한 줄씩 비킨다)
     const bh = Math.round(fpx * 1.2), pw = Math.round(fpx * 0.35), bp = Math.max(1, Math.round(fpx * 0.25)), ln = Math.max(1, Math.round(fpx / 8)); // 띠 높이 · 이름 좌우 여백 · 뱃지 좌우 여백 · 내 선수 흰 테 굵기
     for (const p of pts) {
       const sy = style(m, p.s, info), x = Math.max(4, Math.min(252, p.x)) * S, top = Math.max(bh + 2, Math.min(FIELD, p.top - 2) * S); // 머리 위 2픽셀(띠까지 화면 안), 옆 끝은 안쪽으로
       const lab = withName ? nameOf(p.s, sy, info) : '';
       // 머리 위 한 줄 = [자리 뱃지(1P~4P·COM, 자리 색 바탕 + 검은 글씨)][이름(반투명 검은 띠 + 흰 글씨)]. 종전 팀 표식(▲·●)은 뱃지로 대체. 이름은 6자 넘으면 줄이고 띠는 화면 안쪽으로 민다
-      const bwB = Math.ceil(ctx.measureText(sy.badge).width) + 2 * bp, tw = lab ? Math.ceil(ctx.measureText(lab).width) : 0, bw = bwB + (lab ? tw + 2 * pw : 0), bx = Math.round(Math.max(0, Math.min(ov.width - bw, x - bw / 2)));
+      const team = !!TEAMK[sy.bk], mk = team && CB ? Math.round(fpx * 0.6) : 0, mg = mk ? Math.max(1, Math.round(fpx * 0.15)) : 0; // mk = 색약 도형 크기, mg = 도형 뒤 간격
+      const bwB = Math.ceil(ctx.measureText(sy.badge).width) + 2 * bp + mk + mg, tw = lab ? Math.ceil(ctx.measureText(lab).width) : 0, bw = bwB + (lab ? tw + 2 * pw : 0), bx = Math.round(Math.max(0, Math.min(ov.width - bw, x - bw / 2)));
       let by = Math.round(top - bh);
       const hit = y => boxesL.some(b => bx < b[0] + b[2] && b[0] < bx + bw && y < b[1] + bh + 1 && b[1] < y + bh + 1);
       for (let k = 0; k < 3 && hit(by); k++) by = by - bh - 1 >= 0 ? by - bh - 1 : by + bh + 1; // 겹침 = 한 줄 위(화면 위 끝이면 아래)
       boxesL.push([bx, by, bw]);
       if (lab) { ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(bx + bwB, by, bw - bwB, bh); ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.fillText(lab, bx + bwB + pw + tw / 2, by + bh / 2); }
       ctx.globalAlpha = 0.95; ctx.fillStyle = PAL[sy.bk] || BCOL.com; ctx.fillRect(bx, by, bwB, bh);
-      ctx.fillStyle = '#000'; ctx.fillText(sy.badge, bx + bwB / 2, by + bh / 2);
+      ctx.fillStyle = team ? '#fff' : '#000'; ctx.fillText(sy.badge, bx + (bwB + mk + mg) / 2, by + bh / 2);
+      if (mk) { const mx = bx + bp, my = by + (bh - mk) / 2; ctx.beginPath(); if (sy.bk === 'ally') { ctx.moveTo(mx + mk / 2, my); ctx.lineTo(mx + mk, my + mk); ctx.lineTo(mx, my + mk); ctx.closePath(); } else ctx.arc(mx + mk / 2, my + mk / 2, mk / 2, 0, 2 * Math.PI); ctx.fill(); } // 색약: 아군 ▲ · 적군 ●
       if (sy.mine) { ctx.lineWidth = ln; ctx.strokeStyle = '#fff'; ctx.strokeRect(bx + ln / 2, by + ln / 2, bwB - ln, bh - ln); } // 내 선수(온라인 내 자리·로컬 사람) = 뱃지 흰 테
       out.push({ s: p.s, x: p.x, top: p.top, c: sy.c, shape: sy.shape, mine: sy.mine, badge: sy.badge, bk: sy.bk, bc: PAL[sy.bk] || BCOL.com, label: lab, box: boxesL[boxesL.length - 1].concat(bh), hp: p.hp }); // box = 띠(뱃지 + 이름) [x, y, 폭, 높이](디바이스 픽셀)
     }
