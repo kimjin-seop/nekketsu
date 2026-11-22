@@ -5,7 +5,7 @@
 //   화면은 RAM 보다 4프레임 늦다(측정: 표시 OAM 과 RAM 으로 계산한 조각 일치 — 4프레임 전 RAM 95~97%, 지금 RAM 57~72%) → game.js 가 넘긴 프레임별 RAM 중 4프레임 전 것을 쓴다.
 // 편(자료만, 2026-11-22 부터 그리지 않음): 스토리($0645 < 2) = 팀 = 슬롯 >> 1. 배틀($0645 ≥ 2) = 기준 자리(온라인 내 자리 · 로컬 1P) red, 나머지 blue. 화면 표식 = 자리 뱃지(1P~4P·COM, HUD 칩과 같은 글자·색: 스토리 = 팀 색 아군 빨강·적군 파랑, 배틀 = 슬롯 4색).
 // 사람: 배틀 = 앞 $0645 − 1 슬롯, 스토리 = $04A2+s bit7 이 꺼진 슬롯(ui_manga.js HUD 와 같은 식). 내 선수(온라인 내 자리 · 로컬 사람) = 뱃지 흰 테.
-// 설정(NKManga.tagInfo.mode): 0 끔 · 1 자리 뱃지만 · 2 자리 뱃지 + 이름(기본). 쓰러진 선수(HP 0)·전투 밖·메뉴 덮개 중에는 그리지 않는다.
+// 설정(NKManga.tagInfo.mode): 0 끔 · 1 자리 뱃지만 · 2 자리 뱃지 + 이름(기본). 탈락한 선수($04A2 bit6 · 행동 66/67)·전투 밖·메뉴 덮개 중에는 그리지 않는다.
 (function (root) {
   const OX = 88, FIELD = 188, LAG = 4;
   const NCAT = [110, 108, 104, 110, 122]; // 시트 0~4 의 그림 수(08 문서 1절)
@@ -28,10 +28,11 @@
     return out;
   }
   // RAM 한 장 → 슬롯별 표식 자리(코어 화면 좌표). DOM 없음(Node 검증용). 반환 [{ s, x, top, hp }] (그릴 수 없는 슬롯은 빠진다)
+  const isOut = (m, s) => !!(m[0x4A2 + s] & 0x40) || (m[0x49E + s] & 0x7F) === 0x66 || (m[0x49E + s] & 0x7F) === 0x67; // 탈락 확정(tutorial.js 와 같은 식)
   function locate(boxes, m) {
     const out = [];
     for (let s = 0; s < 4; s++) {
-      const hp = m[0x4C2 + s], cat = m[0x401 + s], f = m[0x5B + s]; if (!hp || cat >= boxes.length) continue;
+      const hp = m[0x4C2 + s], cat = m[0x401 + s], f = m[0x5B + s]; if (isOut(m, s) || cat >= boxes.length) continue; // 탈락 확정 전까지는 HP 0 이어도 그린다(원작: HP 0 인 채로 싸우다 다운·착지 때 탈락)
       const b = boxes[cat][f & 0x7F]; if (!b) continue;
       const flip = !(f & 0x80), cx = flip ? -(b[0] + b[1]) / 2 : (b[0] + b[1]) / 2, y = m[0x421 + s];
       out.push({ s, x: m[0x411 + s] + cx, top: (y > 200 ? y - 256 : y) + b[2] + 1, hp });
@@ -41,6 +42,8 @@
   // → { c, shape, human, mine }. 스토리 = 팀(슬롯 >> 1). 배틀 = 원작이 개인전이라 팀 값이 없다 → 「내 편/상대」로 가른다:
   //   기준 자리 = 온라인 내 자리(room.you), 로컬은 1P(슬롯 0). 기준 자리 = 빨강 ▲, 나머지(상대 사람·CPU) = 파랑 ●. $0645 가 알 수 없는 값이면 중립(회색 ●)
   function style(m, s, info) {
+    const T = info && info.team; // 온라인 팀전(2:2, analysis/30): 팀 = 자리 >> 1, 뱃지 = 팀 색(레드 팀 tr · 블루 팀 tb, 사람·COM 공통), 사람/COM = cfg.team.cpu
+    if (T) { const human = !T[s], red = !(s >> 1); return { c: red ? 'red' : 'blue', shape: red ? 'tri' : 'dot', human, mine: human && s === info.you, badge: human ? (s + 1) + 'P' : 'COM', bk: red ? 'tr' : 'tb' }; }
     const v = m[0x645]; if (v > 5) return { c: 'gray', shape: 'dot', human: false, mine: false, badge: 'COM', bk: 'com' };
     const ffa = v >= 2, humans = Math.min(4, v - 1), human = ffa ? s < humans : !(m[0x4A2 + s] & 0x80);
     const mine = human && (info.you >= 0 ? s === info.you : true);
@@ -50,8 +53,8 @@
     return { c: red ? 'red' : 'blue', shape: red ? 'tri' : 'dot', human, mine, badge, bk }; // c·shape = 편(내 편/상대) 자료만 남김(그리지 않음)
   }
   // 뱃지 색 = ui_manga.css --p1~p4·--com, 색약 보정(NKA11y.colorblind) = a11y.css 와 같은 Okabe-Ito 계열. 색만으로 가르지 않게 글자(1P~4P·COM)를 같이 쓴다
-  const BCOL = { p1: '#FF5252', p2: '#409CFF', p3: '#3DDC84', p4: '#FFD23F', com: '#AAAABE', ally: '#E5383B', foe: '#2F6FE0' }, BCOL_CB = { p1: '#E69F00', p2: '#56B4E9', p3: '#F0E442', p4: '#CC79A7', com: '#AAAABE', ally: '#D55E00', foe: '#0072B2' };
-  const TEAMK = { ally: 1, foe: 1 }; // 팀 뱃지 = 흰 글씨. 색약 보정 중에는 「COM」 앞에 도형(아군 ▲ · 적군 ●)을 같이 그린다
+  const BCOL = { p1: '#FF5252', p2: '#409CFF', p3: '#3DDC84', p4: '#FFD23F', com: '#AAAABE', ally: '#E5383B', foe: '#2F6FE0', tr: '#E5383B', tb: '#2F6FE0' }, BCOL_CB = { p1: '#E69F00', p2: '#56B4E9', p3: '#F0E442', p4: '#CC79A7', com: '#AAAABE', ally: '#D55E00', foe: '#0072B2', tr: '#D55E00', tb: '#0072B2' };
+  const TEAMK = { ally: 1, foe: 1, tr: 1, tb: 1 }; // 팀 뱃지 = 흰 글씨. 색약 보정 중에는 「COM」 앞에 도형(아군 ▲ · 적군 ●)을 같이 그린다
   // 이름: 온라인 사람 = 대기실 닉네임. 로컬 = 1P 사람은 로그인한 계정 닉네임 → 없으면(그 외 모두) 캐릭터 이름(에디트 = 음역 이름). 6자 넘으면 5자 + …
   const clip = t => { const a = Array.from(String(t || '').trim()); return a.length > 6 ? a.slice(0, 5).join('') + '…' : a.join(''); };
   const nameOf = (s, sy, info) => clip((info.seats && info.seats[s]) || (info.you < 0 && sy.human && s === 0 && info.nick) || (info.names && info.names[s]) || '');
@@ -98,7 +101,7 @@
       if (lab) { ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(bx + bwB, by, bw - bwB, bh); ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.fillText(lab, bx + bwB + pw + tw / 2, by + bh / 2); }
       ctx.globalAlpha = 0.95; ctx.fillStyle = PAL[sy.bk] || BCOL.com; ctx.fillRect(bx, by, bwB, bh);
       ctx.fillStyle = team ? '#fff' : '#000'; ctx.fillText(sy.badge, bx + (bwB + mk + mg) / 2, by + bh / 2);
-      if (mk) { const mx = bx + bp, my = by + (bh - mk) / 2; ctx.beginPath(); if (sy.bk === 'ally') { ctx.moveTo(mx + mk / 2, my); ctx.lineTo(mx + mk, my + mk); ctx.lineTo(mx, my + mk); ctx.closePath(); } else ctx.arc(mx + mk / 2, my + mk / 2, mk / 2, 0, 2 * Math.PI); ctx.fill(); } // 색약: 아군 ▲ · 적군 ●
+      if (mk) { const mx = bx + bp, my = by + (bh - mk) / 2; ctx.beginPath(); if (sy.bk === 'ally' || sy.bk === 'tr') { ctx.moveTo(mx + mk / 2, my); ctx.lineTo(mx + mk, my + mk); ctx.lineTo(mx, my + mk); ctx.closePath(); } else ctx.arc(mx + mk / 2, my + mk / 2, mk / 2, 0, 2 * Math.PI); ctx.fill(); } // 색약: 아군 ▲ · 적군 ●
       if (sy.mine) { ctx.lineWidth = ln; ctx.strokeStyle = '#fff'; ctx.strokeRect(bx + ln / 2, by + ln / 2, bwB - ln, bh - ln); } // 내 선수(온라인 내 자리·로컬 사람) = 뱃지 흰 테
       out.push({ s: p.s, x: p.x, top: p.top, c: sy.c, shape: sy.shape, mine: sy.mine, badge: sy.badge, bk: sy.bk, bc: PAL[sy.bk] || BCOL.com, label: lab, box: boxesL[boxesL.length - 1].concat(bh), hp: p.hp }); // box = 띠(뱃지 + 이름) [x, y, 폭, 높이](디바이스 픽셀)
     }

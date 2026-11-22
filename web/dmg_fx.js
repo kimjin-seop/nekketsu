@@ -15,17 +15,19 @@
   const calmQ = root.matchMedia ? root.matchMedia('(prefers-reduced-motion: reduce)') : null;
   const fxLv = () => { const S = root.NKSettings, v = S ? S.get('fxlv') : 2; return Number.isInteger(v) ? v : 2; };
   const enabled = () => { const M = root.NKManga, S = root.NKSettings; if (!M || !S) return false; return S.get('hitfx') !== 0 && fxLv() > 0 && !(M.active && !M.overlay); };
-  // 전투 표식(DOM 없음): KO·필살 시작. final = 그 KO 로 판이 끝나는 쪽(배틀 = 남은 선수 1 이하 또는 사람 모두 쓰러짐, 스토리 = 그 팀 둘 다 0)
+  // 전투 표식(DOM 없음): KO·필살 시작. KO = 탈락 확정으로 새로 든 슬롯($04A2+s bit6 · 행동 66/67, tutorial.js 와 같은 식. HP 0 만으로는 탈락이 아니다 — 원작은 HP 0 인 채로 싸우다 다운·착지 때 확정).
+  //   final = 그 KO 로 판이 끝나는 쪽(배틀 = 탈락 안 한 선수 1 이하 또는 사람 모두 탈락, 스토리 = 그 팀 둘 다 탈락)
+  const isOut = (m, s) => !!(m[0x4A2 + s] & 0x40) || (m[0x49E + s] & 0x7F) === 0x66 || (m[0x49E + s] & 0x7F) === 0x67;
   function marks(p, m) {
     const out = []; if (!p || !inFight(p) || !inFight(m)) return out;
     const SP = root.NKHitFx && root.NKHitFx.SPECIAL, cut = a => SP.has(a) && !MACH.has(a);
     for (let s = 0; s < 4; s++) {
-      if (p[0x4C2 + s] > 0 && m[0x4C2 + s] === 0) {
+      if (!isOut(p, s) && isOut(m, s)) {
         const v = m[0x645]; let final;
-        if (v >= 2) { let alive = 0, hum = 0; const H = Math.min(4, v - 1); for (let k = 0; k < 4; k++) if (m[0x4C2 + k] > 0) { alive++; if (k < H) hum++; } final = alive <= 1 || hum === 0; }
-        else { const t = s & 2; final = m[0x4C2 + t] === 0 && m[0x4C2 + t + 1] === 0; }
+        if (v >= 2) { let alive = 0, hum = 0; const H = Math.min(4, v - 1); for (let k = 0; k < 4; k++) if (!isOut(m, k)) { alive++; if (k < H) hum++; } final = alive <= 1 || hum === 0; }
+        else { const t = s & 2; final = isOut(m, t) && isOut(m, t + 1); }
         out.push({ t: 'ko', s, final, hu: human(m, s) });
-      } else if (SP && m[0x4C2 + s] > 0 && cut(m[0x49E + s] & 0x7F) && !SP.has(p[0x49E + s] & 0x7F)) out.push({ t: 'sp', s, final: false, hu: human(m, s), act: m[0x49E + s] & 0x7F });
+      } else if (SP && !isOut(m, s) && cut(m[0x49E + s] & 0x7F) && !SP.has(p[0x49E + s] & 0x7F)) out.push({ t: 'sp', s, final: false, hu: human(m, s), act: m[0x49E + s] & 0x7F });
     }
     return out;
   }

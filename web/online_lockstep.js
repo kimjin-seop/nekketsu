@@ -10,7 +10,7 @@
 //   .exec / .have / .sent / .width : 다음 실행 프레임 / 끊김 없이 확정된 프레임 수 / 보낸 내 입력 수 / 한 프레임 폭 W
 (function (root) {
   function create(o) {
-    const cfg = o.cfg, lead = cfg.lead | 0, delay = Math.max(1, cfg.delay | 0), every = cfg.hashEvery | 0, W = cfg.humans >= 2 && cfg.humans <= 4 ? cfg.humans | 0 : 2;
+    const cfg = o.cfg, lead = cfg.lead | 0, delay = Math.max(1, cfg.delay | 0), every = cfg.hashEvery | 0, W = cfg.humans >= 1 && cfg.humans <= 4 ? cfg.humans | 0 : 2;
     const conf = [];          // conf[k*W + 자리]
     const mine = [];          // 내가 보낸 입력(재접속 때 다시 보내기용)
     let exec = lead, have = 0, sent = 0;

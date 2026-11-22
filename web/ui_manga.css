@@ -5,8 +5,8 @@
 /* Galmuri9 는 다른 이름(NKM9)으로 올린다: web/korean.js 가 같은 이름의 FontFace 를 따로 올리고 document.fonts.check 로 확인하므로, 같은 이름의 미사용 @font-face 가 있으면 그 확인이 실패한다 */
 @font-face{font-family:NKM9;src:url(/fonts/Galmuri9.ttf) format('truetype');font-display:block}
 @font-face{font-family:Galmuri14;src:url(/fonts/Galmuri14.ttf) format('truetype');font-display:block}
-#nkm,#nkm-hud,#nko-bt,#nkw{--wall:#8814B0;--wall-text:#E454EC;--outer:#20002E;--text:#fff;--sub:#BEBAD2;--dim:#78748C;--hp:#45E06A;--te:#FFB02E;--ashi:#FF5C7A;--nage:#B983FF;--subaya:#38D6F5;--bougyo:#5C8BFF;
-  --hp-low:#FF4646;--hp-mid:#FFC83C;--p1:#FF5252;--p2:#409CFF;--p3:#3DDC84;--p4:#FFD23F;--com:#AAAABE;--ally:#E5383B;--foe:#2F6FE0;--sch0:#FF9A2E;--sch1:#35C8F0;--sch2:#FF5FA2;--sch3:#A77BFF;--focus:#FFE14D;--card-line:#56526E;--row-sel:#461860;
+#nkm,#nkm-hud,#nko-bt,#nkw,#nko-fq{--wall:#8814B0;--wall-text:#E454EC;--outer:#20002E;--text:#fff;--sub:#BEBAD2;--dim:#78748C;--hp:#45E06A;--te:#FFB02E;--ashi:#FF5C7A;--nage:#B983FF;--subaya:#38D6F5;--bougyo:#5C8BFF;
+  --hp-low:#FF4646;--hp-mid:#FFC83C;--p1:#FF5252;--p2:#409CFF;--p3:#3DDC84;--p4:#FFD23F;--com:#AAAABE;--ally:#E5383B;--foe:#2F6FE0;--tr:#E5383B;--tb:#2F6FE0;--sch0:#FF9A2E;--sch1:#35C8F0;--sch2:#FF5FA2;--sch3:#A77BFF;--focus:#FFE14D;--card-line:#56526E;--row-sel:#461860;
   color:var(--text);font:24px/1.2 Galmuri11,monospace;user-select:none;-webkit-tap-highlight-color:transparent;cursor:default}
 #nkm{position:fixed;inset:0;z-index:1;display:none;overflow:hidden;background:var(--wall);touch-action:manipulation}
 #nkm.on{display:block}
@@ -145,6 +145,9 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 .nkh-f .nkm-cut img{object-position:50% 12%}
 .nkh-f.low .nkm-cut{box-shadow:0 0 12px var(--hp-low);animation:nkm-pulse .8s ease-in-out infinite}
 .nkh-f.ko .nkm-cut img{filter:grayscale(1) brightness(.5)}
+.nkh-f.crit .nkh-hp{color:var(--hp-low);animation:nkh-crit .5s steps(1) infinite} /* HP 0 이지만 아직 탈락 전(ui_manga.js crit) */
+@keyframes nkh-crit{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.nkh-f.crit .nkh-hp{animation:none}}
 .nkh-chips{position:absolute;left:106px;top:2px;right:0;display:flex;justify-content:space-between}
 .nkh-chips .nkm-chip{padding:0 5px}
 .nkh-name{position:absolute;left:106px;top:38px;right:0;font:700 24px/36px Galmuri11,monospace;white-space:nowrap;text-shadow:2px 2px 0 #000}
@@ -313,6 +316,16 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 #nko-ff:hover{opacity:1;border-color:#fff;color:#fff}
 #nko-ff.arm{opacity:1;border-color:#fff;background:#D8263C;color:#fff;font-weight:700}
 #nko-ff.sent{opacity:.4;pointer-events:none}
+/* 기권 확인 창(ui_manga.js buildFf): 대전 위 가운데 작은 창. 판은 계속 돌므로 덮개는 누름을 막지 않는다(창만 누름) */
+#nko-fq{display:none;position:fixed;inset:0;z-index:5;align-items:center;justify-content:center;pointer-events:none}
+#nko-fq.on{display:flex}
+#nko-fq .nkm-win{position:relative;pointer-events:auto;padding:16px 18px 18px;max-width:calc(100vw - 24px);text-align:center}
+#nko-fq .q{font:700 calc(22px*var(--nkfs,1))/1.3 Galmuri11,monospace;margin:2px 0 14px;white-space:nowrap}
+#nko-fq .r{display:flex;gap:14px;justify-content:center}
+#nko-fq .nkm-btn{position:relative;min-width:112px;min-height:48px;padding:0 14px;font-size:calc(20px*var(--nkfs,1));touch-action:manipulation;user-select:none}
+#nko-fq .nkm-btn.fy:not(.cur){border-color:#FF4646;color:#FF7A7A}
+#nko-fq .nkm-btn.fy.cur{border-color:#fff;color:#fff;background:linear-gradient(#F0465A,#B0162A);box-shadow:0 0 12px rgba(255,70,70,.6)}
+@media (prefers-reduced-motion:reduce){#nko-fq .nkm-btn.cur{animation:none}}
 /* 스토리 1단계(analysis/23 4.1·4.2절): 파트너 선택의 「내 팀」 줄 · 팀·룰 카드 2장과 룰 5줄 */
 .nkp-team{position:absolute;display:flex;align-items:center;justify-content:flex-end;gap:10px;white-space:nowrap;font:700 24px/1 Galmuri11,monospace}
 .nkp-team .nkm-cut{position:relative;flex:none;width:48px;height:48px}
@@ -632,3 +645,12 @@ html.nk-mob .nkm-keys{display:none}
 .nkog-row:focus-visible,.nkog-x:focus-visible{outline:2px solid #fff;outline-offset:2px}
 @media (max-width:420px){.nkog-box{padding:8px 10px 12px}.nkog-row{gap:6px;padding:6px 8px}.nkog-row b{font-size:calc(16px * var(--nkfs,1))}.nkog-row span{font-size:calc(13px * var(--nkfs,1))}}
 @media (prefers-reduced-motion:reduce){.nkog.on{animation:none}}
+/* 온라인 팀전 2:2(analysis/30 10절, ui_manga.js teamOn·tRole): 팀 색 = 레드 팀(자리 0·1) --tr · 블루 팀(자리 2·3) --tb. 칩 글자는 흰색(.tm), 색약 보정 도형은 a11y.css */
+.nko-seat.tr,.nko-seat.tb{--tc:var(--tr);background:linear-gradient(color-mix(in srgb,var(--tc) 30%,#1A1826),#0A0A10 45%,#06060A)}
+.nko-seat.tb{--tc:var(--tb)}
+.nko-seat.tr::after,.nko-seat.tb::after{content:"";position:absolute;left:3px;right:3px;top:3px;height:5px;border-radius:2px 2px 0 0;background:var(--tc);pointer-events:none}
+.nko-row .nkm-chip.nko-t2{margin:0 8px 0 0;vertical-align:middle}
+.nkh-tband{display:none;position:absolute;left:14px;right:14px;top:524px;height:40px;border-radius:4px;font:700 22px/40px Galmuri11,monospace;color:#fff;text-align:center;text-shadow:2px 2px 0 #000}
+.nkh-tband.tr{background:var(--tr)}.nkh-tband.tb{background:var(--tb)}
+#nkm-hud.tm2 .nkh-tband{display:block}
+.nko .nkm-btn.nko-tab.sel.off{opacity:1} /* 대기방 팀 구성 탭: 방장이 아니어도 지금 값은 또렷하게 */

@@ -31,7 +31,7 @@
   //   시합 전 「FIGHT!!」 연출 1:4·승패 연출 1:5·결과 10 등)은 늘 1.0(analysis/07_status.md 15절). RAM 은 워커가 넘긴 최근 프레임 사본(mirror.m)을 읽기만 한다
   let speedSet = 1;
   const inFight = m => m[0x641] === 1 && (m[0x642] & 0x7F) === 2;
-  const spd = () => CLASSIC || online || !inFight(mirror.m) ? 1 : (v => window.NKCamTrig ? window.NKCamTrig.speed(v) : v)(SPEED_Q !== undefined ? +SPEED_Q : speedSet); // NKCamTrig.speed = 판이 끝나는 KO 슬로우(web/cam_triggers.js, 로컬 전용·1배 미만 없음)
+  const spd = () => online ? (CLASSIC ? 1 : Math.min(1.5, Math.max(1, +(online.cfg && online.cfg.speed) || 1))) /* 온라인 = 서버 start.cfg.speed(server_online.js ONLINE_SPEED) 고정, 없으면 1 */ : CLASSIC || !inFight(mirror.m) ? 1 : (v => window.NKCamTrig ? window.NKCamTrig.speed(v) : v)(SPEED_Q !== undefined ? +SPEED_Q : speedSet); // NKCamTrig.speed = 판이 끝나는 KO 슬로우(web/cam_triggers.js, 로컬 전용·1배 미만 없음)
   function speedOf(v) { // 설정 값 → 배율. 설정 객체에 speed 칸이 없으면 저장소 값, 그것도 없으면 기본값
     if (v === undefined) try { const j = JSON.parse(localStorage.getItem('nk_manga_settings') || 'null'); if (j) v = j.speed; } catch (e) { /* 저장소를 못 쓰면 기본값 */ }
     return SPEEDS.indexOf(+v) >= 0 ? +v : SPEED_DEF;
@@ -159,6 +159,7 @@
     if (padBlock) { if (out[0] | out[1]) return [0, 0]; padBlock = false; }
     return out;
   }
+  let gpMute = false; const gpAny = g => g.buttons.some(x => x && x.pressed) || Math.abs(g.axes[0] || 0) > 0.5 || Math.abs(g.axes[1] || 0) > 0.5;
   function localPads() { // 키보드·게임패드의 지금 값 [1P, 2P]
     const gpSt = !(MG && mirror.m[0x641] === 1 && (mirror.m[0x642] & 0x7F) === 2); // 신규 층 주소의 전투(1:2)에서는 1P 게임패드 START = 일시정지 메뉴 전용(원작 START 로 넣지 않는다)
     const p = [0, 0];
@@ -166,6 +167,7 @@
     const gp = navigator.getGamepads ? navigator.getGamepads() : [];
     for (let i = 0; i < 2; i++) {
       const g = gp[i]; if (!g) continue; const b = g.buttons;
+      if (!i && online && MG && (MG.forfeitOpen || gpMute)) { gpMute = gpAny(g); continue; } // 기권 확인 창이 게임패드 1 을 읽는 동안(+ 닫은 뒤 손을 뗄 때까지) 엔진에 넣지 않는다
       if (KM) p[i] |= KM.padBits(g, i || gpSt); else { if (b[0] && b[0].pressed) p[i] |= 1; if (b[2] && b[2].pressed) p[i] |= 2; if (b[8] && b[8].pressed) p[i] |= 4; if (b[9] && b[9].pressed && (i || gpSt)) p[i] |= 8; } // 버튼 = 키 리매핑 표(방향은 아래 고정)
       if ((b[12] && b[12].pressed) || g.axes[1] < -0.5) p[i] |= 16; if ((b[13] && b[13].pressed) || g.axes[1] > 0.5) p[i] |= 32;
       if ((b[14] && b[14].pressed) || g.axes[0] < -0.5) p[i] |= 64; if ((b[15] && b[15].pressed) || g.axes[0] > 0.5) p[i] |= 128;
@@ -174,7 +176,7 @@
   }
   function writePads() { // 3P·4P: 온라인 3·4인 판의 사람 자리(자리 2 = 사람 3명 이상, 자리 3 = 4명)만, 그 밖(로컬·스토리·2인 온라인·CPU 자리·리셋 대기)은 0
     if (!ctl || rec) return; // 스토리 저장 기록 중: 패드 칸은 recGrant 만 쓴다(워커가 멈춰 있을 때만)
-    const p = pollPads(), H = online && online.phase === 'run' ? online.H : 2;
+    const p = pollPads(), H = online && online.phase === 'run' ? (online.team ? 4 : online.H) : 2; // 팀전(2:2) = $0645 5 고정이라 4칸 모두(COM 자리는 0)
     Atomics.store(ctl, PAD, p[0]); Atomics.store(ctl, PAD + 1, p[1]); Atomics.store(ctl, PAD3, H >= 3 ? p[2] & 255 : 0); Atomics.store(ctl, PAD4, H >= 4 ? p[3] & 255 : 0);
   }
   const zeroExt = () => { Atomics.store(ctl, PAD3, 0); Atomics.store(ctl, PAD4, 0); }; // 엔진을 새로 만들기 전: 3P·4P 칸을 비운다
@@ -305,14 +307,19 @@
   }
   function onlineStart(o) {
     const cfg = o && o.cfg, plan = cfg && cfg.plan, D = window.NKDriver, H = cfg ? cfg.humans | 0 : 0;
-    const mode = plan && H >= 3 ? plan.mode + '4' : plan && plan.mode; // 사람 3·4명: 서버는 같은 이름(battle_full)에 opt.players 3·4·opt.humans[] 를 실어 준다 → 3·4인 단계(battle_full4)로 돈다. 2인은 종전 그대로
-    if (online || !ready || !ctl || fatal || bootFrame < 0 || received < 1 || !window.NKLockstep || !D || !plan || !D.plans[mode] || (cfg.state && cfg.state !== STATE) || (curBoot !== titleBoot && curBoot !== holdBoot) || H < 2 || H > 4 || (H >= 3 && (!plan.opt || plan.opt.players !== H))) return false;
+    const t = cfg && cfg.team, T = t && t.mode === '2v2' && Array.isArray(t.cpu) && t.cpu.length === 4 && Array.isArray(t.seatOf) && t.seatOf.length === H && t.seatOf.every(i => Number.isInteger(i) && i >= 0 && i < 4 && !t.cpu[i]) ? t : null; // 팀전(analysis/30 10절): cpu[4]·seatOf[H](j 번째 사람의 자리)
+    const mode = plan && !T && H >= 3 ? plan.mode + '4' : plan && plan.mode; // 사람 3·4명: 서버는 같은 이름(battle_full)에 opt.players 3·4·opt.humans[] 를 실어 준다 → 3·4인 단계(battle_full4)로 돈다. 2인은 종전 그대로. 팀전 = 서버가 battle_full4 그대로 준다
+    if (online || !ready || !ctl || ctl.length < 14 || fatal || bootFrame < 0 || received < 1 || !window.NKLockstep || !D || !plan || !D.plans[mode] || (cfg.state && cfg.state !== STATE) || (curBoot !== titleBoot && curBoot !== holdBoot) || (cfg.team && !T) || H < (T ? 1 : 2) || H > 4 || (T ? !plan.opt || plan.opt.players !== 4 : H >= 3 && (!plan.opt || plan.opt.players !== H))) return false;
+    const tSnd = T && (!T.cpu[0] || !T.cpu[1]) && (!T.cpu[2] || !T.cpu[3]) && T.seatOf[o.slot | 0] !== undefined ? 1 + (T.seatOf[o.slot | 0] >> 1) : 0; // 양 팀에 사람 = 승패 징글을 내 팀 기준으로(web/sound_clock.js jingle, ctl[14] = 1 + 내 팀)
+    Atomics.store(ctl, 14, tSnd);
+    Atomics.store(ctl, 12, T ? 16 | T.cpu.reduce((a, v, i) => a | ((v ? 1 : 0) << i), 0) : 0); // 엔진 선택(web/worker.js ctl[12]): 엔진을 새로 만들기 전에 쓴다(아래 bootWith·onlineReset). 판이 끝나면 onlineStop 이 0
     rec = null; loadWait = 0; // 온라인 = 엔진을 시작 상태로 다시 만든다(스토리 기록 끝)
     if (curBoot !== titleBoot) bootWith(titleBoot); // 타이틀 대기 상태(title_fight)로 돌던 워커 → 시작 상태로 새로 만든다(아래 idle → onlineReset 이 이어서 리셋. 프레임 번호 기준 bootFrame = titleBoot)
     paused = false; turbo = false; endRam = null; pre = false; drv = null; drvEnd = null; want = null; wantOpt = null; picked = null; lay = null; menuOn = true; held.clear();
-    const on = online = { cfg, H, slot: o.slot | 0, names: Array.isArray(o.names) ? o.names : [], send: o.send, phase: 'idle', pads: [0, 0, 0, 0], pend: null, acc: 0, drvState: 'run', drvWhy: '', resSent: false, res: null, drv: onlineDriver(mode, plan.opt) };
+    const on = online = { cfg, H, team: T, slot: o.slot | 0, names: Array.isArray(o.names) ? o.names : [], send: o.send, phase: 'idle', pads: [0, 0, 0, 0], pend: null, acc: 0, drvState: 'run', drvWhy: '', resSent: false, res: null, drv: onlineDriver(mode, plan.opt) }; // team: names = 자리순(seatOf 로 찾는다)
     on.ls = window.NKLockstep.create({ cfg, send: o.send, sample: () => localPads()[0] }); // 내 패드 = 1P 키·게임패드 1(자리와 무관), 서버가 내 자리 포트로 확정해 준다
-    if (H >= 3 && on.ls.width !== H) { online = null; return false; } // 옛 락스텝(폭 2 고정)이 캐시에 남은 경우
+    if ((H >= 3 || T) && on.ls.width !== H) { online = null; Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); return false; } // 옛 락스텝(폭 2 고정)이 캐시에 남은 경우
+    Atomics.store(ctl, 13, cfg.atkStep === 'dir' ? 1 : cfg.atkStep === 'auto' ? 2 : 0); // 기본 공격 전진 이동(web/worker.js ctl[13]): 서버 start.cfg.atkStep 을 모든 참가자가 같게. 워커가 다음 리셋(엔진 새로 만들기)에서 읽는다
     o.attach({ msg: onlineMsg, have: () => on.ls.have });
     writePads(); return true;
   }
@@ -323,16 +330,19 @@
   function onlineFrame(d) {
     const o = online; if (o.phase !== 'run') return; // 리셋 전 엔진의 프레임(허가하지 않는다)
     const k = d.frame - bootFrame, m = d.ram;
+    if (o.tail) { if (!(m[0x641] === 1 && (m[0x642] & 0x7F) === 5) || ++o.tailN > 360) return onlineStop(o.tail); o.pend = d; return onlineAdvance(); } // 결과 합의 뒤 WINNER 연출 꼬리(아래 onlineMsg end): 1:5 가 끝나면(또는 360프레임) 결과 화면으로
     if (k !== o.ls.exec) { console.error('온라인 프레임 어긋남 k=' + k + ' exec=' + o.ls.exec); o.send({ t: 'leave' }); return onlineStop({ t: 'end', reason: 'error' }); }
     if (!o.resSent && m[0x641] === 1 && (m[0x642] & 0x7F) === 5) { // 승자(15 문서 8·14절): 1:5 진입 프레임에 $04A2+s bit2 가 꺼진 슬롯, 없으면 HP > 0. 하나가 아니면 -1
-      let w = []; for (let s = 0; s < 4; s++) if (!(m[0x4A2 + s] & 4)) w.push(s);
-      if (!w.length) for (let s = 0; s < 4; s++) if (m[0x4C2 + s] > 0) w.push(s);
-      o.resSent = true; o.res = { t: 'result', f: k, r: { winner: w.length === 1 ? w[0] : -1 } }; o.send(o.res); // res = 보낸 결과(끊긴 사이에 보냈으면 사라진다 → 재접속 뒤 다시 보낸다)
+      let r;
+      if (o.team) { const a = !!(m[0x611] & 8), b = !!(m[0x612] & 8); r = { team: a && !b ? 1 : b && !a ? 0 : -1 }; } // 팀전(analysis/30 10.2): $0611 bit3 = 팀 0 전멸 → 팀 1 승, $0612 bit3 → 팀 0 승, 그 밖 -1
+      else { const w = []; for (let s = 0; s < 4; s++) if (!(m[0x4A2 + s] & 4)) w.push(s); if (!w.length) for (let s = 0; s < 4; s++) if (m[0x4C2 + s] > 0) w.push(s); r = { winner: w.length === 1 ? w[0] : -1 }; }
+      o.resSent = true; o.res = { t: 'result', f: k, r }; o.send(o.res); if (MG && MG.forfeitDone) MG.forfeitDone(); // res = 보낸 결과(끊긴 사이에 보냈으면 사라진다 → 재접속 뒤 다시 보낸다)
     }
     o.pend = d; onlineAdvance();
   }
   function onlineAdvance() {
     const o = online; if (!o || o.phase !== 'run' || !o.pend || fatal) return;
+    if (o.tail) { if (o.acc < 1) return; o.acc -= 1; o.pend = null; o.pads = [0, 0, 0, 0]; writePads(); granted = received + 1; Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT); return; } // 꼬리 = 서버 확정 없이 패드 0 으로 60Hz 진행(승부는 이미 서버가 정함, 표시 전용)
     o.ls.pump(); const conf = o.ls.peek(); if (!conf) return;
     if (o.drvState !== 'run') { if (o.acc < 1) return; o.acc -= 1; } // 구동 뒤 = 60Hz(tick 이 채운다)
     const d = o.pend; o.pend = null; let p = conf;
@@ -340,6 +350,7 @@
       let r; try { r = o.drv.step(d.ram, d.frame); } catch (e) { r = { state: 'fail', why: String(e && e.message || e) }; }
       if (r.state === 'run') p = r.pads || [r.pad, r.pad2 || 0]; else { o.drvState = r.state; o.drvWhy = r.why || ''; onlineLift(); }
     }
+    if (o.team && p === conf) { const q = [0, 0, 0, 0]; conf.forEach((v, j) => { q[o.team.seatOf[j]] = v; }); p = q; } // 팀전: j 번째 사람 → 자리 seatOf[j], COM 자리 0
     o.pads = [p[0] & 255, p[1] & 255, p[2] & 255, p[3] & 255]; writePads(); // 구동 중 = 구동기 4칸, 끝난 뒤 = 확정 값(폭 H, 없는 칸은 0)
     o.ls.take(() => fnv(d.ram));
     granted = received + 1; Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT);
@@ -351,13 +362,13 @@
   function onlineMsg(m) {
     const o = online; if (!o) return;
     if (m.t === 'f' || m.t === 'start') { o.ls.onMessage(m); if (m.t === 'start' && m.resume && o.res) o.send(o.res); /* 재접속: 결과를 다시 보낸다(서버는 자리마다 첫 보고만 받으므로 겹쳐도 무해) */ onlineAdvance(); }
-    else if (m.t === 'peer' && m.ev === 'gone') { if (MG) MG.toast((o.names[m.slot] || ((m.slot | 0) + 1) + 'P') + ' 나감', 'hp-low'); } // 3·4인: 그 자리가 판에서 빠졌다(판은 계속, 그 자리 입력은 서버가 0 으로 확정)
-    else if (m.t === 'peer') { const me = m.slot === o.slot, who = o.H >= 3 ? o.names[m.slot] || ((m.slot | 0) + 1) + 'P' : '상대'; /* 3·4인 = 그 자리 이름, 2인 = 종전 문구 그대로 */ if (MG && !(me && m.ev === 'drop')) MG.toast(m.ev === 'drop' ? who + (m.why === 'stall' || m.why === 'slow' ? ' 화면 멈춤' : ' 연결 끊김') + ' — 기다리는 중' : me ? '재접속됨' : who + ' 복귀', m.ev === 'drop' ? 'hp-low' : 'hp', m.ev === 'drop' ? (m.grace || 20000) : 0); } // 서버는 복귀를 방 전원(돌아온 본인 포함)에게 알린다(slot = 그 자리). 본인 자리면 「재접속됨」
+    else if (m.t === 'peer' && m.ev === 'gone') { const at = o.team ? o.team.seatOf[m.slot] | 0 : m.slot | 0; if (MG) MG.toast((o.names[at] || (at + 1) + 'P') + ' 나감', 'hp-low'); } // 3·4인·팀전: 그 자리가 판에서 빠졌다(판은 계속, 그 자리 입력은 서버가 0 으로 확정). 팀전 slot = j 번째 사람
+    else if (m.t === 'peer') { const me = m.slot === o.slot, at = o.team ? o.team.seatOf[m.slot] | 0 : m.slot | 0, who = o.H >= 3 || o.team ? o.names[at] || (at + 1) + 'P' : '상대'; /* 3·4인 = 그 자리 이름, 2인 = 종전 문구 그대로 */ if (MG && !(me && m.ev === 'drop')) MG.toast(m.ev === 'drop' ? who + (m.why === 'stall' || m.why === 'slow' ? ' 화면 멈춤' : ' 연결 끊김') + ' — 기다리는 중' : me ? '재접속됨' : who + ' 복귀', m.ev === 'drop' ? 'hp-low' : 'hp', m.ev === 'drop' ? (m.grace || 20000) : 0); } // 서버는 복귀를 방 전원(돌아온 본인 포함)에게 알린다(slot = 그 자리). 본인 자리면 「재접속됨」
     else if (m.t === 'desync') { if (MG) MG.toast('동기 어긋남 감지', 'hp-low'); console.warn('온라인 지문 불일치 f=' + m.f); }
-    else if (m.t === 'end') onlineStop(m);
+    else if (m.t === 'end') { const r = mirror.m; if (m.reason === 'result' && o.resSent && !o.tail && MG && r[0x641] === 1 && (r[0x642] & 0x7F) === 5) { o.tail = m; o.tailN = 0; onlineAdvance(); } else onlineStop(o.tail || m); } // 결과 합의(end result)가 1:5 첫 프레임에 바로 와도 WINNER 연출(1:5)을 끝까지 보여 준 뒤 닫는다. 그 밖(기권·끊김 등)은 바로
   }
   function onlineStop(m) { // 대전 끝(결과·기권·끊김): 엔진을 처음부터 다시 만들고 신규 층 결과 화면
-    const o = online; if (!o) return; online = null; held.clear(); fatal = null; if (!DEBUG) info.style.display = 'none'; // 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
+    const o = online; if (!o) return; online = null; Atomics.store(ctl, 13, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; if (!DEBUG) info.style.display = 'none'; // ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
     zeroExt(); const to = holdOf(); if (curBoot !== to) bootWith(to); else { Atomics.add(ctl, RESET, 1); Atomics.notify(ctl, RESET); Atomics.notify(ctl, CREDIT); } // 신규 층 = 타이틀 대기 상태(대련부터, reset 과 같게)
     openMenu(() => { if (UI.onlineEnd) UI.onlineEnd(m, o.slot); else UI.show('title'); });
   }
@@ -512,7 +523,7 @@
     if (window.NKTutorial && !online) window.NKTutorial.frame(d.frame, d.ram); // 튜토리얼(web/tutorial.js, analysis/27 T2): 단계 판정(읽기만, 로컬 전용)
     if (HD) HD.spr = d.spr || null; // HD 층: 그 프레임의 스프라이트 사본(보이는 스프라이트 픽셀을 가르는 데만 쓴다)
     if (rec && !online) recFrame(d);
-    if (online) { if (d.fb) { img32.set(d.fb); winCover(d.ram); } koSnap = d.ko || null; paint(); if (actx && d.audio.length && !menuOn) pushAudio(d.audio); onlineFrame(d); return; } // 온라인: 부팅 화면 복귀·결과·대진표 감지는 하지 않는다
+    if (online) { if (d.fb) img32.set(d.fb); koSnap = d.ko || null; paint(); if (actx && d.audio.length && !menuOn) pushAudio(d.audio); onlineFrame(d); return; } // 온라인: 부팅 화면 복귀·결과·대진표 감지는 하지 않는다
     if (MENU && !menuOn && d.ram[0x641] === BOOT_MODE) { exits++; reset(); return; } // 원작 부팅 화면으로 빠짐 → 신규 타이틀로(이 프레임은 그리지도 소리 내지도 않는다)
     if (MENU && MG && UI === MG && !menuOn) { // 전투 종료 → 결과 화면(15 문서 8절): 1:5 진입 프레임의 RAM 을 잡아 두고, 모드 0(스테이지 선택으로 복귀)이 되면 신규 결과 화면으로 덮는다. 엔진은 덮개 아래 원작 스테이지 선택(0:1)에서 기다린다
       const md = d.ram[0x641], sub = d.ram[0x642] & 0x7F;
@@ -532,7 +543,7 @@
     }
     if (MG && (vsk.st || d.ram[0x641] === 1)) vskStep(d.ram); // 승리 연출 건너뛰기(덮기 판정 뒤: 덮개가 뜬 프레임에 끝낸다)
     if (loadWait && MG) storyLift(d);
-    if (d.fb) { img32.set(d.fb); winCover(d.ram); if (MID && !menuOn) MID.frame(d, img32); /* 로컬 전투의 화면 픽셀만 바꾼다(자기 점검 실패·대상 밖이면 그대로). 엔진·입력과 무관 */ } koSnap = d.ko || null; if (d.fb) paint(); // 생략 프레임(fb null)은 그리지 않는다(덮개 아래). koSnap(구동기 팔레트)은 그대로 받는다
+    if (d.fb) { img32.set(d.fb); if (MID && !menuOn) MID.frame(d, img32); /* 로컬 전투의 화면 픽셀만 바꾼다(자기 점검 실패·대상 밖이면 그대로). 엔진·입력과 무관 */ } koSnap = d.ko || null; if (d.fb) paint(); // 생략 프레임(fb null)은 그리지 않는다(덮개 아래). koSnap(구동기 팔레트)은 그대로 받는다
     if (pre) stepPre(); else if (drv && menuOn) stepDrv();
     if (!fbStale && drvEnd && menuOn) tryLink(); // 생략 프레임에서 끝난 구동: 다음 그린 프레임에서 덮개를 걷는다(tryLink 의 fbStale 대기)
     if (holding() && MG.titleBg) MG.titleBg(d.fb, d.ram); // 타이틀 대기: 원작 타이틀 프레임(모드 3)을 메인 메뉴 배경으로(표시 전용)
@@ -540,16 +551,6 @@
     if (fastOn()) { const sk = turbo ? 0 : 1; /* 덮개 아래 빨리 감기 = 다음 한 프레임 화면·소리 생략(turbo 는 그린다) */ if (rec) { if (!paused) { skipSet(sk); if (!recGrant()) skipSet(0); } return; } writePads(); if (!paused && !fatal && granted === received) { skipSet(sk); granted++; Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT); } return; }
     if (actx && d.audio.length) pushAudio(d.audio);
     if (rec && !paused && acc >= 1 && recGrant()) acc -= 1; // 기록 중: 받은 즉시 다음 한 프레임(60Hz 예산 안에서)
-  }
-  // 원작 승리 글자 가리기(2026-11-22, 신규 층 MG 만, 표시 전용): 전투 종료 연출 1:5 동안 필드 왼쪽 아래(타일 행 22 = y 176~183, 열 4~12 = x 32~103)에 원작이 BG 타일로 찍는 「WINNER !!」를
-  //   같은 줄 80px 오른쪽(바닥 무늬 주기 16px 의 배수) 픽셀로 덮는다. 가운데 WINNER·승자 초상은 ui_manga.js(winFx)가 그린다. 글자가 보일 때(흰 픽셀 ≥ 40, 옆 칸에는 없음)만 덮고 엔진 프레임 버퍼(d.fb)는 그대로
-  const WC = { x: 32, w: 72, y: 176, h: 8, dx: 80 }; let wcLast = -1e9, wcN = 0;
-  function winCover(m) {
-    if (!MG) return; const v15 = m[0x641] === 1 && (m[0x642] & 0x7F) === 5; if (v15) wcLast = mirror.frame; else if (mirror.frame - wcLast > 8) return; // 화면이 RAM 보다 4프레임 늦다: 1:5 가 끝난 뒤 몇 프레임도 본다
-    const white = p => (p & 0xFF) > 200 && ((p >> 8) & 0xFF) > 200 && ((p >> 16) & 0xFF) > 200; let a = 0, b = 0;
-    for (let y = WC.y; y < WC.y + WC.h; y++) for (let x = 0; x < WC.w; x++) { if (white(img32[y * 256 + WC.x + x])) a++; if (white(img32[y * 256 + WC.x + WC.dx + x])) b++; }
-    if (a < 40 || b > 10) return;
-    for (let y = WC.y; y < WC.y + WC.h; y++) img32.copyWithin(y * 256 + WC.x, y * 256 + WC.x + WC.dx, y * 256 + WC.x + WC.dx + WC.w); wcN++;
   }
   function paint() { // 코어 프레임 + (켜져 있으면) 한글 층
     ctx.putImageData(img, OX, 0);
@@ -594,7 +595,7 @@
     if (online) { // 리셋 대기(워커가 멈출 때까지 허가하지 않는다) → 락스텝: 내 입력 보내기 + 60Hz 예산(밀려도 2프레임까지만 따라잡기)
       const o = online;
       if (o.phase === 'idle') { if (ready && received >= 1 && granted <= received) onlineReset(); } // 시작 때 bootWith 로 새로 만든 워커 = 준비되고 첫 프레임을 낸 뒤(허가 대기로 멈춤)에 리셋(그 전에 리셋하면 앞 세대 첫 프레임이 run 단계로 들어와 프레임이 어긋난다)
-      else { o.ls.pump(); if (o.drvState !== 'run') o.acc = Math.min(o.acc + dt * RATE * (1 + rateAdj) / 1000, 2); onlineAdvance(); }
+      else { if (!o.tail) o.ls.pump(); if (o.drvState !== 'run' || o.tail) o.acc = Math.min(o.acc + dt * RATE * spd() * (1 + rateAdj) / 1000, 2); onlineAdvance(); }
     } else if (rec) { // 스토리 저장 기록: 60Hz 예산(밀려도 2프레임) 안에서 워커가 멈춰 있을 때 한 프레임씩
       if (!fatal && !paused && ready && !hs) { acc = Math.min(acc + dt * RATE * spd() * (1 + rateAdj) / 1000, 2); if (acc >= 1 && recGrant()) acc -= 1; }
     } else if (!fatal && !paused && ready && !hs) {
@@ -610,7 +611,8 @@
     initAudio(); hideMsg();
     const tg = e.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'SELECT' || tg.tagName === 'TEXTAREA' || tg.isContentEditable)) return; // 입력 칸(신규 층 에디트 폼의 이름·고르기)에 쓰는 키는 게임 키(R 다시 시작·P 정지·패드 등)로 쓰지 않는다
     if (MG && MG.overlay) return; // 일시정지 메뉴가 떠 있는 동안 키는 그 메뉴가 받는다
-    if (online && !menuOn && e.code === 'Escape' && MG && MG.forfeitTap) { e.preventDefault(); if (!e.repeat) MG.forfeitTap(); return; } // 온라인 대전 중 Esc = 화면 구석 「기권」 버튼(한 번 = 「기권?」, 3초 안에 한 번 더 = 기권. ui_manga.js)
+    if (online && !menuOn && MG && MG.forfeitOpen && MG.forfeitKey(e)) { e.preventDefault(); if (keyAt(e.code, false)) writePads(); return; } // 기권 확인 창이 떠 있으면 창 키(Esc·Enter·←→·Tab)는 창이 먹는다(그 밖의 키는 아래로 = 엔진, 판은 계속)
+    if (online && !menuOn && e.code === 'Escape' && MG && MG.forfeitTap) { e.preventDefault(); if (!e.repeat && !online.resSent) MG.forfeitTap(); return; } // 온라인 대전 중 Esc = 기권 확인 창(ui_manga.js). 결과를 보낸 뒤(승부 남) = 무시
     if ((online || (MG && MG.online)) && (e.code === 'KeyP' || e.code === 'KeyR')) return; // 온라인(대기방·대전)에서는 정지·처음부터를 막는다
     const pk = kmap[e.code]; // 일시정지 = Esc · 1P 시작 키(기본 Enter, 키 리매핑을 따른다)
     if ((e.code === 'Escape' || (pk && pk[1] === 0 && pk[2] === 8)) && !e.repeat && openPause(e)) { e.preventDefault(); return; }
@@ -629,7 +631,7 @@
   window.addEventListener('pointerdown', () => { initAudio(); hideMsg(); });
   window.addEventListener('beforeunload', e => { if (online) { e.preventDefault(); e.returnValue = ''; } }); // 대전 중 새로 고침 = 20초 뒤 기권(16 문서 6.6)
   ctx.fillStyle = '#000'; if (WIDE) ctx.fillRect(OX, 0, 256, CH); else ctx.fillRect(0, 0, CW, CH);
-  window.__game = { mirror, audioStat, get winCovered() { return wcN; }, get engine() { return ready ? mirror : null; }, get fatal() { return fatal; }, get paused() { return paused; },
+  window.__game = { mirror, audioStat, get engine() { return ready ? mirror : null; }, get fatal() { return fatal; }, get paused() { return paused; },
     touch: { // 터치 패드(web/touch_pad.js) 훅: 가상 키(위 TOUCH)만 키보드와 같은 keyAt 으로. show = 원작 화면이 보이고 사람 입력을 받는 동안(덮개·일시정지·오류 아님)
       key(c, on) { if (c && c[0] === '#' && kmap[c] && keyAt(c, !!on)) writePads(); }, ripe(c) { return !kq.has(c) && keyRipe(c); },
       clear() { for (const k of TOUCH) { held.delete(k[0]); kq.delete(k[0]); kAt.delete(k[0]); } writePads(); },

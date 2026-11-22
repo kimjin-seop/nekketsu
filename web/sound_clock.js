@@ -23,13 +23,22 @@ function create(main, makeShadow) {
   let mode = 0;                    // 0 = 본 엔진이 합성기에 씀(종전), 1 = 그림자가 씀
   let ev = [], depth = 0, exp = main.m[0x700], lastUpdC = 0;
   let shadow = null, sc = 0, nextU = 0, lastU = 0, mirrorN = 0, C0 = null, kick = false;
-  const st = { handoffs: 0, handbacks: 0, forced: 0, shadowUpd: 0, shadowReq: 0 };
+  const st = { handoffs: 0, handbacks: 0, forced: 0, shadowUpd: 0, shadowReq: 0, remap: 0 };
+  // 온라인 팀전 승패 징글 보정(analysis/30 D3, 2026-11-22 사용자 결정 「진 쪽은 패배음」): 엔진(TeamEngine C6AC)은 양 팀에 사람이 있으면 이긴 팀 기준 0x32(승리) 한 번을 낸다.
+  //   그림자(배속) 경로가 받는 요청 id 만 이 클라이언트의 팀 기준으로 바꾼다 — 본 엔진 RAM·락스텝 지문은 그대로. 내 팀 = 공유 메모리 ctl[14](web/game.js: 0 = 보정 없음, 1 + 팀),
+  //   승리 팀 = $0611 bit3(팀 0 전멸 → 팀 1 승)·$0612 bit3(→ 팀 0 승), 둘 다거나 없으면 그대로. 1배속(그림자 없음)에서는 보정하지 않는다(온라인 배율 1.3 이라 해당 없음)
+  const jingle = id => {
+    if (id !== 0x32 && id !== 0x33) return id;
+    const c = typeof ctl !== 'undefined' && ctl && ctl.length > 14 ? Atomics.load(ctl, 14) : 0; if (!c) return id; // ctl = web/worker.js 전역(같은 워커 전역 범위에서 읽기만)
+    const m = main.m, a = !!(m[0x611] & 8), b = !!(m[0x612] & 8), w = a && !b ? 1 : b && !a ? 0 : -1;
+    return w < 0 ? id : w === c - 1 ? 0x32 : 0x33;
+  };
   const cyc = () => main.code.cyc;
   const see700 = () => { const v = main.m[0x700]; if (v !== exp) { exp = v; if (mode) ev.push({ t: 2, c: cyc(), v }); } }; // 드라이버 밖(게임)이 쓴 $0700
   // 관측 덮개: 원래 함수를 그대로 부르고 값만 읽는다(본 엔진의 RAM·레지스터·사이클에 손대지 않음)
   F[REQ_OFF] = function (s0) {
     if (!depth) see700();
-    if (mode) ev.push({ t: 0, c: cyc(), id: main.m[0x7FF] });
+    if (mode) { const id = main.m[0x7FF], to = jingle(id); if (to !== id) st.remap++; ev.push({ t: 0, c: cyc(), id: to }); }
     depth++; let r; try { r = origReq(s0); } finally { depth--; }
     if (!depth) exp = main.m[0x700];
     return r;

@@ -36,7 +36,7 @@ class Renderer {
   }
   // e = Engine(core.js), y = 0~239, mask = PPUMASK. e.ppu.v 는 이 라인의 시작 스크롤(수직 증가는 엔진이 렌더 뒤에 수행).
   line(e, y, mask) {
-    if (y === 0) { if (NF_CTL) this.noFlicker = Atomics.load(NF_CTL, NF_SLOT) === 1; if (this.noFlicker) this._nfFrame(e.ppuOam); }
+    if (y === 0) { if (NF_CTL) this.noFlicker = Atomics.load(NF_CTL, NF_SLOT) === 1; if (this.noFlicker) this._nfFrame(e.oamView ? e.oamView() : e.ppuOam); }
     const fb = this.fb, o = y * 256, pal = e.pal;
     const grey = (mask & 1) ? 0x30 : 0x3F;
     if (!(mask & 0x18)) { fb.fill(PAL32[pal[0] & grey], o, o + 256); return; } // 렌더링 꺼짐: 배경색
@@ -75,7 +75,7 @@ class Renderer {
       if (!(mask & 2)) for (let i = 0; i < 8; i++) { row[i] = bd; bgz[i] = 0; }
     }
     if (mask & 0x10) {
-      const h = (ctrl & 0x20) ? 16 : 8, spb = (ctrl & 8) ? 0x1000 : 0, oam = e.ppuOam, sb = this.sprBuf;
+      const h = (ctrl & 0x20) ? 16 : 8, spb = (ctrl & 8) ? 0x1000 : 0, oam = e.oamView ? e.oamView() : e.ppuOam, sb = this.sprBuf;
       sb.fill(-1);
       let cnt = 0; const picked = [];
       if (this.noFlicker) { // 깜박임 제거: 이 라인에 걸친 항목 전부를 정방향 순서로(뒤집힌 프레임이면 63 -> 0)

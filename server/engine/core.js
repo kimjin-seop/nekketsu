@@ -6,6 +6,8 @@
 // 타이밍 모델(스캔라인당 113.6667 사이클, 241 라인 NMI, MMC3 IRQ)은 오라클 에뮬과 같은 규칙이라 NMI 가 로직 도중에
 // 들어오는 지연 프레임까지 같은 명령 경계에서 재현한다. 번역되지 않은 코드에 도달하면 예외(미해결)로 멈춘다.
 const make = require('./gen/code.js');
+const { atkStepInstall, atkStepEnvDefault, atkStepResolve } = require('./atk_step.js'); // 기본 공격 전진 이동(옵션 atkStep, 기본 꺼짐)
+const { noWinnerEnvDefault, noWinnerDisp } = require('./no_winner.js'); // 승리 글자(WIN!!) 숨기기(표시 전용 옵션 noWinner, 기본 켬)
 
 const MAIN_LOOP = 0x1C178;
 
@@ -34,6 +36,9 @@ class Engine {
     //   extPads = true: 스트로브 때 getPad(f, 2)·getPad(f, 3) 을 읽어 $4016 bit1 = 3P, $4017 bit1 = 4P 로 1P·2P 와 같은 직렬 순서(A B SEL START U D L R)로 내보낸다.
     //   확장 패드 시프트 레지스터는 0 을 밀어 넣는다(값이 0 인 패드 = 연결 안 한 것과 비트 단위로 같다. 원작은 스트로브마다 8번만 읽는다).
     this.extPads = false; this.extsh = [0, 0];
+    this.hp0Down = !(typeof process !== 'undefined' && process.env && process.env.NK_HP0_DOWN === '0'); // HP 0 즉시 다운 규칙(아래 hp0Install 주석). 기본 켬, false 또는 환경변수 NK_HP0_DOWN=0(Node 한정) = 원작과 비트 동일. 사용자 결정 2026-11-22
+    this._atk = atkStepEnvDefault(); // 기본 false = 원작과 비트 동일. 온라인 락스텝 대전만 engine.atkStep = 'auto'|'dir' (server/engine/atk_step.js)
+    this.noWinner = noWinnerEnvDefault(); this.dispOam = null; // 표시 전용: true 면 DMA 때 승리 글자 조각을 뺀 OAM 사본(dispOam)을 만든다. false 또는 환경변수 NK_NO_WINNER=0 = 원작과 비트 동일(server/engine/no_winner.js)
     this.onFrameEnd = null;  // (engine, frameNo) : 프레임(262 라인) 경계
     this.onNmi = null;       // (engine) : NMI 핸들러 첫 명령 직전(그 프레임에 표시될 상태)
     this.onLoop = null;      // (engine) : 메인 루프 진입($C178) 직전
@@ -77,6 +82,7 @@ class Engine {
         if (a === 0x4014) {
           const b = (v << 8) & 0x7FF; self.oam.set(self.m.subarray(b, b + 256)); self.oamFrames++;
           for (let i = 0; i < 256; i++) self.ppuOam[(self.ppu.oamaddr + i) & 255] = self.m[b + i];
+          if (self.noWinner) noWinnerDisp(self, b);
           return;
         }
         if (a >= 0x4000 && a <= 0x4017) {
@@ -161,11 +167,37 @@ class Engine {
   attachApu(apu, state) { if (state) apu.loadState(state, this.code.cyc); else apu.cyc = this.code.cyc; this.apu = apu; return apu; }
   // 현재 엔진 시각까지 소리를 합성하고 샘플을 꺼낸다(프레임 경계에서 호출)
   drainAudio() { if (!this.apu) return new Float32Array(0); this.apu.runTo(this.code.cyc); return this.apu.drain(); }
+  oamView() { return this.noWinner && this.dispOam ? this.dispOam : this.ppuOam; } // 화면에 그릴 OAM(렌더러·워커 스프라이트 사본이 읽는다. 로직·스냅샷은 ppuOam)
+  get atkStep() { return this._atk; } set atkStep(v) { this._atk = atkStepResolve(v); }
   get frame() { return this.code.frameNo; }
   // 메인 루프 1회전(전투 중 = 로직 틱 1회, 보통 4프레임)
   // 생성 코드는 메인 루프 재진입($C178 로의 JMP·폴스루)을 3 으로 돌려준다(tools/rom/port_runtime.js unw 주석). 그 밖의 값 = 비정상.
-  loop() { if (this.code.F[MAIN_LOOP](this.code.S) !== 3) throw new Error('메인 루프가 비정상 복귀(스택 되감기 실패)'); }
+  loop() { if (this._hp0c !== this.code) { this._hp0c = this.code; hp0Install(this); atkStepInstall(this); } if (this.code.F[MAIN_LOOP](this.code.S) !== 3) throw new Error('메인 루프가 비정상 복귀(스택 되감기 실패)'); }
   // 프레임 번호가 target 이상이 될 때까지 진행(루프 경계에서 멈춤)
   runUntilFrame(target) { while (this.code.frameNo < target) this.loop(); }
+}
+// ---- HP 0 즉시 다운(사용자 결정 2026-11-22 「그냥 체력 0이면 즉시 다운」, 옵션 engine.hp0Down 기본 true, false 면 아래 훅이 아무것도 안 해 원작과 비트 동일) ----
+// 원작은 HP 가 0 이어도 다운 상태(행동 1B/1C, B089)에 들어가야 탈락($04A2 bit6, 행동 66)이 확정된다 — 올라타기·잡기 중이면 최대 6.5초 더 움직인다.
+// 요청 게이트 f12_956D(파일 0x1956D, 틱마다 슬롯 0~3 이 부름: 명중 판정·피격 처리 뒤, 핸들러 앞) 앞에서 HP 0·미탈락 슬롯에게 피격 날아감 요청(0x1E, $0570 bit7 고정 궤적·뒤로)을 넣는다.
+// 착지하면 기존 경로로 1B → B089 가 66 으로 확정. 게이트가 1E 를 막는 행동(다운·날아감·들림 등)은 이미 다운 경로라 건드리지 않고, 작은 경직(13·1A)만 게이트를 건너 직접 1E 로 바꾼다.
+// 하는 일은 RAM 읽기·쓰기뿐(내부 상태 없음)이라 스냅샷·락스텝 결정성에 영향 없음. 팀전 엔진(core_team.js)이 code 를 갈아 끼워도 loop() 가 새 code 에 다시 건다.
+const HP0_GATE = 0x1956D;
+function hp0Install(eng) {
+  const F = eng.code.F, orig = F[HP0_GATE]; if (!orig) return;
+  const m = eng.m, prg = eng.prg, blk = new Uint8Array(0x80), tb = 12 * 0x2000 - 0x8000, rdp = a => prg[tb + a];
+  const tp = rdp(0x95C3 + 0x3C) | (rdp(0x95C3 + 0x3D) << 8); // 요청 0x1E 가 못 넘어가는 현재 행동 비트맵(게이트 표 $95C3[req])
+  for (let c = 0; c < 0x80; c++) blk[c] = (rdp(tp + (c >> 3)) & (0x80 >> (c & 7))) ? 1 : 0;
+  F[HP0_GATE] = function (s0) {
+    if (eng.hp0Down && m[0x641] === 1 && (m[0x642] & 0x7F) === 2 && !(m[0x643] & 2)) {
+      for (let x = 0; x < 4; x++) {
+        if (m[0x4C2 + x] !== 0 || (m[0x4A2 + x] & 0x40)) continue;
+        const cur = m[0x49E + x] & 0x7F;
+        if (cur === 0x13 || cur === 0x1A) { m[0x49E + x] = 0x1E; m[0x4AE + x] = 0x9E; }
+        else if (!blk[cur]) m[0x4AE + x] = 0x1E; else continue;
+        m[0x570 + x] = (m[0x570 + x] | 0x80) & ~0x40; m[0x482 + x] = (m[0x5B + x] & 0x80) ? 0x40 : 0xC0;
+      }
+    }
+    return orig(s0);
+  };
 }
 module.exports = { Engine, MAIN_LOOP };
