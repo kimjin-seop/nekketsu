@@ -35,6 +35,7 @@
 //   클라이언트는 hello{proto:4} 를 보내야 팀전 방을 만들고 들어가고 로비 목록에서 본다(없으면 PROTO 3 취급: 팀전만 err proto + 목록 숨김, 난투 방은 종전 그대로).
 //   결과: result{f, r:{team: 0|1|-1}}(승리 팀, $0611 bit3 = 팀 0 전멸 → 팀 1 승 / $0612 bit3 = 팀 1 전멸 → 팀 0 승, -1 = 무승부·불명) → end{winTeam, res:[사람 j 별 'win'|'lose'|'draw'|null]}.
 //   이탈(D5): 한 명이 나가면 그 사람은 팀 승패와 무관하게 패배(res 'lose'), 그 자리 입력은 0 으로 확정하며 판은 계속(사람이 0명 되면 종료). 팀전은 전적·랭크 기록 없음(친선 기록 정책 = 기록 없음).
+// 대전 뒤 방 유지(PROTO 5, 2026-11-22): 자리 방(랭크·래더 제외)은 대전이 끝나도 닫지 않고 대기실(lobby)로 되돌린다. end{stay:true} 를 받은 사람은 결과 화면 「대기실로」에서 back → room 재수신(준비·시작은 다시), 「로비로」 = leave. 기권·빠진·끊긴 사람·hello proto < 5 는 종전처럼 방 소속이 풀린다.
 // 계정·2인 랭크(analysis/22_accounts_ranking_protocol.md): NK_DB_PATH(또는 createServer({ dbPath }))가 있을 때만 SQLite 를 열고 켠다(없으면 계정 메시지 = err acct_off, 종전 동작 그대로).
 //   register{name,pw} login{name,pw} hello{token,sid?} logout{} ranking_list{top?} / create{opts{ranked:true}} → welcome{…,account,token} logged_out ranking_list{top,me} ranking_result{…}
 //   환경변수: NK_DB_PATH(':memory:' = 시험용), RANK_GO_F(랭크 기권이 반영되는 최소 확정 프레임 = 미리 확정 + 이 값, 기본 600),
@@ -59,7 +60,7 @@ const R = __dirname;
 // ---------- 정적 파일(server_game.js 와 같은 마운트·검사) ----------
 const mounts = [['/engine/', path.join(R, 'server', 'engine')], ['/state/', path.join(R, 'data', 'rom_derived', 'states')], ['/fonts/', path.join(R, 'art', 'fonts', 'galmuri')], ['/logo/', path.join(R, 'art', 'logo')], ['/', path.join(R, 'web')]];
 const SHARE_IMAGES = new Set(['/og_nekketsu.png']); // 공유 미리보기용 이미지(로고뿐, ROM 파생물 아님). 추가할 때는 여기에만 넣는다
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.ttf': 'font/ttf' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.ttf': 'font/ttf', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' }; // 뒤 셋 = server_game.js 와 같게(PWA manifest·파비콘, 2026-11-22)
 function resolve(url, local) {
   let u;
   try { u = decodeURIComponent((url || '/').split('?')[0]); } catch (e) { return { code: 400 }; }
@@ -86,13 +87,15 @@ const LOOP_HOST = /^(127(\.\d{1,3}){3}|localhost|::1|\[::1\])$/i, LOOP_ADDR = /^
 const list = v => (v || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 // ---------- 방 ----------
-const PROTO = 4, LEAD = 2;           // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
+const PROTO = 5, LEAD = 2;         // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
 // PROTO 3 = 자리 방 방장 시작·카운트다운·자리 당기기·랜덤(analysis/25). 2 → 3 은 대기방 규칙만 바뀌고 cfg·락스텝 형식은 같다(값 cfg.proto 만 3)          // LEAD: 엔진 워커가 허가 없이 도는 첫 2프레임(시작 프레임 조각 + 첫 온전한 프레임). 이 구간 패드는 서버가 0 으로 확정한다
 const MAX_ROOMS = 200, MAX_AHEAD = 3600, MAX_FRAMES = 60 * 60 * 30, MAX_BATCH = 120, HASH_EVERY = 30, HASH_KEEP = 4096;
 const HASH_BACK = 600; // 지문은 HASH_EVERY 의 배수이면서 [확정 - 지연 - HASH_BACK, 확정] 안(또는 미리 확정 구간)인 프레임만 받는다(정상 클라이언트의 실행 위치는 확정 - 지연 - 1 이상)
 const MSG_MAX = 16 * 1024, MSG_MAX_STORY = 128 * 1024;
 // 기본 공격 전진 이동(server/engine/atk_step.js, 사용자 결정 2026-11-22: 온라인 멀티에서만 켬, 싱글·오프라인은 원작 그대로). start.cfg.atkStep = 'auto'|'dir' 을 모든 참가자 워커가 같게 받는다(없음/0 = 끔). NK_ATK_STEP=0|dir|auto 로 서버 설정
 const ATK_STEP = ({ 0: false, dir: 'dir', auto: 'auto' })[process.env.NK_ATK_STEP] === undefined ? 'auto' : ({ 0: false, dir: 'dir', auto: 'auto' })[process.env.NK_ATK_STEP];
+// 온라인 가드(server/engine/guard_as.js, 사용자 결정 2026-11-22: 온라인 락스텝 대전만 켬, 키 = 스페이스바 → 패드 Select 비트). start.cfg.guardAS = 1 을 모든 참가자 워커가 같게 받는다(없음 = 끔). NK_GUARD_AS=0|1 로 서버 설정, 기본 켬
+const GUARD_AS = process.env.NK_GUARD_AS === '1' ? 1 : 0;
 const ONLINE_SPEED = 1.3; // 온라인 진행 배율(프레임 진행의 벽시계 속도만. 엔진·프레임 수·결과 무관). start.cfg.speed 로 모든 참가자에게 같은 값을 알린다(옛 서버 = 없음 = 1배)
 const LOBBY_TTL = 30 * 60 * 1000, FRAME_MS = 1000 / 60.0988, MAX_STALLS = 3; // MAX_STALLS: 같은 자리가 멈춤으로 이만큼 걸리면 재접속 대기 없이 바로 기권
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 글자(0 O 1 I) 제외
@@ -264,8 +267,9 @@ function createServer(opt) {
     }
     return out;
   };
-  const hostName = room => room.players[0] ? room.players[0].name : '';
-  const roomView = room => room.seats ? { title: room.title, host: hostName(room), humans: room.H, seats: seatsOf(room), opts: room.opts } : {};
+  const hostIx = room => room.host | 0; // 방장 = players[host](난투는 항상 0, 팀전은 자리 고정이라 나간 뒤 승계하면 0 이 아닐 수 있다)
+  const hostName = room => room.players[hostIx(room)] ? room.players[hostIx(room)].name : '';
+  const roomView = room => room.seats ? Object.assign({ title: room.title, host: hostName(room), humans: room.H, seats: seatsOf(room), opts: room.opts }, room.team ? { hostSlot: hostIx(room) } : null) : {}; // hostSlot = 팀전만(방장의 you 값. 없으면 you 0 = 방장)
   // changes = 무엇이 바뀌었는지 [{ who: 바꾼 사람 이름, key, value }](analysis/25. 클라이언트 토스트용, 없으면 필드 없음)
   const peers = (room, changes) => cast(room, Object.assign({ t: 'peers', players: pub(room) }, roomView(room), changes && changes.length ? { changes } : null));
   const newCode = () => { for (let k = 0; k < 50; k++) { let c = ''; for (let i = 0; i < 4; i++) c += ALPHA[crypto.randomInt(ALPHA.length)]; if (!rooms.has(c)) return c; } return null; };
@@ -307,12 +311,30 @@ function createServer(opt) {
     for (const p of room.players) if (p) { clearTimeout(p.dropTimer); if (p.ws) detach(p.ws); }
     log('방 닫음', room.code, why); lobbyDirty();
   }
+  // 대전 뒤 방 유지(PROTO 5): 자리 방(랭크·래더 제외)은 닫지 않고 같은 방 대기실(lobby)로 되돌린다. 남는 사람 = 판에 끝까지 있었고 접속 중이며 PROTO 5 인 사람 → end{stay:true}.
+  //   기권(leave)한 사람·빠진(gone)·끊긴 사람·구 클라이언트는 자리에서 빠지고 종전처럼 방 소속이 풀린다. 남은 사람은 결과 화면에서 back 을 보내 대기실로 돌아온다(그때까지 준비 안 됨 = 방장이 시작할 수 없다)
   function endRoom(room, m) {
     if (room.state === 'ended') return;
-    room.state = 'ended'; if (room.team) Object.assign(m, teamRes(room, m.winTeam)); cast(room, Object.assign({ t: 'end', frames: room.conf, desync: room.desync }, m));
+    const out = new Set(); if (room.seats && !room.ladder && !room.opts.ranked) room.players.forEach((p, i) => { if (p && (p.gone || !p.ws || !(p.ws.proto >= 5) || (m.reason === 'forfeit' && m.why === 'leave' && m.loser === i))) out.add(p); });
+    const stay = !!room.seats && !room.ladder && !room.opts.ranked && room.players.some(p => p && !out.has(p));
+    room.state = 'ended'; if (room.team) Object.assign(m, teamRes(room, m.winTeam)); const em = Object.assign({ t: 'end', frames: room.conf, desync: room.desync }, m);
+    for (const p of room.players) if (p) send(p.ws, stay && !out.has(p) ? Object.assign({ stay: true }, em) : em);
     log('대전 종료', room.code, m.reason, '프레임', room.conf);
     rankSettle(room, m);
+    if (stay) return resetRoom(room, out);
     closeRoom(room, '대전 종료'); // 끝난 방은 바로 닫아 소켓의 방 소속을 푼다(같은 소켓으로 곧바로 새 방을 만들 수 있다)
+  }
+  function resetRoom(room, out) { // 방장·좌석·팀·설정·캐릭터는 그대로, 준비·대전 상태만 되돌린다. 나간 사람: 난투 = 자리를 당긴다(방장 = 앞자리 사람), 팀전 = 그 자리만 비운다(자리·팀 불변, 방장은 앞 번호 승계)
+    const host0 = room.players[hostIx(room)];
+    for (const p of room.players) if (p) { clearTimeout(p.dropTimer); p.dropTimer = null; if (out.has(p) && p.ws && p.ws.room === room) detach(p.ws); }
+    const rest = room.players.filter(p => p && !out.has(p)), ps = room.team ? room.players.map(p => p && !out.has(p) ? p : null) : rest.slice(); while (ps.length < room.H) ps.push(null);
+    room.players = ps; if (room.team && !ps[hostIx(room)]) room.host = ps.findIndex(Boolean); room.state = 'lobby'; room.conf = 0; room.log = []; room.hashes = new Map(); room.results = new Array(room.H).fill(null); room.desync = -1; room.cfg = null; room.starting = false;
+    room.adv = room.startAt = room.winAt = room.winConf = room.blameAt = room.resultAt = 0;
+    for (const p of rest) { p.ready = false; p.build = ''; p.rtt = []; p.pings.clear(); p.ins = []; p.stalls = 0; p.drops = 0; p.wait = 0; }
+    ps.forEach((x, i) => { if (x && x.ws) x.ws.slot = i; });
+    const hp = ps[hostIx(room)]; if (hp !== host0) { room.ip = hp.ws ? hp.ws.ip : room.ip; log('방장 승계', room.code); }
+    clearTimeout(room.ttl); room.ttl = setTimeout(() => { cast(room, { t: 'end', reason: 'idle' }); closeRoom(room, '대기 시간 초과'); }, LOBBY_TTL);
+    log('대기실 복귀', room.code, '남은 사람', rest.length); lobbyDirty();
   }
   // 랭크 판 정산(analysis/22 4절). 반영 = (가) 결과 인정(agree: 남은 사람 전원 보고 일치 + 지문 불일치 없음, 임시 채택 아님)이고 승자가 사람 자리 0·1,
   //   (나) 서버가 판정한 기권(2인 = 상대 승)이고 확정 프레임이 미리 확정 + rankGoF 이상(구동 계획 중 = 전투 전 이탈은 무효).
@@ -413,7 +435,7 @@ function createServer(opt) {
   }
 
   // 핑 3회 → 지연 프레임 결정 → 시작
-  const sameBuild = room => { const b = room.players[0].build; return !!b && room.players.every(p => p.build === b); };
+  const sameBuild = room => { const b = room.players[hostIx(room)].build; return !!b && room.players.every(p => p.build === b); };
   function buildBad(room) { cast(room, { t: 'err', code: 'build', msg: '양쪽 엔진·ROM·시작 상태 지문이 다릅니다' }); for (const p of room.players) if (p) p.ready = false; peers(room); }
   // 방장 시작 방(analysis/25) = 일반 자리 방(래더 제외). 자동 시작 없음: 방장 start{build} → count → 핑 → start{cfg}. 래더 방·종전 방은 자동 시작(종전 그대로)
   //   NK_ROOM_HOST_START=0(또는 createServer({ roomHostStart: false })) = 종전 자동 시작으로 되돌림(시작 버튼 없는 구 클라이언트용 임시 스위치. count 를 보내지 않고 start{build} 는 err state).
@@ -428,7 +450,7 @@ function createServer(opt) {
     if ((s = bad(p => !p)).length) return { why: 'seat_empty', seats: s };
     if ((s = bad(p => !p.ws)).length) return { why: 'offline', seats: s };
     if (room.seats && (s = bad(p => p.char < 0)).length) return { why: 'nochar', seats: s };
-    if ((s = bad((p, i) => !(hs && i === 0) && !p.ready)).length) return { why: 'not_ready', seats: s };
+    if ((s = bad((p, i) => !(hs && i === hostIx(room)) && !p.ready)).length) return { why: 'not_ready', seats: s };
     if (!sameBuild(room)) return { why: 'build', seats: bad(p => p.build !== ps[0].build) };
     return null;
   }
@@ -454,7 +476,7 @@ function createServer(opt) {
     const shot = () => { for (const p of room.players) { const id = crypto.randomInt(1 << 30); p.pings.set(id, process.hrtime.bigint()); send(p.ws, { t: 'ping', id }); } };
     const hs = hostStart(room);
     const iv = room.startIv = setInterval(() => {
-      if (!rooms.has(room.code) || room.state !== 'lobby' || room.players.some((p, i) => !p || !p.ws || (!p.ready && !(hs && i === 0)))) { clearInterval(iv); room.startIv = null; room.starting = false; if (hs && rooms.has(room.code) && room.state === 'lobby') cast(room, { t: 'count', cancel: true, why: 'unready' }); return; }
+      if (!rooms.has(room.code) || room.state !== 'lobby' || room.players.some((p, i) => !p || !p.ws || (!p.ready && !(hs && i === hostIx(room))))) { clearInterval(iv); room.startIv = null; room.starting = false; if (hs && rooms.has(room.code) && room.state === 'lobby') cast(room, { t: 'count', cancel: true, why: 'unready' }); return; }
       const done = room.players.every(p => p.rtt.length >= 3);
       if (!done && n < 3) { n++; return shot(); }
       if (!done && ++n < 3 + 20) return; // 응답 대기(최대 1초)
@@ -465,7 +487,7 @@ function createServer(opt) {
       // 내 입력이 상대에게 닿는 시간 = (내 왕복 + 상대 왕복) / 2 → 가장 느린 두 자리로 잰다(H = 2 면 종전 식과 같다). 여유 2프레임(표본화 1 + 흔들림 1). 모두 같은 값(공정성)
       const jit = Math.max(...room.players.map(p => p.rtt.length ? Math.max(...p.rtt) - Math.min(...p.rtt) : 1e9)), margin = jit <= FRAME_MS / ONLINE_SPEED ? 1 : 2; // 여유: 핑 표본 흔들림이 한 프레임 이하면 1(표본화 1), 크거나 표본이 없으면 종전 2(표본화 1 + 흔들림 1)
       const auto = Math.max(2, Math.min(12, Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin)); // 프레임 길이 = FRAME_MS / 배율(같은 지연 시간을 덮도록 입력 지연 프레임을 배율만큼 늘림)
-      room.cfg = { proto: PROTO, speed: ONLINE_SPEED, delay: room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined };
+      room.cfg = { proto: PROTO, speed: ONLINE_SPEED, delay: room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined, guardAS: GUARD_AS || undefined };
       if (room.team) room.cfg.team = { mode: '2v2', cpu: room.kinds.map(k => k === 'cpu' ? 1 : 0), seatOf: humanSeats(room) }; // 팀전: 엔진 teamCfg.cpu · 락스텝 j 번째 사람 → 자리
       let prefill = 0;
       if (room.seats) { // 대기방에서 고른 값 → 양쪽이 똑같이 돌릴 구동 계획(battle_full, 형식 = web/ui_manga.js addPlan 의 설정)
@@ -503,13 +525,18 @@ function createServer(opt) {
     stats.frames += room.conf - start; if (room.conf > start) room.adv = Date.now();
     if (room.conf >= MAX_FRAMES) endRoom(room, { reason: 'timeout' });
   }
-  // 자리 방 대기 중 이탈(analysis/25): 카운트다운 취소 → 뒤 사람을 앞자리로 당긴다(방장 = 항상 자리 0, 사람은 앞자리부터). 자리가 바뀐 사람에게 room{moved, from} 재송신(토큰·캐릭터·준비는 사람을 따라간다).
+  // 자리 방 대기 중 이탈(analysis/25): 카운트다운 취소 → 난투는 뒤 사람을 앞자리로 당긴다(방장 = 항상 자리 0, 사람은 앞자리부터). 팀전(2:2)은 당기지 않는다(아래). 자리가 바뀐 사람에게 room{moved, from} 재송신(토큰·캐릭터·준비는 사람을 따라간다).
   //   사람 0명 = 방 닫기. 방장이 나가면 다음 사람이 방장(전원 준비 해제). 대전 중(playing) 규칙은 giveUp/gone 그대로
   function seatLeave(room, slot, p, why) {
     cancelCount(room, why);
     const rest = room.players.filter((x, i) => x && i !== slot);
     if (!rest.length) return closeRoom(room, '사람 없음');
     // 랭크 방은 계정만 연다(create 불변식): 승계할 사람이 손님이면 대기 중 방을 닫는다(구 클라이언트도 아는 host_left + why)
+    if (room.team) { // 팀전: 자리 고정. 나간 자리만 비우고 나머지 자리·팀·캐릭터는 그대로. 방장이 나가면 남은 사람 중 앞 번호가 방장(전원 준비 해제)
+      room.players[slot] = null; const changes = [{ who: p.name, key: 'left', value: slot }];
+      if (slot === hostIx(room)) { room.host = room.players.findIndex(Boolean); const h = room.players[room.host]; for (const x of rest) x.ready = false; room.ip = h.ws ? h.ws.ip : room.ip; changes.push({ who: h.name, key: 'host', value: room.host }); log('방장 승계', room.code); }
+      peers(room, changes); return lobbyDirty();
+    }
     if (slot === 0 && room.opts.ranked && !rest[0].acct) { cast(room, { t: 'end', reason: 'host_left', why: 'ranked_guest' }); return closeRoom(room, '랭크 방 방장 나감(승계 대상 손님)'); }
     const ps = rest.slice(); while (ps.length < room.H) ps.push(null);
     room.players = ps;
@@ -662,7 +689,7 @@ function createServer(opt) {
     const nH = seats ? opts.humans : HUMANS;
     const players = new Array(nH).fill(null); players[0] = mkPlayer(ws, name);
     const room = { code, ip: ws.ip, adv: 0, startAt: 0, winAt: 0, winConf: 0, blameAt: 0, resultAt: 0, state: 'lobby', opts, H: nH, players, cfg: null, conf: 0, log: [], hashes: new Map(), results: new Array(nH).fill(null), desync: -1, starting: false, ttl: null,
-      seats, title, cpu: new Array(SEATS - nH).fill(-1), ladder, team: !!kinds, kinds };
+      seats, title, cpu: new Array(SEATS - nH).fill(-1), ladder, team: !!kinds, kinds, host: 0 };
     // 대기방 시간 제한: 일반 = LOBBY_TTL(30분) idle, 래더 = startBy(매칭 뒤 120초) ladder_timeout(벌점 없음). 시작하면 tryStart 가 지운다
     room.ttl = ladder ? setTimeout(() => { cast(room, { t: 'end', reason: 'ladder_timeout' }); closeRoom(room, '래더 시작 시간 초과'); }, Math.max(0, ladder.startBy - Date.now()))
       : setTimeout(() => { cast(room, { t: 'end', reason: 'idle' }); closeRoom(room, '대기 시간 초과'); }, LOBBY_TTL);
@@ -1007,7 +1034,7 @@ function createServer(opt) {
       if (!room) { failed(ws); return err(ws, 'noroom', '없는 방입니다'); }
       if (room.seats && !ws.sess) return err(ws, 'noname', '이름을 먼저 정해 주세요');
       if (room.team && pvOf(ws) < 4) return err(ws, 'proto', '팀전은 새로 고침한 뒤 이용할 수 있습니다');
-      const slot = room.players.findIndex((p, i) => i > 0 && !p);
+      const slot = room.players.findIndex((p, i) => i !== hostIx(room) && !p);
       if (room.state !== 'lobby' || slot < 0 || room.ladder) return err(ws, 'busy', '들어갈 수 없는 방입니다'); // 래더 방은 서버가 앉힌 두 사람만
       if (room.opts.ranked && ws.sess && ws.sess.acct && ranks) { const until = ranks.lockedUntil(ws.sess.acct.key); if (until) return send(ws, { t: 'err', code: 'ranked_locked', msg: '기권·분쟁이 많아 잠시 랭크 대전을 할 수 없습니다', until }); } // 손님은 입장 가능(레이팅 반영 없음)
       ladderDrop(ws, 'room'); seatIn(ws, room, slot, ws.sess ? ws.sess.name : m.name);
@@ -1039,21 +1066,24 @@ function createServer(opt) {
     },
     set(ws, m) { // 방장: 사람 자리 수(humans 2~4)·스테이지(0~6)·룰(1~4)·CPU 자리 캐릭터(cpu[4 - 사람 수], -1 = 자동). 준 항목만 바꾼다. 바꾸면 모두의 준비가 풀린다
       const room = lobbyRoom(ws); if (!room) return;
-      if (ws.slot !== 0) return err(ws, 'host', '방장만 바꿀 수 있습니다');
+      if (ws.slot !== hostIx(room)) return err(ws, 'host', '방장만 바꿀 수 있습니다');
       if (room.opts.ranked) return err(ws, 'ranked_fixed', '랭크 방은 설정을 바꿀 수 없습니다');
-      let { stage, rule } = room.opts, cpu = room.cpu.slice(), nH = room.H, kinds = room.kinds ? room.kinds.slice() : null, team = !!room.team;
+      let { stage, rule } = room.opts, cpu = room.cpu.slice(), nH = room.H, kinds = room.kinds ? room.kinds.slice() : null, team = !!room.team, np = null; // np = 사람 배열을 다시 짠 결과(팀전 자리 구성 변경·팀전 → 난투)
       if (m.teams !== undefined) { // 방 규칙(난투 ffa ↔ 2:2 팀전). 팀전으로 바꾸면 사람 자리 = 앞 H 자리부터(set{seats} 로 다시 정한다)
         if (m.teams !== 'ffa' && m.teams !== '2v2') return err(ws, 'bad', '팀 규칙 오류');
         if (m.teams === '2v2' && !team) {
           if (room.players.some(p => p && !(p.ws && p.ws.proto >= 4))) return err(ws, 'proto', '팀전을 지원하지 않는 참가자가 있습니다');
           team = true; kinds = frontKinds(nH);
-        } else if (m.teams === 'ffa' && team) { team = false; kinds = null; nH = Math.max(HUMANS, nH); cpu = cpu.slice(0, SEATS - nH); while (cpu.length < SEATS - nH) cpu.push(-1); }
+        } else if (m.teams === 'ffa' && team) { team = false; kinds = null; nH = Math.max(HUMANS, nH); cpu = cpu.slice(0, SEATS - nH); while (cpu.length < SEATS - nH) cpu.push(-1);
+          np = [room.players[hostIx(room)]].concat(room.players.filter((p, i) => p && i !== hostIx(room))); while (np.length < nH) np.push(null); } // 난투는 사람이 앞자리부터(방장 = 자리 0)라 이때만 당긴다
       }
       if (m.seats !== undefined) { // 팀전 자리 구성(사람/COM ×4). 앉은 사람 수보다 사람 자리를 줄일 수 없다. CPU 캐릭터는 자리 기준 유지, 새 CPU 자리는 자동(-1)
         if (!team) return err(ws, 'bad', '팀전 방에서만 자리를 바꿀 수 있습니다');
         if (!kindsOk(m.seats)) return err(ws, 'bad', '자리 구성 오류');
-        const n2 = m.seats.filter(k => k === 'human').length;
-        if (n2 < room.players.filter(Boolean).length) return err(ws, 'seat_taken', '그 자리에 사람이 있습니다');
+        const n2 = m.seats.filter(k => k === 'human').length, oldHs = kinds.reduce((a, k, i) => (k === 'human' && a.push(i), a), []), newHs = m.seats.reduce((a, k, i) => (k === 'human' && a.push(i), a), []);
+        const sat = room.players.filter(Boolean); np = new Array(n2).fill(null); // 자리 고정: 앉은 사람의 자리가 계속 사람 자리면 그 자리 그대로(사람 순번 j 만 새 자리 순서에 맞춘다). 앉은 자리가 COM 이 되면 종전처럼 앉은 순서대로 앞 사람 자리에 다시 앉힌다
+        if (n2 < sat.length) return err(ws, 'seat_taken', '그 자리에 사람이 있습니다');
+        if (room.players.every((p, j) => !p || newHs.includes(oldHs[j]))) room.players.forEach((p, j) => { if (p) np[newHs.indexOf(oldHs[j])] = p; }); else sat.forEach((p, i) => { np[i] = p; });
         const bySeat = []; let ci = 0; kinds.forEach((k, i) => { if (k === 'cpu') bySeat[i] = cpu[ci++]; });
         cpu = []; m.seats.forEach((k, i) => { if (k === 'cpu') cpu.push(bySeat[i] !== undefined ? bySeat[i] : -1); });
         kinds = m.seats.slice(); nH = n2;
@@ -1069,7 +1099,7 @@ function createServer(opt) {
       if (m.cpu !== undefined) { if (!Array.isArray(m.cpu) || m.cpu.length !== SEATS - nH || !m.cpu.every(v => v === -1 || charOk(v))) return err(ws, 'bad', 'CPU 캐릭터 오류'); cpu = m.cpu.slice(); }
       const fixed = cpu.filter(v => v >= 0);
       if (new Set(fixed).size !== fixed.length || fixed.some(v => room.players.some(p => p && p.char === v))) return err(ws, 'char_taken', '이미 고른 캐릭터입니다');
-      const who = room.players[0].name, changes = []; // 바뀐 항목(analysis/25): 클라이언트가 「스테이지 5로 변경」 토스트를 띄운다
+      const who = room.players[hostIx(room)].name, changes = []; // 바뀐 항목(analysis/25): 클라이언트가 「스테이지 5로 변경」 토스트를 띄운다
       if (team !== !!room.team) changes.push({ who, key: 'teams', value: team ? '2v2' : 'ffa' });
       if ((kinds || []).join() !== (room.kinds || []).join()) changes.push({ who, key: 'seats', value: kinds ? kinds.slice() : null });
       if (nH !== room.H) changes.push({ who, key: 'humans', value: nH });
@@ -1077,9 +1107,11 @@ function createServer(opt) {
       if (rule !== room.opts.rule) changes.push({ who, key: 'rule', value: rule });
       if (cpu.join() !== room.cpu.join()) changes.push({ who, key: 'cpu', value: cpu.slice() });
       room.opts.stage = stage; room.opts.rule = rule; room.cpu = cpu; room.kinds = kinds; room.team = team; if (team) room.opts.teams = '2v2'; else delete room.opts.teams;
+      const hostP = room.players[hostIx(room)]; if (np) { room.players = np; room.host = Math.max(0, np.indexOf(hostP)); }
       if (nH !== room.H) { const ps = room.players.slice(0, nH); while (ps.length < nH) ps.push(null); room.players = ps; room.results = new Array(nH).fill(null); room.H = room.opts.humans = nH; }
       if (changes.length) lobbyDirty();
       for (const p of room.players) if (p) p.ready = false;
+      room.players.forEach((x, i) => { if (x && x.ws && x.ws.slot !== i) { const from = x.ws.slot; x.ws.slot = i; sendRoom(x.ws, room, i, { moved: true, from }); } }); // 사람 순번이 바뀐 사람에게 room{moved, from}(seatLeave 와 같은 방식, 자리 자체는 그대로)
       peers(room, changes);
     },
     ready(ws, m) {
@@ -1089,17 +1121,17 @@ function createServer(opt) {
       if (on && room.seats && p.char < 0) return err(ws, 'nochar', '캐릭터를 먼저 고르세요');
       const was = p.ready, wasB = p.build;
       p.ready = on; p.build = build;
-      if (hostStart(room) && counting(room) && (wasB !== build || (ws.slot !== 0 && was !== on))) cancelCount(room, 'unready'); // 카운트다운 중 준비 해제·지문 바뀜 = 취소(방장 준비는 시작 조건이 아니다)
+      if (hostStart(room) && counting(room) && (wasB !== build || (ws.slot !== hostIx(room) && was !== on))) cancelCount(room, 'unready'); // 카운트다운 중 준비 해제·지문 바뀜 = 취소(방장 준비는 시작 조건이 아니다)
       peers(room); tryStart(room);
     },
     start(ws, m) { // 방장 시작(analysis/25, 자리 방만): start{build} → 조건 확인 → 전원 count{ms} → 끝나면 핑 → start{cfg}. start{cancel:true} = 방장 취소
       const room = ws.room;
       if (room && room.state === 'lobby' && room.seats && !room.ladder && !roomHostStart) return err(ws, 'host_start_off', '대기 중인 방이 아닙니다'); // 스위치 0(자동 시작) = 별도 코드(클라이언트가 state 와 구분해 시작 버튼을 숨긴다)
       if (!room || room.state !== 'lobby' || !hostStart(room)) return err(ws, 'state', '대기 중인 방이 아닙니다');
-      if (ws.slot !== 0) return err(ws, 'host', '방장만 시작할 수 있습니다');
+      if (ws.slot !== hostIx(room)) return err(ws, 'host', '방장만 시작할 수 있습니다');
       if (m.cancel === true) { cancelCount(room, 'host_cancel'); return; } // 카운트다운이 이미 끝났거나 취소된 뒤 늦게 온 취소 = 조용히 무시
       if (counting(room)) return err(ws, 'state', '이미 시작하는 중입니다');
-      room.players[0].build = str(m.build, 80);
+      room.players[hostIx(room)].build = str(m.build, 80);
       const no = notStartable(room);
       if (no) {
         if (no.why === 'build') { for (const i of no.seats) { const q = room.players[i]; q.ready = false; err(q.ws, 'build', START_WHY.build); } peers(room); } // 누가 낡았는지 서버는 모른다 → 방장·상대 모두 같은 중립 문구(방장은 아래 err start 의 msg)
@@ -1157,6 +1189,11 @@ function createServer(opt) {
       const room = ws.room; if (!room) return;
       if (room.state === 'playing') giveUp(room, ws.slot, 'leave');
       else onDrop(ws, 'leave'); // 대기 중 why 는 카운트다운 취소 이유로만 쓴다(leave | drop)
+    },
+    back(ws) { // 결과 화면 「대기실로」(PROTO 5): 대전 뒤 유지된 같은 방의 지금 상태를 room 으로 다시 받는다(방이 닫혔으면 noroom)
+      const room = ws.room; if (!room) return err(ws, 'noroom', '방이 닫혔습니다');
+      if (room.state !== 'lobby' || !room.seats) return err(ws, 'state', '대기 중인 방이 아닙니다');
+      sendRoom(ws, room, ws.slot);
     },
   };
 

@@ -36,12 +36,14 @@ function loadCjs(urls) {
   });
 }
 function teamOf() { const v = ctl.length > TEAM ? Atomics.load(ctl, TEAM) : 0; return v & 16 ? { cpu: [v & 1, (v >> 1) & 1, (v >> 2) & 1, (v >> 3) & 1] } : null; } // 팀전 요청(ctl[12]) → { cpu[4] } | null
+function guardOf() { return ctl.length > 15 && Atomics.load(ctl, 15) === 1 ? 1 : 0; } // 온라인 가드(server/engine/guard_as.js): ctl[15] 1 = 켬(패드 Select 비트 = 가드), 0 = 끔(싱글·오프라인, 원작 비트 동일)
 function atkOf() { const v = ctl.length > 13 ? Atomics.load(ctl, 13) : 0; return v === 1 ? 'dir' : v === 2 ? 'auto' : false; }
 function makeEngine(gen, team) {
   const b = boot, np = rom[4] * 16384, prg = rom.subarray(16, 16 + np), chr = rom.subarray(16 + np, 16 + np + rom[5] * 8192);
   const mkInit = () => Object.assign({}, b, { prg, chr, ram: Uint8Array.from(b.ram), wram: Uint8Array.from(b.wram), vram: Uint8Array.from(b.vram), pal: Uint8Array.from(b.pal), oam: Uint8Array.from(b.oam), reg: Uint8Array.from(b.reg) });
   const atk = atkOf(); // 기본 공격 전진 이동(server/engine/atk_step.js): ctl[13] 0 = 끔(싱글·오프라인, 원작 비트 동일), 1 = 'dir', 2 = 'auto'. 엔진을 새로 만들 때만 읽는다(온라인 대전 호스트가 리셋 전에 쓰고 끝나면 0)
-  const mkEng = () => { const en = team ? new mods.team.TeamEngine(mkInit(), team) : new mods.core.Engine(mkInit()); en.atkStep = atk; return en; }; // 팀전 = 하위 클래스(core_team.js), 그림자 엔진도 같은 종류·같은 규칙
+  const gas = guardOf(); // 엔진을 새로 만들 때만 읽는다(atk 와 같은 규칙)
+  const mkEng = () => { const en = team ? new mods.team.TeamEngine(mkInit(), team) : new mods.core.Engine(mkInit()); en.atkStep = atk; en.guardAS = gas; return en; }; // 팀전 = 하위 클래스(core_team.js), 그림자 엔진도 같은 종류·같은 규칙
   const e = mkEng();
   e.renderer = new mods.render.Renderer();
   // 한글 층용 관측(읽기 전용): 켜져 있을 때만 라인마다 [v, fx | ctrl<<8, R0 | R1<<8, mask | bsel bit7<<8 | mirrorV<<9] 를 적고, 라인 239 에서 네임테이블·팔레트를 복사한다.
@@ -104,7 +106,7 @@ async function run() {
 self.onmessage = ev => {
   const d = ev.data; if (!d || !d.ctl || ctl) return;
   ctl = new Int32Array(d.ctl); rom = d.rom; boot = d.boot;
-  loadCjs(['/engine/core.js', '/engine/atk_step.js', '/engine/no_winner.js', '/engine/gen/code.js', '/engine/render.js', '/engine/apu.js', '/sound_clock.js', '/apu_skip.js'])
+  loadCjs(['/engine/core.js', '/engine/atk_step.js', '/engine/guard_as.js', '/engine/no_winner.js', '/engine/gen/code.js', '/engine/render.js', '/engine/apu.js', '/sound_clock.js', '/apu_skip.js'])
     .then(m => { mods = m; self.postMessage({ ready: true, pal32: m.render.PAL32 }); run(); })
     .catch(e => self.postMessage({ fatal: String(e && e.message || e) }));
 };

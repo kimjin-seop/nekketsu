@@ -7,6 +7,7 @@
 // 들어오는 지연 프레임까지 같은 명령 경계에서 재현한다. 번역되지 않은 코드에 도달하면 예외(미해결)로 멈춘다.
 const make = require('./gen/code.js');
 const { atkStepInstall, atkStepEnvDefault, atkStepResolve } = require('./atk_step.js'); // 기본 공격 전진 이동(옵션 atkStep, 기본 꺼짐)
+const { guardAsInstall, guardAsEnvDefault, guardAsResolve } = require('./guard_as.js'); // 온라인 전용 가드(옵션 guardAS, 기본 꺼짐)
 const { noWinnerEnvDefault, noWinnerDisp } = require('./no_winner.js'); // 승리 글자(WIN!!) 숨기기(표시 전용 옵션 noWinner, 기본 켬)
 
 const MAIN_LOOP = 0x1C178;
@@ -38,6 +39,7 @@ class Engine {
     this.extPads = false; this.extsh = [0, 0];
     this.hp0Down = !(typeof process !== 'undefined' && process.env && process.env.NK_HP0_DOWN === '0'); // HP 0 즉시 다운 규칙(아래 hp0Install 주석). 기본 켬, false 또는 환경변수 NK_HP0_DOWN=0(Node 한정) = 원작과 비트 동일. 사용자 결정 2026-11-22
     this._atk = atkStepEnvDefault(); // 기본 false = 원작과 비트 동일. 온라인 락스텝 대전만 engine.atkStep = 'auto'|'dir' (server/engine/atk_step.js)
+    this._gas = guardAsEnvDefault(); // 기본 0 = 원작과 비트 동일. 온라인 락스텝 대전만 engine.guardAS = 1 (server/engine/guard_as.js, 패드 Select 비트 = 가드)
     this.noWinner = noWinnerEnvDefault(); this.dispOam = null; // 표시 전용: true 면 DMA 때 승리 글자 조각을 뺀 OAM 사본(dispOam)을 만든다. false 또는 환경변수 NK_NO_WINNER=0 = 원작과 비트 동일(server/engine/no_winner.js)
     this.onFrameEnd = null;  // (engine, frameNo) : 프레임(262 라인) 경계
     this.onNmi = null;       // (engine) : NMI 핸들러 첫 명령 직전(그 프레임에 표시될 상태)
@@ -169,10 +171,11 @@ class Engine {
   drainAudio() { if (!this.apu) return new Float32Array(0); this.apu.runTo(this.code.cyc); return this.apu.drain(); }
   oamView() { return this.noWinner && this.dispOam ? this.dispOam : this.ppuOam; } // 화면에 그릴 OAM(렌더러·워커 스프라이트 사본이 읽는다. 로직·스냅샷은 ppuOam)
   get atkStep() { return this._atk; } set atkStep(v) { this._atk = atkStepResolve(v); }
+  get guardAS() { return this._gas; } set guardAS(v) { this._gas = guardAsResolve(v); }
   get frame() { return this.code.frameNo; }
   // 메인 루프 1회전(전투 중 = 로직 틱 1회, 보통 4프레임)
   // 생성 코드는 메인 루프 재진입($C178 로의 JMP·폴스루)을 3 으로 돌려준다(tools/rom/port_runtime.js unw 주석). 그 밖의 값 = 비정상.
-  loop() { if (this._hp0c !== this.code) { this._hp0c = this.code; hp0Install(this); atkStepInstall(this); } if (this.code.F[MAIN_LOOP](this.code.S) !== 3) throw new Error('메인 루프가 비정상 복귀(스택 되감기 실패)'); }
+  loop() { if (this._hp0c !== this.code) { this._hp0c = this.code; hp0Install(this); atkStepInstall(this); guardAsInstall(this); } if (this.code.F[MAIN_LOOP](this.code.S) !== 3) throw new Error('메인 루프가 비정상 복귀(스택 되감기 실패)'); }
   // 프레임 번호가 target 이상이 될 때까지 진행(루프 경계에서 멈춤)
   runUntilFrame(target) { while (this.code.frameNo < target) this.loop(); }
 }

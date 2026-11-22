@@ -71,6 +71,9 @@
   // 화면·소리 생략(web/worker.js ctl[11]): 덮개 아래 빨리 감기(fastOn, turbo 제외) 프레임을 허가할 때만 1. 그 프레임은 fb 가 null(화면 안 그림), 소리 샘플 없음(어차피 버림).
   //   엔진·패드·RAM 은 같다. fbStale = 마지막으로 받은 프레임이 생략 프레임 → 그리지 않고, 덮개 걷기(tryLink)는 다음 그린 프레임까지 미룬다
   const SKIP = 11; let fbStale = false;
+  // 타이틀 밖 메뉴 = 효과음 끔(2026-11-22 사용자 요청: 타이틀 데모 대련 효과음은 타이틀에서만, 다른 메뉴 화면은 배경음악만). ctl[16] 1 = web/sound_clock.js 가 그림자 드라이버로 소리를 내며 효과음 요청(id 01~1F)만 넘기지 않는다(본 엔진 RAM·로직 불변).
+  //   신규 층 MG.sfxQuiet(메뉴 층이 떠 있고 타이틀이 아님 · 「다른 게임」 팝업) 일 때만, 온라인(락스텝 중)은 늘 0. 타격음 층(web/audio_fx.js)도 같은 값(__game.sfxQuiet)을 본다
+  const SFXQ = 16, sfxQuiet = () => !online && !!MG && UI === MG && menuOn && !!MG.sfxQuiet;
   const skipSet = v => Atomics.store(ctl, SKIP, v);
   // 승리 연출 건너뛰기(2026-11-21, 신규 층 MG 주소의 로컬 판만): 전투 종료 연출 1:5(WINNER 등, 약 172프레임) 동안 새로 누른 A·B·START(패드 비트, 키 리매핑과 무관)·Esc·클릭·터치가 오면
   //   그 뒤 프레임을 덮개 아래 빨리 감기(fastOn, 화면·소리 생략)로 허가해 다음 덮개(스토리 대기실 10:0 · 배틀 결과 0:0)까지 넘긴다. 빨리 감는 동안 엔진 패드는 0(입력 없음과 같은 경로).
@@ -320,6 +323,7 @@
     on.ls = window.NKLockstep.create({ cfg, send: o.send, sample: () => localPads()[0] }); // 내 패드 = 1P 키·게임패드 1(자리와 무관), 서버가 내 자리 포트로 확정해 준다
     if ((H >= 3 || T) && on.ls.width !== H) { online = null; Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); return false; } // 옛 락스텝(폭 2 고정)이 캐시에 남은 경우
     Atomics.store(ctl, 13, cfg.atkStep === 'dir' ? 1 : cfg.atkStep === 'auto' ? 2 : 0); // 기본 공격 전진 이동(web/worker.js ctl[13]): 서버 start.cfg.atkStep 을 모든 참가자가 같게. 워커가 다음 리셋(엔진 새로 만들기)에서 읽는다
+    Atomics.store(ctl, 15, cfg.guardAS ? 1 : 0); // 온라인 가드(web/worker.js ctl[15], server/engine/guard_as.js): 서버 start.cfg.guardAS 를 모든 참가자가 같게. 패드 비트 4(Select) 눌림 = 가드. 워커가 다음 리셋에서 읽는다
     o.attach({ msg: onlineMsg, have: () => on.ls.have });
     writePads(); return true;
   }
@@ -368,7 +372,7 @@
     else if (m.t === 'end') { const r = mirror.m; if (m.reason === 'result' && o.resSent && !o.tail && MG && r[0x641] === 1 && (r[0x642] & 0x7F) === 5) { o.tail = m; o.tailN = 0; onlineAdvance(); } else onlineStop(o.tail || m); } // 결과 합의(end result)가 1:5 첫 프레임에 바로 와도 WINNER 연출(1:5)을 끝까지 보여 준 뒤 닫는다. 그 밖(기권·끊김 등)은 바로
   }
   function onlineStop(m) { // 대전 끝(결과·기권·끊김): 엔진을 처음부터 다시 만들고 신규 층 결과 화면
-    const o = online; if (!o) return; online = null; Atomics.store(ctl, 13, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; if (!DEBUG) info.style.display = 'none'; // ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
+    const o = online; if (!o) return; online = null; Atomics.store(ctl, 13, 0); Atomics.store(ctl, 15, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; if (!DEBUG) info.style.display = 'none'; // ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
     zeroExt(); const to = holdOf(); if (curBoot !== to) bootWith(to); else { Atomics.add(ctl, RESET, 1); Atomics.notify(ctl, RESET); Atomics.notify(ctl, CREDIT); } // 신규 층 = 타이틀 대기 상태(대련부터, reset 과 같게)
     openMenu(() => { if (UI.onlineEnd) UI.onlineEnd(m, o.slot); else UI.show('title'); });
   }
@@ -590,7 +594,7 @@
     if (!last) last = t; let dt = t - last; last = t; if (dt > 100) dt = 100;
     if (MG) { const g = (navigator.getGamepads ? navigator.getGamepads() : [])[0], sb = KM ? KM.startBtn : 9, st = !!(g && sb >= 0 && g.buttons[sb] && g.buttons[sb].pressed); if (st && !gpStart) openPause(null); gpStart = st; } // 게임패드 START = 일시정지 메뉴
     keyDrain(); writePads(); aSync(); // 게임패드는 이벤트가 없으므로 화면 주기마다 갱신(키보드는 키 이벤트에서 즉시 갱신, 밀린 짧은 탭은 여기서)
-    if (ctl) Atomics.store(ctl, SPD, Math.round(spd() * 1000)); // 워커 소리 시계에 현재 배율(1000 = 1배속: 소리 종전 그대로). 엔진(게임 로직)에는 영향 없음
+    if (ctl) { Atomics.store(ctl, SPD, Math.round(spd() * 1000)); if (ctl.length > SFXQ) Atomics.store(ctl, SFXQ, sfxQuiet() ? 1 : 0); } // 워커 소리 시계에 현재 배율(1000 = 1배속: 소리 종전 그대로). 엔진(게임 로직)에는 영향 없음
     const hs = !online && !!window.NKImpact && window.NKImpact.stop(t); // 히트스톱(web/impact_fx.js, 오프라인만): 참이면 이번 화면 주기는 프레임 허가 없음(허가 시점만 바뀜, 엔진·패드열 불변)
     if (online) { // 리셋 대기(워커가 멈출 때까지 허가하지 않는다) → 락스텝: 내 입력 보내기 + 60Hz 예산(밀려도 2프레임까지만 따라잡기)
       const o = online;
@@ -641,7 +645,7 @@
     get menu() { return MENU ? { on: menuOn, pre, hold: holding(), recArm, exits, want, opt: wantOpt, picked, drive: drv ? Object.assign({ end: drvEnd }, drv.info) : null, ui: UI.state, layer: UI === window.NKMenu ? 'menu' : 'manga' } : null; },
     get ko() { return { on: ko, ready: !!koMod, error: koErr, stats: koMod ? koMod.stats : null }; },
     get rec() { return rec ? { from: rec.from, n: rec.n, live: rec.live, bad: rec.bad, point: rec.point, key: rec.key } : null; }, get load() { return { wait: !!loadWait, ms: loadMs, boot: curBoot === titleBoot ? 'title' : curBoot && curBoot === holdBoot ? 'hold' : curBoot ? 'state' : '' }; },
-    get online() { const o = online; return o ? { phase: o.phase, slot: o.slot, humans: o.H, exec: o.ls.exec, have: o.ls.have, sent: o.ls.sent, drive: o.drvState, result: o.resSent, cover: menuOn } : null; } };
+    get online() { const o = online; return o ? { phase: o.phase, slot: o.slot, humans: o.H, exec: o.ls.exec, have: o.ls.have, sent: o.ls.sent, drive: o.drvState, result: o.resSent, cover: menuOn } : null; }, get sfxQuiet() { return sfxQuiet(); }, get sfxFlag() { return ctl && ctl.length > SFXQ ? Atomics.load(ctl, SFXQ) : -1; }, get sfxStat() { return ctl && ctl.length > SFXQ + 3 ? { req: Atomics.load(ctl, SFXQ + 1), drop: Atomics.load(ctl, SFXQ + 2), mode: Atomics.load(ctl, SFXQ + 3) } : null; } };
   // 원격(https·비루프백) 접속 = 보호 경로(/rom/ /state/ /ui/ /engine/gen/)를 받기 전에 세션 쿠키부터(web/asset_session.js, analysis/27 M0). 로컬은 바로 동기 실행 = 종전 그대로
   const NKS = window.NKSess, bootAll = () => {
   if (MENU) { // 신규 층 초기화가 실패하면 종전 층으로 폴백
@@ -660,7 +664,7 @@
     if (!CLASSIC && window.NKManga && window.NKManga.enabled) { const s = document.createElement('script'); s.src = 'unit_tags.js'; s.onload = () => { window.NKTags.init({ canvas: cv, rom: romU8 }); if (window.NKTags.ready) TAGS = window.NKTags; }; document.head.appendChild(s); } // 선수 표시 층(팀 표식·이름, 메타스프라이트 표는 ROM 에서 읽는다)
     if (!CLASSIC && window.NKManga && window.NKManga.enabled) { const s = document.createElement('script'); s.src = 'hit_fx.js'; s.onload = () => { window.NKHitFx.init({ canvas: cv, rom: romU8 }); if (window.NKHitFx.ready) FX = window.NKHitFx; const t = document.createElement('script'); t.src = 'impact_fx.js'; document.head.appendChild(t); }; document.head.appendChild(s); } // 타격 이펙트 층 + 타격감 층(web/impact_fx.js, hit_fx 구독자)
     { const r = new Uint8Array(b), np = r[4] * 16384; romChr = r.slice(16 + np, 16 + np + r[5] * 8192); } // 한글 층이 글자 타일의 색을 읽는 데 쓴다
-    ctl = new Int32Array(new SharedArrayBuffer(64)); applyNf(); // 워커가 렌더러를 만들기 전에 깜박임 제거 칸을 채운다
+    ctl = new Int32Array(new SharedArrayBuffer(128)); applyNf(); // 32칸(종전 16칸 + ctl[16] 타이틀 밖 효과음 끔). 워커가 렌더러를 만들기 전에 깜박임 제거 칸을 채운다
     if (!CLASSIC && /[?&]mid=1(&|$)/.test(location.search)) { const s = document.createElement('script'); s.src = 'sprite_layer.js'; s.onload = () => { MID = window.NKSprite; Atomics.store(ctl, 8, 1); MID.init({ chr: romChr }); }; document.head.appendChild(s); }
     if (hdWant()) loadHd(); // 전투 배경 HD 층(기본 꺼짐): 한글 층 PPU 사본(ctl[5])·스프라이트 사본(ctl[8])을 같이 켠다(?ko=0 이어도 글자는 그리지 않는다. 워커는 읽기 전용 관측만 한다)
     startWorker(MENU ? holdOf() : st); // 신규 층 타이틀 = 대련 상태로 바로(온라인 프레임 번호 bootFrame 은 titleBoot 기준 그대로, 온라인은 시작 때 titleBoot 로 다시 만든다)

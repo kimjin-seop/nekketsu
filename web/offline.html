@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>열혈격투전설 웹온라인</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1a1042"><meta name="color-scheme" content="dark">
+<style>
+html,body{margin:0;height:100%;background:#1a1042;color:#fff;font:16px/1.5 system-ui,sans-serif}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+img{width:96px;height:96px;border-radius:16px}
+button{min-height:44px;padding:0 20px;font:inherit;color:#fff;background:#000;border:2px solid #9670ff;border-radius:6px;cursor:pointer}
+button:hover,button:focus-visible{border-color:#fff;outline:0}
+</style></head><body>
+<img src="/icon-192.png" alt="">
+<div>서버 연결 필요</div>
+<button type="button" id="retry" autofocus>다시 연결</button>
+<script>
+// SW 가 화면 이동 실패 때 원래 주소(예: /?room=)에 이 내용을 보여 준다 → 그 주소를 다시 연다. 직접 연 /offline.html 이면 첫 화면으로
+var retry = function () { if (location.pathname === '/offline.html') location.replace('/'); else location.reload(); };
+document.getElementById('retry').onclick = retry;
+addEventListener('online', retry);
+</script>
+</body></html>

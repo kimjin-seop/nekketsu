@@ -12,7 +12,7 @@ const ITEMS = [
   ['server_online.js', 'code'], ['package.json', 'code'], ['package-lock.json', 'code'],
   ['server/asset_gate.js', 'code'], ['server/static_compress.js', 'code'], ['server/story_pace.js', 'code'],
   ['server/store', 'code'], ['server/ranking', 'code'], ['server/profile', 'code'],
-  ['server/engine/core.js', 'code'], ['server/engine/core_team.js', 'code'], ['server/engine/atk_step.js', 'code'], ['server/engine/no_winner.js', 'code'], ['server/engine/apu.js', 'code'], ['server/engine/render.js', 'code'],
+  ['server/engine/core.js', 'code'], ['server/engine/core_team.js', 'code'], ['server/engine/atk_step.js', 'code'], ['server/engine/guard_as.js', 'code'], ['server/engine/no_winner.js', 'code'], ['server/engine/apu.js', 'code'], ['server/engine/render.js', 'code'],
   ['server/engine/replay_save.js', 'code'], ['server/engine/snapshot.js', 'code'],
   ['server/engine/gen', 'rom'],                       // ROM 직역 생성 코드(원격 제공은 세션 게이트)
   ['node_modules/ws', 'code'],                        // 순수 JS(네이티브 모듈 없음). 서버에서 npm ci --omit=dev 로 대체 가능

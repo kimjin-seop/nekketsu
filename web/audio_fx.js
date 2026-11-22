@@ -13,7 +13,7 @@
   //   ?afx_combo=1 = 콤보음 켜서 들어 보기(검증용)
   const COMBO_ON = /[?&]afx_combo=1(&|$)/.test(location.search), RATE_VAR = 0, IMPACT_MS = 110, TRIM = { hit_light: 50, hit_heavy: 60, guard_clank: 60 };
   const CLASSIC = /[?&]classic=1(&|$)/.test(location.search);
-  const st = { ready: false, err: null, decoded: 0, played: {}, skipped: { off: 0, notready: 0, prio: 0, retrig: 0, floor: 0, combo: 0, group: 0, disabled: 0 }, sources: 0, steals: 0, replaced: 0, log: [] };
+  const st = { ready: false, err: null, decoded: 0, played: {}, skipped: { off: 0, notready: 0, prio: 0, retrig: 0, floor: 0, combo: 0, group: 0, disabled: 0, menu: 0 }, sources: 0, steals: 0, replaced: 0, log: [] };
   let ac = null, bus = null, man = null, loadP = null;
   const buf = {}, meta = {}, lastAt = {}, floorAt = {}, voices = []; let impAt = -1e9, impPrio = 0; // voices = [{ key, group, prio, src, g, end }]
   const S = () => root.NKSettings || null;
@@ -43,6 +43,7 @@
   }
   function play(key, o) {
     const lv = level(); if (!lv || !master()) { st.skipped.off++; return false; }
+    if (root.__game && root.__game.sfxQuiet) { st.skipped.menu++; return false; } // 타이틀 밖 메뉴(web/game.js sfxQuiet) = 효과음 끔, 배경음악만
     if (meta[key] && meta[key].off) { st.skipped.disabled++; return false; }
     if (!st.ready || !ac || !buf[key]) { st.skipped.notready++; return false; }
     if (ac.state !== 'running') { st.skipped.notready++; return false; }

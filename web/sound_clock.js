@@ -15,6 +15,11 @@
 const FRAME_CYC = 262 * 113.6667, BIG = 1e9, MIRROR_MAX = 1800;
 const REQ_OFF = 0x0000, UPD_OFF = 0x0003;         // 생성 코드 F 표 키(PRG 파일 오프셋): 뱅크 0 의 $8000(요청 본체)·$8003(갱신 본체)
 const FBFF = 0x1C000 + 0xFBFF - 0xC000, FC16 = 0x1C000 + 0xFC16 - 0xC000; // 고정 뱅크 진입점(요청·갱신)
+// 효과음 끔(2026-11-22, 타이틀 밖 메뉴 = 배경음악만): web/game.js 가 ctl[16] = 1 로 알린다. 켜져 있으면 1배속이어도 그림자(거울 모드, 갱신 시점 = 본 엔진 그대로)로 넘어가
+//   그림자에 효과음 요청(id 01~1F, analysis/12_sound.md 2.2절)만 넘기지 않는다. 곡 요청·$0700 쓰기·갱신은 그대로라 BGM 위치는 본 엔진과 같다.
+//   본 엔진(RAM·드라이버·게임 로직)은 손대지 않는다. 0 으로 돌아오면 효과음 요청을 다시 넘기고 종전 거울 규칙으로 본 엔진에 되돌린다. 칸이 없으면(Node 도구·다른 워커) 늘 꺼짐
+const SFXQ = 16, isSfx = id => id >= 0x01 && id <= 0x1F;
+const sfxQuiet = () => typeof ctl !== 'undefined' && !!ctl && ctl.length > SFXQ && Atomics.load(ctl, SFXQ) === 1;
 
 // main = 본 엔진(core.js Engine, attachApu 된 상태), makeShadow() = 같은 시작 상태로 만든 두 번째 Engine(처음 배속에 들어갈 때만 부른다)
 function create(main, makeShadow) {
@@ -23,7 +28,7 @@ function create(main, makeShadow) {
   let mode = 0;                    // 0 = 본 엔진이 합성기에 씀(종전), 1 = 그림자가 씀
   let ev = [], depth = 0, exp = main.m[0x700], lastUpdC = 0;
   let shadow = null, sc = 0, nextU = 0, lastU = 0, mirrorN = 0, C0 = null, kick = false;
-  const st = { handoffs: 0, handbacks: 0, forced: 0, shadowUpd: 0, shadowReq: 0, remap: 0 };
+  const st = { handoffs: 0, handbacks: 0, forced: 0, shadowUpd: 0, shadowReq: 0, remap: 0, sfxReq: 0, sfxDrop: 0, sfxQuiet: 0, mode: 0 }; // sfxReq = 본 엔진이 낸 효과음 요청 수(모드 무관), sfxDrop = 효과음 끔으로 그림자에 넘기지 않은 요청 수, sfxQuiet·mode = 마지막 프레임 값
   // 온라인 팀전 승패 징글 보정(analysis/30 D3, 2026-11-22 사용자 결정 「진 쪽은 패배음」): 엔진(TeamEngine C6AC)은 양 팀에 사람이 있으면 이긴 팀 기준 0x32(승리) 한 번을 낸다.
   //   그림자(배속) 경로가 받는 요청 id 만 이 클라이언트의 팀 기준으로 바꾼다 — 본 엔진 RAM·락스텝 지문은 그대로. 내 팀 = 공유 메모리 ctl[14](web/game.js: 0 = 보정 없음, 1 + 팀),
   //   승리 팀 = $0611 bit3(팀 0 전멸 → 팀 1 승)·$0612 bit3(→ 팀 0 승), 둘 다거나 없으면 그대로. 1배속(그림자 없음)에서는 보정하지 않는다(온라인 배율 1.3 이라 해당 없음)
@@ -38,6 +43,7 @@ function create(main, makeShadow) {
   // 관측 덮개: 원래 함수를 그대로 부르고 값만 읽는다(본 엔진의 RAM·레지스터·사이클에 손대지 않음)
   F[REQ_OFF] = function (s0) {
     if (!depth) see700();
+    if (isSfx(main.m[0x7FF])) st.sfxReq++;
     if (mode) { const id = main.m[0x7FF], to = jingle(id); if (to !== id) st.remap++; ev.push({ t: 0, c: cyc(), id: to }); }
     depth++; let r; try { r = origReq(s0); } finally { depth--; }
     if (!depth) exp = main.m[0x700];
@@ -76,6 +82,7 @@ function create(main, makeShadow) {
   function frameEnd(C1, r) {
     if (!depth) see700();
     if (C0 === null) C0 = C1 - FRAME_CYC;
+    const q = sfxQuiet(); st.sfxQuiet = q ? 1 : 0;
     let out;
     if (!mode) { synth.runTo(C1); out = synth.drain(); }
     else {
@@ -87,7 +94,7 @@ function create(main, makeShadow) {
         const s = map(e.c);
         if (!grid && e.t === 0 && (e.id === 0 || (e.id >= 0x20 && e.id <= 0x36))) kick = true;
         if (grid) while (nextU <= s && nextU < s1) { const u = nextU; run(u, () => shadowCall(FC16, 0)); lastU = u; nextU += FRAME_CYC; st.shadowUpd++; }
-        if (e.t === 0) { run(s, () => shadowCall(FBFF, e.id)); st.shadowReq++; }
+        if (e.t === 0) { if (q && isSfx(e.id)) st.sfxDrop++; else { run(s, () => shadowCall(FBFF, e.id)); st.shadowReq++; } }
         else if (e.t === 2) shadow.m[0x700] = e.v;
         else if (!grid) { run(s, () => shadowCall(FC16, 0)); lastU = s; nextU = s + FRAME_CYC; st.shadowUpd++; }
       }
@@ -97,14 +104,16 @@ function create(main, makeShadow) {
       if (!grid) { // 거울 모드: 새 곡 시작(id 20~36)·전체 정지(00) 요청이 있었거나 드라이버 RAM 이 같아지면 본 엔진으로 되돌린다
         mirrorN++;
         let same = true; for (let a = 0x700; a < 0x800; a++) if (shadow.m[a] !== main.m[a]) { same = false; break; }
-        if (!depth && (same || kick || mirrorN >= MIRROR_MAX)) leave(C1, !same && !kick);
+        if (q) mirrorN = 0;
+        else if (!depth && (same || kick || mirrorN >= MIRROR_MAX)) leave(C1, !same && !kick);
       } else mirrorN = 0;
     }
-    if (!mode && r > 1 && !depth) enter(); // 요청·갱신 도중(프레임 경계가 드라이버 실행 중에 걸림)이면 다음 경계로 미룬다(반쯤 처리된 드라이버 RAM 을 복사하지 않게)
-    C0 = C1;
+    if (!mode && (r > 1 || q) && !depth) enter(); // 요청·갱신 도중(프레임 경계가 드라이버 실행 중에 걸림)이면 다음 경계로 미룬다(반쯤 처리된 드라이버 RAM 을 복사하지 않게)
+    C0 = C1; st.mode = mode;
+    if (typeof ctl !== 'undefined' && ctl && ctl.length > SFXQ + 3) { Atomics.store(ctl, SFXQ + 1, st.sfxReq); Atomics.store(ctl, SFXQ + 2, st.sfxDrop); Atomics.store(ctl, SFXQ + 3, mode); } // 점검용 ctl[17~19] = 효과음 요청 수·차단 수·모드(web/game.js __game.sfxStat 이 읽기만)
     return out;
   }
   return { frameEnd, stats: st, get mode() { return mode; } };
 }
-const api = { create, FRAME_CYC, MIRROR_MAX };
+const api = { create, FRAME_CYC, MIRROR_MAX, SFXQ };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
