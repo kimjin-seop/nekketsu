@@ -37,6 +37,10 @@ const RULES = {
   season_gold: { at: 'season', text: '시즌 종료 때 골드 이상' },
   season_platinum: { at: 'season', text: '시즌 종료 때 플래티넘 이상' },
   season_master: { at: 'season', text: '시즌 종료 때 마스터' },
+  // 일일·주간 도전 수령 보상(analysis/27 P4b). at 'claim' = challenge_claim 수령 때만 지급(이벤트·시즌 일괄 지급에는 안 걸린다)
+  ch_d_login: { at: 'claim', text: '일일 도전 「출석」 수령' }, ch_d_games: { at: 'claim', text: '일일 도전 「세 판」 수령' }, ch_d_win: { at: 'claim', text: '일일 도전 「오늘의 승리」 수령' },
+  ch_w_login: { at: 'claim', text: '주간 도전 「사흘 출석」 수령' }, ch_w_wins: { at: 'claim', text: '주간 도전 「다섯 승」 수령' }, ch_w_story: { at: 'claim', text: '주간 도전 「스토리 우승」 수령' },
+  claims_10: { at: 'claim', text: '도전 보상 10회 수령(누적)' }, claims_50: { at: 'claim', text: '도전 보상 50회 수령(누적)' },
 };
 
 const T = (id, name, rule, src) => ({ kind: 'title', id, name, rule, src: src || 'server' });
@@ -67,6 +71,10 @@ const ITEMS = [
   // 초상 배경 6
   B('default', '기본', 'always'), B('win10', '열 승', 'wins_10'), B('streak', '연승', 'streak_3'), B('tier_gold', '골드', 'season_gold'), B('season_done', '시즌 완주', 'season_done'), B('champion', '우승', 'story_clear_1'),
   // 초상 스탬프 6
+  // 도전 수령 보상 칭호(추가형 — 칭호는 에셋 없이 글자만이라 FE 에 새 그림이 필요 없다)
+  T('ch_d_login', '오늘도 출석', 'ch_d_login'), T('ch_d_games', '쉬지 않는 주먹', 'ch_d_games'), T('ch_d_win', '오늘의 승자', 'ch_d_win'),
+  T('ch_w_login', '주간 단골', 'ch_w_login'), T('ch_w_wins', '주간 강자', 'ch_w_wins'), T('ch_w_story', '주간 우승자', 'ch_w_story'),
+  T('claims_10', '도전자', 'claims_10'), T('claims_50', '끈기의 도전자', 'claims_50'),
   S('star', '별', 'first_win'), S('fist', '주먹', 'games_50'), S('flame', '불꽃', 'streak_5'), S('crown', '왕관', 'tier_master'), S('shield', '방패', 'resilient'), S('laurel', '월계수', 'story_clear_3'),
 ];
 

@@ -1,0 +1,1521 @@
+{
+ "date": "2026-11-22",
+ "scales": [
+  1,
+  4
+ ],
+ "scale_rule": "1x 를 정수배 n 으로만 확대(image-rendering: pixelated). 4x 파일은 1x 의 NEAREST 확대본",
+ "why_img": "/ui/ 는 루프백 전용(원격 403)이라 원작 파생이 아닌 이 에셋은 /img/ 아래",
+ "version": "1.0",
+ "scope": "T3 튜토리얼 안내 줄(web/tutorial.js #nktut) 키캡·아이콘",
+ "map": {
+  "kbd(일반 키 이름, 리매핑 반영)": "key_9s_normal 9-slice: border-image:url(/img/tutorial/key_9s_normal_1x.png) 2 2 3 2 fill / 4px 4px 6px 4px; image-rendering:pixelated; (2x). 지금 해야 할 키 = key_9s_lit, 막 성공 = key_9s_ok, 눌린 순간 = key_9s_pressed(slice 3 2 2 2)",
+  "기본 키 그대로일 때(←→↑↓ A S D)": "key_{left|right|up|down|a|s|d}_{normal|lit|pressed} 12x12 를 24px(2x) 또는 36px(3x)로. 리매핑된 키는 9-slice + DOM 글자",
+  "동작 아이콘": "act_punch / act_kick / act_jump / act_run / act_special / act_hit (12x12, 2x=24 권장, 문구 앞에 놓음)",
+  "터치 표기": "touch_stick(이동) / touch_stick_edge(스틱 끝까지) / touch_stick_double(스틱 두 번) / touch_a / touch_b / touch_jump",
+  "단계 점": "dot_todo / dot_cur / dot_ok (4x4, 2x = 지금 CSS 8px 와 같은 크기)",
+  "건너뛰기": "skip (12x12)"
+ },
+ "assets": [
+  {
+   "key": "tutorial.key_9s_normal",
+   "id": "key_9s_normal",
+   "desc": "키캡 9-slice(normal) - 키 이름은 DOM 글자",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_9s_normal_1x.png",
+     "url": "/img/tutorial/key_9s_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 153,
+     "sha256": "e55c6576ff565594d8edf01cd53258922dc8e9be3b8753686c561ec74e562eb3"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_9s_normal_4x.png",
+     "url": "/img/tutorial/key_9s_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 216,
+     "sha256": "653544885e35a9f1207169609fac30ac4ff06710af2c225f0a801cf67db6d1f0"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)",
+   "slice_1x": {
+    "top": 2,
+    "left": 2,
+    "right": 2,
+    "bottom": 3
+   }
+  },
+  {
+   "key": "tutorial.key_9s_lit",
+   "id": "key_9s_lit",
+   "desc": "키캡 9-slice(lit) - 키 이름은 DOM 글자",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_9s_lit_1x.png",
+     "url": "/img/tutorial/key_9s_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 152,
+     "sha256": "b49d8a9293050c775232520836d6f49f0cc40670ea054285feb9eadcc1eb0412"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_9s_lit_4x.png",
+     "url": "/img/tutorial/key_9s_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 211,
+     "sha256": "ba66b9bb3d53e294965a42b361af5447660603c38346aa89c3616787d0ea3627"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)",
+   "slice_1x": {
+    "top": 2,
+    "left": 2,
+    "right": 2,
+    "bottom": 3
+   }
+  },
+  {
+   "key": "tutorial.key_9s_ok",
+   "id": "key_9s_ok",
+   "desc": "키캡 9-slice(ok) - 키 이름은 DOM 글자",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_9s_ok_1x.png",
+     "url": "/img/tutorial/key_9s_ok_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 150,
+     "sha256": "3149298834c2126d17e45aede97585237e5525dc9591fe14034a57f82c764ce8"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_9s_ok_4x.png",
+     "url": "/img/tutorial/key_9s_ok_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 209,
+     "sha256": "1cc125110e3ebadcd72651189e5b6a5917705bff9a9bbb5d5f0d8b343bb880bf"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)",
+   "slice_1x": {
+    "top": 2,
+    "left": 2,
+    "right": 2,
+    "bottom": 3
+   }
+  },
+  {
+   "key": "tutorial.key_9s_pressed",
+   "id": "key_9s_pressed",
+   "desc": "키캡 9-slice(pressed) - 키 이름은 DOM 글자",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_9s_pressed_1x.png",
+     "url": "/img/tutorial/key_9s_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 151,
+     "sha256": "438daa0b0147cbd50a994033b7effba1eb6e6023c90f331e432f3c212295b41f"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_9s_pressed_4x.png",
+     "url": "/img/tutorial/key_9s_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 207,
+     "sha256": "a2422dfecaaf7c58831e2a429e04dae6f3227399ff2649f18ba8eb9669420616"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)",
+   "slice_1x": {
+    "top": 3,
+    "left": 2,
+    "right": 2,
+    "bottom": 2
+   }
+  },
+  {
+   "key": "tutorial.key_left_normal",
+   "id": "key_left_normal",
+   "desc": "키캡 left(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_left_normal_1x.png",
+     "url": "/img/tutorial/key_left_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 193,
+     "sha256": "f72d8d56ecde5e791709a5a6981cd7854cbce99660ee0424bdd27ffae463139e"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_left_normal_4x.png",
+     "url": "/img/tutorial/key_left_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 260,
+     "sha256": "d4c1036fd4f320f3a5774383f9dd73f59e3837eff4ea01f1104ad748fe5c1bca"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_left_lit",
+   "id": "key_left_lit",
+   "desc": "키캡 left(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_left_lit_1x.png",
+     "url": "/img/tutorial/key_left_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 194,
+     "sha256": "c05eba8c76c24a14bd2701d3f44b54091141e23d77b802d8c27d962087a751a3"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_left_lit_4x.png",
+     "url": "/img/tutorial/key_left_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 256,
+     "sha256": "c0833b15e2389cb730981db32012ba7146b61a0d3261a69bc037c3ea57c6e8b2"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_left_pressed",
+   "id": "key_left_pressed",
+   "desc": "키캡 left(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_left_pressed_1x.png",
+     "url": "/img/tutorial/key_left_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 155,
+     "sha256": "fcc8b9aa71f4a11ad45101892f6120a7588f6c2447fd1a8785021b02c532ed46"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_left_pressed_4x.png",
+     "url": "/img/tutorial/key_left_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 216,
+     "sha256": "d489413a4a3268a146ed891c09b6b70c11e9f3a20c09441e25e7a20694b621d4"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_right_normal",
+   "id": "key_right_normal",
+   "desc": "키캡 right(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_right_normal_1x.png",
+     "url": "/img/tutorial/key_right_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 188,
+     "sha256": "a5e2e89f4c3ca42575512d350110605517062641cb9993eb8e4aa52638cb6ad2"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_right_normal_4x.png",
+     "url": "/img/tutorial/key_right_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 257,
+     "sha256": "6c19afbd754c2d957ffe7389886e56cb29e7c247a284f9d9d583f25f2fe25da9"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_right_lit",
+   "id": "key_right_lit",
+   "desc": "키캡 right(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_right_lit_1x.png",
+     "url": "/img/tutorial/key_right_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 196,
+     "sha256": "86d2d24cb525dd689972ec7bcb70359159e156015718f34d87b8cba6d274bc15"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_right_lit_4x.png",
+     "url": "/img/tutorial/key_right_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 256,
+     "sha256": "ea86edafca38833f9998aa8a53eb352e776ea06e4f408e950cf42edf35a6e7cd"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_right_pressed",
+   "id": "key_right_pressed",
+   "desc": "키캡 right(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_right_pressed_1x.png",
+     "url": "/img/tutorial/key_right_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 153,
+     "sha256": "c61fa1f3122d8a7b95c206865f7a6bf44f4f041a0263eef91b75480d0685e4aa"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_right_pressed_4x.png",
+     "url": "/img/tutorial/key_right_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 209,
+     "sha256": "75f9874655126fc739d77fff8c455dcf42c08204b9e829f345b167d4585a9e21"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_up_normal",
+   "id": "key_up_normal",
+   "desc": "키캡 up(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_up_normal_1x.png",
+     "url": "/img/tutorial/key_up_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 182,
+     "sha256": "c7d0ca0ce9f116ed2d756d66ba908c67b5928899fb3232026f0a4fe508d33fb6"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_up_normal_4x.png",
+     "url": "/img/tutorial/key_up_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 254,
+     "sha256": "c37129991e0d41c2344cb13cea97ba3b1718a6ca71c8972691781e773882470d"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_up_lit",
+   "id": "key_up_lit",
+   "desc": "키캡 up(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_up_lit_1x.png",
+     "url": "/img/tutorial/key_up_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 195,
+     "sha256": "4e57e76faaf1b08783971fd4ef428141cee2a62820e237687c1d2a1dd91de745"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_up_lit_4x.png",
+     "url": "/img/tutorial/key_up_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 253,
+     "sha256": "650d7d0384d0aa40c19793dd3a6fd770ab2f5abeb4970eb4b0e6ba3c9c79a03c"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_up_pressed",
+   "id": "key_up_pressed",
+   "desc": "키캡 up(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_up_pressed_1x.png",
+     "url": "/img/tutorial/key_up_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 151,
+     "sha256": "241da2aa3d04101fdb0d0edeee55c656df7f42ea96d44eec077ad9fca890f9d3"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_up_pressed_4x.png",
+     "url": "/img/tutorial/key_up_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 207,
+     "sha256": "fbbfc44deef6a42f0d2639f0697cd189b6fa3445065a923292f3fce3814b75af"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_down_normal",
+   "id": "key_down_normal",
+   "desc": "키캡 down(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_down_normal_1x.png",
+     "url": "/img/tutorial/key_down_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 183,
+     "sha256": "3838fce2d969f3fb4d654437ea17696689d643cd6eda3f1ede7555c09cc97230"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_down_normal_4x.png",
+     "url": "/img/tutorial/key_down_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 259,
+     "sha256": "7ad21fe26c883f5d6e7239b604d11c49e0323ce223a676bf59ab686c76811aae"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_down_lit",
+   "id": "key_down_lit",
+   "desc": "키캡 down(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_down_lit_1x.png",
+     "url": "/img/tutorial/key_down_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 192,
+     "sha256": "d0afd45112d58999de4abb0c12a4da2d926e825b7172be8c319a496871d3d5ef"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_down_lit_4x.png",
+     "url": "/img/tutorial/key_down_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 258,
+     "sha256": "a0d565e82a7a9acc3c3ae38ae079596328d25d2a0166bf0df183ba5e8e2c6777"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_down_pressed",
+   "id": "key_down_pressed",
+   "desc": "키캡 down(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_down_pressed_1x.png",
+     "url": "/img/tutorial/key_down_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 152,
+     "sha256": "c961bf5c15a539cea51ac35896854c688187f1a54ded0939737a63c383b0c45b"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_down_pressed_4x.png",
+     "url": "/img/tutorial/key_down_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 216,
+     "sha256": "8007e6b7d581aa551f0a531895b28517608b52e59c2a4bb64cab1589221daca6"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_a_normal",
+   "id": "key_a_normal",
+   "desc": "키캡 A(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_a_normal_1x.png",
+     "url": "/img/tutorial/key_a_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 190,
+     "sha256": "8795efe1e520670e0af6c0bbeafab72748b61e5e8e1176879738f5edddc3f3fc"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_a_normal_4x.png",
+     "url": "/img/tutorial/key_a_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 252,
+     "sha256": "96022cb55d2abb276f2e4a62670f834544f81306b5d0f52bd9f170f232531e1a"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_a_lit",
+   "id": "key_a_lit",
+   "desc": "키캡 A(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_a_lit_1x.png",
+     "url": "/img/tutorial/key_a_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 184,
+     "sha256": "ee775ffa1957d6301aa6629759b3ef57c3a43d9f81d48e2b117276338ba8b3c7"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_a_lit_4x.png",
+     "url": "/img/tutorial/key_a_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 250,
+     "sha256": "6cade065b1a85040eee475c13fbeadd57dd6b28f956550482be210dba8c7f446"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_a_pressed",
+   "id": "key_a_pressed",
+   "desc": "키캡 A(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_a_pressed_1x.png",
+     "url": "/img/tutorial/key_a_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 152,
+     "sha256": "4930c0098a2ed3ae5f3b15f7e1d5af5ddfaf980998e247c1182c0c3832dc5551"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_a_pressed_4x.png",
+     "url": "/img/tutorial/key_a_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 207,
+     "sha256": "13ac38f32db67aa995f49c0c14409034464e8b1a798946aad94411316fb9b26b"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_s_normal",
+   "id": "key_s_normal",
+   "desc": "키캡 S(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_s_normal_1x.png",
+     "url": "/img/tutorial/key_s_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 197,
+     "sha256": "786ce81d85fb54c683b1bb8a97f65467eabae2eefed18d1412ac35e2c37ac774"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_s_normal_4x.png",
+     "url": "/img/tutorial/key_s_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 261,
+     "sha256": "3c4103ef6476d195c912b60cad50d7d0c7f5f7977f685db15a29eed208e76bac"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_s_lit",
+   "id": "key_s_lit",
+   "desc": "키캡 S(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_s_lit_1x.png",
+     "url": "/img/tutorial/key_s_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 185,
+     "sha256": "87634f3b0b43e6b6448d1f33073cba1ee4c312107faebe794ded0fb53a2196c1"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_s_lit_4x.png",
+     "url": "/img/tutorial/key_s_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 257,
+     "sha256": "7a7ee969c5256874550189c7140987b57d2868566f018e5ce6017887c300b3ee"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_s_pressed",
+   "id": "key_s_pressed",
+   "desc": "키캡 S(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_s_pressed_1x.png",
+     "url": "/img/tutorial/key_s_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 156,
+     "sha256": "135221521da3188143181f6a146c1c40b90b75850827fd337080e2b00472af8f"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_s_pressed_4x.png",
+     "url": "/img/tutorial/key_s_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 219,
+     "sha256": "91e2fb38e63667372ef0ec62ec9735ff79052f66148645348916b3cabc7bba04"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_d_normal",
+   "id": "key_d_normal",
+   "desc": "키캡 D(normal)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_d_normal_1x.png",
+     "url": "/img/tutorial/key_d_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 192,
+     "sha256": "938b46fceaf050e0207e5c419160034db863af8a2004faa75cd77f81ab5cec63"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_d_normal_4x.png",
+     "url": "/img/tutorial/key_d_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 251,
+     "sha256": "ff6ccd8dc6905f2c58be804dd5fd9b23ad8d4b87db58ff0e5f1c53321aea3ffa"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_d_lit",
+   "id": "key_d_lit",
+   "desc": "키캡 D(lit)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_d_lit_1x.png",
+     "url": "/img/tutorial/key_d_lit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 176,
+     "sha256": "dccf065651b3d7704beb220eed05df69c34de547463ef85d239b84c2b5a8eb98"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_d_lit_4x.png",
+     "url": "/img/tutorial/key_d_lit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 250,
+     "sha256": "61fddc0198816e90351e5f165c66439bdfd084c3cd4135f007e9efbabc645f25"
+    }
+   },
+   "opaque_px": 140,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.key_d_pressed",
+   "id": "key_d_pressed",
+   "desc": "키캡 D(pressed)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/key_d_pressed_1x.png",
+     "url": "/img/tutorial/key_d_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 146,
+     "sha256": "17ded5c5638cef4f5f36cfa3c3dbb01766c9a6e67c5ad138355791f76dfb75c4"
+    },
+    "4x": {
+     "path": "web/img/tutorial/key_d_pressed_4x.png",
+     "url": "/img/tutorial/key_d_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 205,
+     "sha256": "13a82583b744cb540e256097fb55053f393b0c6098d29bccc57f9ecaba7bf8e2"
+    }
+   },
+   "opaque_px": 128,
+   "transparent_px": 16,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_punch",
+   "id": "act_punch",
+   "desc": "펀치",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_punch_1x.png",
+     "url": "/img/tutorial/act_punch_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 202,
+     "sha256": "a75c00df7c6165c6782168a32ea8c7c4f5eb4c06a5dc856e5d70e9d897d9c808"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_punch_4x.png",
+     "url": "/img/tutorial/act_punch_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 258,
+     "sha256": "7a5dc6885b0e9bad8d12f93ba549c8042872baba8857b0424ed7f1c75e37a256"
+    }
+   },
+   "opaque_px": 88,
+   "transparent_px": 56,
+   "semi_alpha_px": 0,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_kick",
+   "id": "act_kick",
+   "desc": "킥",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_kick_1x.png",
+     "url": "/img/tutorial/act_kick_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 169,
+     "sha256": "bef743c9c8624cfa54746ffb0360a696e4199a89f96a4c3b190fc546546e1398"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_kick_4x.png",
+     "url": "/img/tutorial/act_kick_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 228,
+     "sha256": "ee111c19405dd67991082a028bf46a07373aac5e4992db990038769079528576"
+    }
+   },
+   "opaque_px": 65,
+   "transparent_px": 79,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_jump",
+   "id": "act_jump",
+   "desc": "점프",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_jump_1x.png",
+     "url": "/img/tutorial/act_jump_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 167,
+     "sha256": "7fe6658d9713b37bf51069adcc92b68165ed132c2345be7b289ef0e671307ad5"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_jump_4x.png",
+     "url": "/img/tutorial/act_jump_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 240,
+     "sha256": "abd0668a31fcad17136920781eebc7bacbf3569c74f9cece3e2a224f04340300"
+    }
+   },
+   "opaque_px": 56,
+   "transparent_px": 88,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_run",
+   "id": "act_run",
+   "desc": "달리기(→→)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_run_1x.png",
+     "url": "/img/tutorial/act_run_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 135,
+     "sha256": "596d95d6795773c785f760b487febb6ec1fcae45b271e2878fa47a179a066b35"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_run_4x.png",
+     "url": "/img/tutorial/act_run_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 239,
+     "sha256": "48219183189f10d5e7e9ca2a2fbbd490639262a77f52619c6c06bc3c77448053"
+    }
+   },
+   "opaque_px": 56,
+   "transparent_px": 88,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_special",
+   "id": "act_special",
+   "desc": "필살기 입력",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_special_1x.png",
+     "url": "/img/tutorial/act_special_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 185,
+     "sha256": "0a24ded63e6f723cffa33f140c75a9af57297b8c4e878bf101a8403c59231265"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_special_4x.png",
+     "url": "/img/tutorial/act_special_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 242,
+     "sha256": "18448c88a119d04167e92cedcb0c491c7027eeb18aa74c407a72f6fc950921b0"
+    }
+   },
+   "opaque_px": 67,
+   "transparent_px": 77,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.act_hit",
+   "id": "act_hit",
+   "desc": "맞히기",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/act_hit_1x.png",
+     "url": "/img/tutorial/act_hit_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 180,
+     "sha256": "33ded8a7600b99d425ba35382a4b3d72ada2606831396e8410430ec50e2624cc"
+    },
+    "4x": {
+     "path": "web/img/tutorial/act_hit_4x.png",
+     "url": "/img/tutorial/act_hit_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 226,
+     "sha256": "12b659c7da7130120d12eb3c99419a072cf9c8fd4b6992ed42d66e4591d80b19"
+    }
+   },
+   "opaque_px": 78,
+   "transparent_px": 66,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.skip",
+   "id": "skip",
+   "desc": "건너뛰기",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/skip_1x.png",
+     "url": "/img/tutorial/skip_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 133,
+     "sha256": "10ec40ea0a9b95ad2b11367153a9bb3e2094de8eba2ec76b24e30d90b9400f32"
+    },
+    "4x": {
+     "path": "web/img/tutorial/skip_4x.png",
+     "url": "/img/tutorial/skip_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 197,
+     "sha256": "1490c3193085b69a977bf00764653fdd2c3e18059cd386dbadffff226d9d8f74"
+    }
+   },
+   "opaque_px": 74,
+   "transparent_px": 70,
+   "semi_alpha_px": 0,
+   "colors": 3,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_a",
+   "id": "touch_a",
+   "desc": "터치 A",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_a_1x.png",
+     "url": "/img/tutorial/touch_a_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 191,
+     "sha256": "5119a59f041ba3544cd2d5a2680001a8dcc00fc2a875f18023f010bf4e6a1eb2"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_a_4x.png",
+     "url": "/img/tutorial/touch_a_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 278,
+     "sha256": "8c17bcd8f2d7553210d0a8cc8e3dd864ecc9926ba32289ad7815bf4dd22b3bc2"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_b",
+   "id": "touch_b",
+   "desc": "터치 B",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_b_1x.png",
+     "url": "/img/tutorial/touch_b_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 197,
+     "sha256": "628b4665a6ea20036f9dc08e1e3ca4c317706e4153725b4125abad951637ae24"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_b_4x.png",
+     "url": "/img/tutorial/touch_b_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 276,
+     "sha256": "cf1c4b9e950feb921cea8fa800c0b3250d8d30cc4b076f2011540cc152be8a04"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_jump",
+   "id": "touch_jump",
+   "desc": "터치 점프",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_jump_1x.png",
+     "url": "/img/tutorial/touch_jump_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 207,
+     "sha256": "2636359472ca066a0ebc2757892f0902edf1b0837b38c76ee8144e88ad4c3393"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_jump_4x.png",
+     "url": "/img/tutorial/touch_jump_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 273,
+     "sha256": "4466491199c57f19c827b2169432f8bec2352bb6c3a71284b23b262c941d2888"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_stick",
+   "id": "touch_stick",
+   "desc": "스틱(이동)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_stick_1x.png",
+     "url": "/img/tutorial/touch_stick_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 192,
+     "sha256": "4ab12b85dfc6e5801894f0d86e51d8f1cdc60500fa34081135356e0b1a2b1afb"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_stick_4x.png",
+     "url": "/img/tutorial/touch_stick_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 266,
+     "sha256": "b64f385ee9acd200fe29167a2072023514bfe4e77416f94456908a9c5ffe3536"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_stick_edge",
+   "id": "touch_stick_edge",
+   "desc": "스틱 끝까지(달리기 보조)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_stick_edge_1x.png",
+     "url": "/img/tutorial/touch_stick_edge_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 199,
+     "sha256": "dc15f458e1d762b04298ebada11ce1d3c8ef40f8b7f6851a420c64f058c362ca"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_stick_edge_4x.png",
+     "url": "/img/tutorial/touch_stick_edge_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 260,
+     "sha256": "1928e7a0980cde68c67acfe7b20279ce8c77d1ac1d70b08c95c71398c19cb236"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.touch_stick_double",
+   "id": "touch_stick_double",
+   "desc": "스틱 두 번(보조 끔)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/touch_stick_double_1x.png",
+     "url": "/img/tutorial/touch_stick_double_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 210,
+     "sha256": "2cf0e9efc265e18a2b4d9bc434a704a6600b6588cdb58680ae3879b2265e176f"
+    },
+    "4x": {
+     "path": "web/img/tutorial/touch_stick_double_4x.png",
+     "url": "/img/tutorial/touch_stick_double_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 273,
+     "sha256": "0058187c2b153a1c332b2fc67608715dd3dde4efbae974efe1662d8cdf7e1e86"
+    }
+   },
+   "opaque_px": 112,
+   "transparent_px": 32,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.dot_todo",
+   "id": "dot_todo",
+   "desc": "단계 점(todo)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/dot_todo_1x.png",
+     "url": "/img/tutorial/dot_todo_1x.png",
+     "size": [
+      4,
+      4
+     ],
+     "bytes": 106,
+     "sha256": "3e232c4a6bd3ce323db50746f86884449b2b791ed161b9ca548dbeee2f8efabd"
+    },
+    "4x": {
+     "path": "web/img/tutorial/dot_todo_4x.png",
+     "url": "/img/tutorial/dot_todo_4x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 120,
+     "sha256": "77a68ab64302bddabbcef4807cc8e7127040707b6382f92fa7253e8fa25703e8"
+    }
+   },
+   "opaque_px": 12,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 3,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.dot_cur",
+   "id": "dot_cur",
+   "desc": "단계 점(cur)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/dot_cur_1x.png",
+     "url": "/img/tutorial/dot_cur_1x.png",
+     "size": [
+      4,
+      4
+     ],
+     "bytes": 106,
+     "sha256": "2a00d2d500538a1a2abc1ea198ec78ce1083e2f0a65c472d19a7d8873d55ad75"
+    },
+    "4x": {
+     "path": "web/img/tutorial/dot_cur_4x.png",
+     "url": "/img/tutorial/dot_cur_4x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 119,
+     "sha256": "6d6e64076a5d251636b067a13dc5980096f3ed5c8bd505345aeaef21c23b9e04"
+    }
+   },
+   "opaque_px": 12,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 3,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "tutorial.dot_ok",
+   "id": "dot_ok",
+   "desc": "단계 점(ok)",
+   "files": {
+    "1x": {
+     "path": "web/img/tutorial/dot_ok_1x.png",
+     "url": "/img/tutorial/dot_ok_1x.png",
+     "size": [
+      4,
+      4
+     ],
+     "bytes": 107,
+     "sha256": "ab41df5927920cd8d3f80c35d15e0d0a62bb652cbc6c461458e20a866831e068"
+    },
+    "4x": {
+     "path": "web/img/tutorial/dot_ok_4x.png",
+     "url": "/img/tutorial/dot_ok_4x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 119,
+     "sha256": "6e09827062068d8795d6198d56bdb36c89a4a6187288c5a923e6f6ec66cac703"
+    }
+   },
+   "opaque_px": 12,
+   "transparent_px": 4,
+   "semi_alpha_px": 0,
+   "colors": 3,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  }
+ ]
+}

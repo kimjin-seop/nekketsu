@@ -3,9 +3,9 @@
 // 위치(RAM 읽기만): 발 기준점 화면 X $0411+s · 화면 Y $0421+s(높이 포함), 그림 $5B+s(bit7 = 0 이면 좌우 반전), 몸통 시트 $0401+s(08 문서 1절).
 //   머리 위 = 그 그림의 메타스프라이트 조각 중 가장 위(ROM bank4 $800F 표를 여기서 읽는다), 가로 = 조각 폭의 가운데.
 //   화면은 RAM 보다 4프레임 늦다(측정: 표시 OAM 과 RAM 으로 계산한 조각 일치 — 4프레임 전 RAM 95~97%, 지금 RAM 57~72%) → game.js 가 넘긴 프레임별 RAM 중 4프레임 전 것을 쓴다.
-// 편: 스토리($0645 < 2) = 2대2 팀전, 팀 = 슬롯 >> 1(왼쪽 팀 빨강 ▲ · 오른쪽 팀 파랑 ●). 배틀($0645 ≥ 2) = 원작이 개인전(팀 값 없음) → 기준 자리(온라인 내 자리 · 로컬 1P) 빨강 ▲, 나머지 파랑 ●.
-// 사람: 배틀 = 앞 $0645 − 1 슬롯, 스토리 = $04A2+s bit7 이 꺼진 슬롯(ui_manga.js HUD 와 같은 식). 온라인은 내 자리(room.you)만 크게.
-// 설정(NKManga.tagInfo.mode): 0 끔 · 1 팀 표식만 · 2 팀 표식 + 이름(기본). 자리 번호(1P 등)는 쓰지 않는다. 쓰러진 선수(HP 0)·전투 밖·메뉴 덮개 중에는 그리지 않는다.
+// 편(자료만, 2026-11-22 부터 그리지 않음): 스토리($0645 < 2) = 팀 = 슬롯 >> 1. 배틀($0645 ≥ 2) = 기준 자리(온라인 내 자리 · 로컬 1P) red, 나머지 blue. 화면 표식 = 자리 뱃지(1P~4P·COM, HUD 칩과 같은 글자·색).
+// 사람: 배틀 = 앞 $0645 − 1 슬롯, 스토리 = $04A2+s bit7 이 꺼진 슬롯(ui_manga.js HUD 와 같은 식). 내 선수(온라인 내 자리 · 로컬 사람) = 뱃지 흰 테.
+// 설정(NKManga.tagInfo.mode): 0 끔 · 1 자리 뱃지만 · 2 자리 뱃지 + 이름(기본). 쓰러진 선수(HP 0)·전투 밖·메뉴 덮개 중에는 그리지 않는다.
 (function (root) {
   const OX = 88, FIELD = 188, LAG = 4;
   const NCAT = [110, 108, 104, 110, 122]; // 시트 0~4 의 그림 수(08 문서 1절)
@@ -38,16 +38,18 @@
     }
     return out;
   }
-  const COL = { red: '#e5484d', blue: '#3b82f6', gray: '#AAAABE' };
   // → { c, shape, human, mine }. 스토리 = 팀(슬롯 >> 1). 배틀 = 원작이 개인전이라 팀 값이 없다 → 「내 편/상대」로 가른다:
   //   기준 자리 = 온라인 내 자리(room.you), 로컬은 1P(슬롯 0). 기준 자리 = 빨강 ▲, 나머지(상대 사람·CPU) = 파랑 ●. $0645 가 알 수 없는 값이면 중립(회색 ●)
   function style(m, s, info) {
-    const v = m[0x645]; if (v > 5) return { c: 'gray', shape: 'dot', human: false, mine: false };
+    const v = m[0x645]; if (v > 5) return { c: 'gray', shape: 'dot', human: false, mine: false, badge: 'COM', bk: 'com' };
     const ffa = v >= 2, humans = Math.min(4, v - 1), human = ffa ? s < humans : !(m[0x4A2 + s] & 0x80);
     const mine = human && (info.you >= 0 ? s === info.you : true);
     const red = ffa ? s === (info.you >= 0 ? info.you : 0) : !(s >> 1);
-    return { c: red ? 'red' : 'blue', shape: red ? 'tri' : 'dot', human, mine };
+    const badge = human ? (s + 1) + 'P' : 'COM', bk = !human ? 'com' : (s < 2 || ffa ? 'p' + (s + 1) : 'com'); // 뱃지 = ui_manga.js HUD 패널의 자리 칩과 같은 글자·색(스토리 3·4P 사람 = 회색 칩)
+    return { c: red ? 'red' : 'blue', shape: red ? 'tri' : 'dot', human, mine, badge, bk }; // c·shape = 편(내 편/상대) 자료만 남김(그리지 않음)
   }
+  // 뱃지 색 = ui_manga.css --p1~p4·--com, 색약 보정(NKA11y.colorblind) = a11y.css 와 같은 Okabe-Ito 계열. 색만으로 가르지 않게 글자(1P~4P·COM)를 같이 쓴다
+  const BCOL = { p1: '#FF5252', p2: '#409CFF', p3: '#3DDC84', p4: '#FF9F1C', com: '#AAAABE' }, BCOL_CB = { p1: '#E69F00', p2: '#56B4E9', p3: '#F0E442', p4: '#CC79A7', com: '#AAAABE' };
   // 이름: 온라인 사람 = 대기실 닉네임. 로컬 = 1P 사람은 로그인한 계정 닉네임 → 없으면(그 외 모두) 캐릭터 이름(에디트 = 음역 이름). 6자 넘으면 5자 + …
   const clip = t => { const a = Array.from(String(t || '').trim()); return a.length > 6 ? a.slice(0, 5).join('') + '…' : a.join(''); };
   const nameOf = (s, sy, info) => clip((info.seats && info.seats[s]) || (info.you < 0 && sy.human && s === 0 && info.nick) || (info.names && info.names[s]) || '');
@@ -64,14 +66,6 @@
     if (os.left !== sl) os.left = sl; if (os.top !== stp) os.top = stp; if (os.width !== sw) os.width = sw; if (os.height !== sh) os.height = sh;
     return W / 256;
   }
-  function mark(x, y, r, shape, c, mine) { // (x, y) = 표식 아래 끝 가운데(디바이스 픽셀)
-    ctx.beginPath();
-    if (shape === 'tri') { ctx.moveTo(x, y - 1.9 * r); ctx.lineTo(x + r, y); ctx.lineTo(x - r, y); ctx.closePath(); } // ▲ 빨강
-    else if (shape === 'dia') { ctx.moveTo(x, y - 2 * r); ctx.lineTo(x + r, y - r); ctx.lineTo(x, y); ctx.lineTo(x - r, y - r); ctx.closePath(); }
-    else if (shape === 'sq') ctx.rect(x - 0.85 * r, y - 1.7 * r, 1.7 * r, 1.7 * r);
-    else ctx.arc(x, y - r, r, 0, Math.PI * 2);
-    ctx.fillStyle = COL[c]; ctx.fill(); ctx.lineWidth = Math.max(1, r * 0.35); ctx.strokeStyle = mine ? '#fff' : 'rgba(0,0,0,.85)'; ctx.stroke();
-  }
   function tick() {
     raf = requestAnimationFrame(tick);
     try { draw(); } catch (e) { err = String(e && e.message || e); cancelAnimationFrame(raf); hide(); console.error('선수 표시 층 오류(끔): ' + err); }
@@ -86,24 +80,23 @@
     let R = null; for (let i = hist.length - 1; i >= 0; i--) { R = hist[i]; if (hist[i].f <= cur.f - LAG) break; } // 4프레임 전(없으면 가장 오래된 것)
     st.lag = cur.f - R.f;
     const S = place(FIELD), pts = locate(boxes, R.m), withName = info.mode === 2;
-    const fpx = 10 * Math.max(1, Math.round(S / 3)); ctx.font = fpx + 'px NKM9,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const out = [], boxesL = []; // boxesL = 이미 그린 이름 띠(겹치면 위로 한 줄씩 비킨다)
+    const dpr = window.devicePixelRatio || 1, fpx = Math.max(10 * Math.max(1, Math.round(S / 3)), Math.round(10 * dpr)); ctx.font = fpx + 'px NKM9,monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const out = [], boxesL = [], PAL = root.NKA11y && root.NKA11y.colorblind ? BCOL_CB : BCOL; // boxesL = 이미 그린 띠(겹치면 위로 한 줄씩 비킨다)
+    const bh = Math.round(fpx * 1.2), pw = Math.round(fpx * 0.35), bp = Math.max(1, Math.round(fpx * 0.25)), ln = Math.max(1, Math.round(fpx / 8)); // 띠 높이 · 이름 좌우 여백 · 뱃지 좌우 여백 · 내 선수 흰 테 굵기
     for (const p of pts) {
-      const sy = style(m, p.s, info), r = (sy.mine ? 1.3 : 1) * 1.1 * S; // 반지름(코어 1.1픽셀, 내 선수 1.3배)
-      const x = Math.max(4, Math.min(252, p.x)) * S, bh = Math.round(fpx * 1.2), top = Math.max(2 * r + 2 + (withName ? bh + 1 : 0), Math.min(FIELD, p.top - 2) * S); // 머리 위 2픽셀(이름 띠까지 화면 안), 옆 끝은 안쪽으로
-      ctx.globalAlpha = 0.92; mark(x, top, r, sy.shape, sy.c, sy.mine);
+      const sy = style(m, p.s, info), x = Math.max(4, Math.min(252, p.x)) * S, top = Math.max(bh + 2, Math.min(FIELD, p.top - 2) * S); // 머리 위 2픽셀(띠까지 화면 안), 옆 끝은 안쪽으로
       const lab = withName ? nameOf(p.s, sy, info) : '';
-      if (lab) { // 표식 위 한 줄: 반투명 검은 띠 + 흰 글씨(아래 끝 = 팀색 줄)
-        const tw = Math.ceil(ctx.measureText(lab).width), pw = Math.round(fpx * 0.35), bw = tw + 2 * pw, bx = Math.round(Math.max(0, Math.min(ov.width - bw, x - bw / 2)));
-        let by = Math.round(top - 2 * r - 1 - bh);
-        const hit = y => boxesL.some(b => bx < b[0] + b[2] && b[0] < bx + bw && y < b[1] + bh + 1 && b[1] < y + bh + 1);
-        for (let k = 0; k < 3 && hit(by); k++) by = by - bh - 1 >= 0 ? by - bh - 1 : by + bh + 1; // 겹침 = 한 줄 위(화면 위 끝이면 아래)
-        boxesL.push([bx, by, bw]);
-        ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(bx, by, bw, bh);
-        ctx.globalAlpha = 0.95; ctx.fillStyle = COL[sy.c]; ctx.fillRect(bx, by + bh - Math.max(1, Math.round(S / 3)), bw, Math.max(1, Math.round(S / 3)));
-        ctx.fillStyle = '#fff'; ctx.fillText(lab, bx + bw / 2, by + bh / 2);
-      }
-      out.push({ s: p.s, x: p.x, top: p.top, c: sy.c, shape: sy.shape, mine: sy.mine, label: lab, box: lab ? boxesL[boxesL.length - 1].concat(Math.round(fpx * 1.2)) : null, hp: p.hp }); // box = 이름 띠 [x, y, 폭, 높이](디바이스 픽셀)
+      // 머리 위 한 줄 = [자리 뱃지(1P~4P·COM, 자리 색 바탕 + 검은 글씨)][이름(반투명 검은 띠 + 흰 글씨)]. 종전 팀 표식(▲·●)은 뱃지로 대체. 이름은 6자 넘으면 줄이고 띠는 화면 안쪽으로 민다
+      const bwB = Math.ceil(ctx.measureText(sy.badge).width) + 2 * bp, tw = lab ? Math.ceil(ctx.measureText(lab).width) : 0, bw = bwB + (lab ? tw + 2 * pw : 0), bx = Math.round(Math.max(0, Math.min(ov.width - bw, x - bw / 2)));
+      let by = Math.round(top - bh);
+      const hit = y => boxesL.some(b => bx < b[0] + b[2] && b[0] < bx + bw && y < b[1] + bh + 1 && b[1] < y + bh + 1);
+      for (let k = 0; k < 3 && hit(by); k++) by = by - bh - 1 >= 0 ? by - bh - 1 : by + bh + 1; // 겹침 = 한 줄 위(화면 위 끝이면 아래)
+      boxesL.push([bx, by, bw]);
+      if (lab) { ctx.globalAlpha = 0.55; ctx.fillStyle = '#000'; ctx.fillRect(bx + bwB, by, bw - bwB, bh); ctx.globalAlpha = 0.95; ctx.fillStyle = '#fff'; ctx.fillText(lab, bx + bwB + pw + tw / 2, by + bh / 2); }
+      ctx.globalAlpha = 0.95; ctx.fillStyle = PAL[sy.bk] || BCOL.com; ctx.fillRect(bx, by, bwB, bh);
+      ctx.fillStyle = '#000'; ctx.fillText(sy.badge, bx + bwB / 2, by + bh / 2);
+      if (sy.mine) { ctx.lineWidth = ln; ctx.strokeStyle = '#fff'; ctx.strokeRect(bx + ln / 2, by + ln / 2, bwB - ln, bh - ln); } // 내 선수(온라인 내 자리·로컬 사람) = 뱃지 흰 테
+      out.push({ s: p.s, x: p.x, top: p.top, c: sy.c, shape: sy.shape, mine: sy.mine, badge: sy.badge, bk: sy.bk, bc: PAL[sy.bk] || BCOL.com, label: lab, box: boxesL[boxesL.length - 1].concat(bh), hp: p.hp }); // box = 띠(뱃지 + 이름) [x, y, 폭, 높이](디바이스 픽셀)
     }
     ctx.globalAlpha = 1;
     if (!shown) { ov.style.display = ''; shown = true; }

@@ -22,7 +22,16 @@
   const frame = () => window.__game && window.__game.mirror ? window.__game.mirror.frame : 0;
   const buzz = ms => { if (!opt('tvib') || !navigator.vibrate) return; try { navigator.vibrate(ms); } catch (e) { /* 미지원 */ } };
 
-  let root = null, zl = null, zr = null, ring = null, knob = null, hint = null, pz = null, btn = {}, shown = false, L = null, layKey = '';
+  let root = null, zl = null, zr = null, ring = null, knob = null, hint = null, pz = null, fz = null, btn = {}, shown = false, L = null, layKey = '';
+  // 전체 화면(M6): 터치 UI 안의 버튼. 미지원 브라우저(iPhone Safari 등 fullscreenEnabled 없음)는 숨긴다. 사용자 활성화가 필요해 click 에서 부른다(터치 pointerdown 은 활성화 이벤트가 아님)
+  const fsOk = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  function fsToggle() {
+    try {
+      if (fsEl()) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) { const p = x.call(document); if (p && p.catch) p.catch(() => {}); } return; }
+      const e = document.documentElement, f = e.requestFullscreen || e.webkitRequestFullscreen; if (f) { const p = f.call(e, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => {}); }
+    } catch (er) { /* 거부 = 그대로 */ }
+  }
   const ptr = new Map(); // pointerId → { k: 'stick' | 'btn' | 'start' | 'dead', b }
   let stick = null, seq = null, sector = -1; // stick = { id, x0, y0, x, y, on, armed, armH }, seq = { c, st: [켬/끔...] } 달리기 보조 진행
   const sent = {}, pressAt = {};
@@ -34,6 +43,8 @@
     hint = el('nktp-ring hint', root); ring = el('nktp-ring', root); knob = el('nktp-knob', root); ring.style.display = knob.style.display = 'none';
     btn[C.B] = el('nktp-btn', root, 'B'); btn[C.A] = el('nktp-btn', root, 'A'); btn[C.J] = el('nktp-btn', root, '점프');
     pz = el('nktp-btn p', root, '≡');
+    fz = el('nktp-btn fs', root); if (!fsOk()) fz.style.display = 'none';
+    fz.addEventListener('pointerdown', e => e.stopPropagation()); fz.addEventListener('click', e => { e.stopPropagation(); if (shown) { fsToggle(); buzz(10); } });
     zl.addEventListener('pointerdown', downStick); zr.addEventListener('pointerdown', downBtn); pz.addEventListener('pointerdown', downPause);
     window.addEventListener('pointermove', move, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
     root.addEventListener('contextmenu', e => e.preventDefault());
@@ -58,6 +69,7 @@
     for (const c in L.btn) { const [x, y, rr] = L.btn[c]; box(btn[c], x, y, rr * 2); }
     btn[C.J].style.fontSize = Math.round(u * 0.22) + 'px'; btn[C.A].style.fontSize = btn[C.B].style.fontSize = Math.round(u * 0.32) + 'px';
     const pw = 48; L.p = [W - sa.r - m - pw / 2, Math.max(sa.t + m + pw / 2, port ? Math.min(core.t - pw / 2 - 6, sa.t + m + pw / 2) : sa.t + m + pw / 2)]; box(pz, L.p[0], L.p[1], pw);
+    L.f = port ? [L.p[0] - pw - 10, L.p[1]] : [L.p[0], L.p[1] + pw + 10]; box(fz, L.f[0], L.f[1], pw); // 전체 화면: 세로 = ≡ 왼쪽, 가로 = ≡ 아래(코어 옆 여백)
     L.hint = [sa.l + m + R + 6, H - sa.b - m - R - 6]; box(hint, L.hint[0], L.hint[1], R * 2);
     box(ring, 0, 0, R * 2); box(knob, 0, 0, Math.round(R * 0.9));
   }
@@ -215,6 +227,6 @@
     if (!isOpen) return; isOpen = false; if (scr) scr.classList.remove('on'); if (under) under.style.visibility = ''; under = null;
     const f = onClose; onClose = null; if (f) f();
   }
-  window.NKTouch = { open, close, label: () => MODE_T[mode()], get isOpen() { return isOpen; }, release: releaseAll,
-    get state() { return { shown, enabled: enabled(), mode: mode(), dash: opt('tdash'), vib: opt('tvib'), stick: stick ? { x0: stick.x0, y0: stick.y0, d: Math.round(stick.d || 0), on: stick.on, sector } : null, sent: Object.assign({}, sent), seq: seq ? { c: seq.c, left: seq.st.length } : null, ptrs: ptr.size, layout: L ? { u: L.u, R: L.R, port: L.port, top: L.top, btn: L.btn, p: L.p, hint: L.hint, core: L.core } : null, open: isOpen }; } };
+  window.NKTouch = { open, close, label: () => MODE_T[mode()], get isOpen() { return isOpen; }, release: releaseAll, get enabled() { return enabled(); }, // enabled = 모바일 배치 기준(web/mobile.js)
+    get state() { return { shown, enabled: enabled(), mode: mode(), dash: opt('tdash'), vib: opt('tvib'), stick: stick ? { x0: stick.x0, y0: stick.y0, d: Math.round(stick.d || 0), on: stick.on, sector } : null, sent: Object.assign({}, sent), seq: seq ? { c: seq.c, left: seq.st.length } : null, ptrs: ptr.size, layout: L ? { u: L.u, R: L.R, port: L.port, top: L.top, btn: L.btn, p: L.p, f: L.f, fs: !!fz && fz.style.display !== 'none', hint: L.hint, core: L.core } : null, open: isOpen }; } };
 })();

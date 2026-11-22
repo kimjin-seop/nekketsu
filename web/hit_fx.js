@@ -18,9 +18,9 @@
   const inFight = m => m[0x641] === 1 && (m[0x642] & 0x7F) === 2;
   function flagsOf(rom) { const u8 = rom instanceof Uint8Array ? rom : new Uint8Array(rom), a = 16 + 0x1C000 + 0x5A; return u8.slice(a, a + 109); } // $C05A(뱅크 14)
   // 직전 프레임 RAM p → 이번 프레임 RAM m 의 이벤트. DOM 없음(Node 검증용). [{ s, a, kind, dmg, dir }]
-  function detect(p, m, FL) {
+  function detect(p, m, FL, any) { // any = 전투(1:2) 밖도 본다(web/impact_fx.js 타이틀 대련 3:5)
     const out = [];
-    if (!inFight(p) || !inFight(m)) return out;
+    if (!any && (!inFight(p) || !inFight(m))) return out;
     for (let s = 0; s < 4; s++) {
       const y = m[0x4BE + s], vPrev = p[0x49E + s] & 0x7F, vNow = m[0x49E + s] & 0x7F;
       if (p[0x4BE + s] === 0xFF && y < 4 && y !== s) {
@@ -100,7 +100,7 @@
     return Wd / 256;
   }
   const fxLv = () => { const M = root.NKManga, s = M && M.settings; return s && Number.isInteger(s.fxlv) ? s.fxlv : 2; }; // 0 끔 · 1 약 · 2 보통 · 3 강(없으면 보통)
-  const enabled = () => { const M = root.NKManga; if (!M) return false; const s = M.settings; return !!s && s.hitfx !== 0 && !(M.active && !M.overlay); };
+  const enabled = () => { const M = root.NKManga; if (!M) return false; const s = M.settings; return !!s && s.hitfx !== 0 && !(M.active && !M.overlay) && !(root.NKQuality && root.NKQuality.off('fx')); }; // 품질 낮음(web/quality.js) = 그리기 없음
   function tick() {
     raf = requestAnimationFrame(tick);
     try { draw(); } catch (e) { err = String(e && e.message || e); cancelAnimationFrame(raf); live.length = 0; hide(); console.error('타격 이펙트 층 오류(끔): ' + err); }
@@ -127,7 +127,7 @@
     st.last = { f: cf, S, live: live.map(e => ({ kind: e.kind, s: e.s, x: e.x, y: e.y, age: Math.round(now - e.t0) })), cells: n };
   }
   const api = {
-    flagsOf, detect, pos, cells, LIFE, LAG, get stats() { return st; }, get error() { return err; }, get shown() { return shown; }, get ready() { return !!FL; },
+    flagsOf, detect, pos, cells, LIFE, LAG, SPECIAL, get boxes() { return boxes; }, get FL() { return FL; }, get rom() { return romU8; }, get stats() { return st; }, get error() { return err; }, get shown() { return shown; }, get ready() { return !!FL; },
     init(o) { // o = { canvas(#c), rom(ROM 전체) }. 실패하면 층만 끈다(게임은 그대로)
       try {
         cv = o.canvas; romU8 = o.rom; FL = flagsOf(o.rom);
@@ -139,20 +139,24 @@
     },
     frame(f, m) { // game.js: 워커 프레임마다(로컬·온라인 공통). m 은 그 프레임 RAM 사본(읽기만)
       if (!FL) return; st.frames++;
-      if (prev && prev.f === f - 1) {
-        const ev = detect(prev.m, m, FL);
+      const pm = prev && prev.f === f - 1 ? prev.m : null; let ev = null;
+      if (pm) {
+        ev = detect(prev.m, m, FL);
         if (ev.length) {
           if (!boxes && root.NKTags && root.NKTags.parseBoxes) try { boxes = root.NKTags.parseBoxes(romU8); } catch (x) { boxes = []; } // 몸 위 끝 표(unit_tags.js 와 같은 표). 없으면 발 위 28픽셀
           for (const e of ev) {
             st.events[e.kind]++;
             const p = pos(boxes, m, e.s), hy = e.kind === 'dust' ? p.y : Math.round(p.top + (p.y - p.top) * 0.4);
             const x = e.kind === 'dust' ? p.x : p.x - e.dir * 2; // 맞은 자리 = 몸 위쪽 40%, 공격자 쪽으로 2픽셀
+            e.x = x; e.y = hy; // 구독자(아래 NKFxSubs)에게 같은 자리
             pend.push({ f, s: e.s, kind: e.kind, dir: e.dir, x, y: hy }); if (pend.length > 16) pend.shift();
             st.log.push({ f, s: e.s, a: e.a, kind: e.kind, dmg: e.dmg, x: Math.round(x), y: hy }); if (st.log.length > 400) st.log.shift();
           }
         }
       } else pend.length = 0;
       prev = { f, m };
+      // 전투 연출 구독자(web/dmg_fx.js · combo_fx.js · cam_triggers.js): (f, 이번 RAM, 직전 RAM 또는 null, 이번 이벤트 또는 null). 읽기만, 오류 난 구독자는 뺀다
+      const S = root.NKFxSubs; if (S) for (let i = S.length - 1; i >= 0; i--) try { S[i](f, m, pm, ev); } catch (x) { console.warn('전투 연출 구독자 오류(끔): ' + (x && x.message || x)); S.splice(i, 1); }
     },
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.NKHitFx = api;

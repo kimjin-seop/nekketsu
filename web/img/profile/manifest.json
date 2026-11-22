@@ -889,5 +889,309 @@
    "face_cover_px_max": 4,
    "face_cover_px_avg": 4.0
   }
- ]
+ ],
+ "title_plates": {
+  "date": "2026-11-22",
+  "script": "art/ui_manga/scripts/egroup_assets.py",
+  "note": "칭호는 이름 글자(DOM)로 표시. 띠는 9-slice: border-image:url(/img/profile/title/<group>_1x.png) 3 5 3 5 fill / 9px 15px 9px 15px; image-rendering:pixelated (3x = 높이 33, 글자 Galmuri11 15px 흰색 + 좌우 여백 4). 2x(높이 22)는 글자 12px 이하일 때만(15px 은 테를 덮음, QA 시트 왼쪽 열). 띠 가운데 면 #14121E",
+  "slice_1x": {
+   "top": 3,
+   "right": 5,
+   "bottom": 3,
+   "left": 5
+  },
+  "size_1x": [
+   16,
+   11
+  ],
+  "title_to_group": {
+   "rookie": "entry",
+   "first_step": "entry",
+   "regular": "entry",
+   "attendance": "entry",
+   "first_win": "ladder",
+   "ten_wins": "ladder",
+   "veteran": "ladder",
+   "fighter": "ladder",
+   "resilient": "ladder",
+   "streak_3": "streak",
+   "streak_5": "streak",
+   "streak_10": "streak",
+   "flawless_start": "streak",
+   "phoenix": "streak",
+   "placed": "tier",
+   "tier_silver": "tier",
+   "tier_gold": "tier",
+   "tier_platinum": "tier",
+   "tier_diamond": "tier",
+   "tier_master": "tier",
+   "season_done": "season",
+   "season_done_3": "season",
+   "story_first_win": "story",
+   "story_clear_1": "story",
+   "story_clear_3": "story",
+   "ch_d_login": "challenge",
+   "ch_d_games": "challenge",
+   "ch_d_win": "challenge",
+   "ch_w_login": "challenge",
+   "ch_w_wins": "challenge",
+   "ch_w_story": "challenge",
+   "claims_10": "challenge",
+   "claims_50": "challenge"
+  },
+  "assets": [
+   {
+    "key": "profile.title_plate.entry",
+    "id": "entry",
+    "desc": "칭호 띠 9-slice(entry)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/entry_1x.png",
+      "url": "/img/profile/title/entry_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 152,
+      "sha256": "78494dcc81b5cb38ba7e1356ecf8e3439f29c240ba0e0cabb9e5796f744ade51"
+     },
+     "4x": {
+      "path": "web/img/profile/title/entry_4x.png",
+      "url": "/img/profile/title/entry_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 225,
+      "sha256": "bae5bb02bbb238fc5946b8871cfa245c4ac98331e09fb83caa34fa9b9767741d"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.ladder",
+    "id": "ladder",
+    "desc": "칭호 띠 9-slice(ladder)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/ladder_1x.png",
+      "url": "/img/profile/title/ladder_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 160,
+      "sha256": "f8de932c747f617f20b5c93745830bdcf3933b9ff8c5b5cb8474aa4bbc38cddc"
+     },
+     "4x": {
+      "path": "web/img/profile/title/ladder_4x.png",
+      "url": "/img/profile/title/ladder_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 228,
+      "sha256": "a2561f2d3678993b22ad89447e60dd5dc85404ca7083461b133c8a781646b71d"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.streak",
+    "id": "streak",
+    "desc": "칭호 띠 9-slice(streak)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/streak_1x.png",
+      "url": "/img/profile/title/streak_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 152,
+      "sha256": "3e182f6c0651047ed327bdfdbe2ec91bb7d703f0478519ee7a8276e4c49403bd"
+     },
+     "4x": {
+      "path": "web/img/profile/title/streak_4x.png",
+      "url": "/img/profile/title/streak_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 228,
+      "sha256": "240ec3b36355508594d3604408f67ab2c1c5d3262c474bbf191ee2b143af3f64"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.tier",
+    "id": "tier",
+    "desc": "칭호 띠 9-slice(tier)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/tier_1x.png",
+      "url": "/img/profile/title/tier_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 161,
+      "sha256": "509984571f058e6d552112404798db2724ab36f05f172667ca415eaaf0b0e20a"
+     },
+     "4x": {
+      "path": "web/img/profile/title/tier_4x.png",
+      "url": "/img/profile/title/tier_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 232,
+      "sha256": "44add05c14ded2022ab01db8f5efae3bd402b7389ae08d40dcf7399e9327bce1"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.season",
+    "id": "season",
+    "desc": "칭호 띠 9-slice(season)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/season_1x.png",
+      "url": "/img/profile/title/season_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 152,
+      "sha256": "a2379a8c803ee6474f6e4509ff747d73896ca7b105b17771cfbcf3cb31bb2b8e"
+     },
+     "4x": {
+      "path": "web/img/profile/title/season_4x.png",
+      "url": "/img/profile/title/season_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 228,
+      "sha256": "28787cccbc0c6a026db5e7ca3770572b845c7435e8a8eb1b6e67d0d595c3d474"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.story",
+    "id": "story",
+    "desc": "칭호 띠 9-slice(story)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/story_1x.png",
+      "url": "/img/profile/title/story_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 152,
+      "sha256": "6b6f3fce889c7cb7fad2db743c0635fe244a971754e1434df1654e2736a3b3c2"
+     },
+     "4x": {
+      "path": "web/img/profile/title/story_4x.png",
+      "url": "/img/profile/title/story_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 226,
+      "sha256": "d3e4de62a022c2d819dc8fd4ca551b1cfc9a6ad98a37f2bc4a2f8279a01deb2c"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   },
+   {
+    "key": "profile.title_plate.challenge",
+    "id": "challenge",
+    "desc": "칭호 띠 9-slice(challenge)",
+    "files": {
+     "1x": {
+      "path": "web/img/profile/title/challenge_1x.png",
+      "url": "/img/profile/title/challenge_1x.png",
+      "size": [
+       16,
+       11
+      ],
+      "bytes": 153,
+      "sha256": "7045bc69edc4eafa1c3c3a7ae10214abe11711ca31cf1aabc8b08833e604e110"
+     },
+     "4x": {
+      "path": "web/img/profile/title/challenge_4x.png",
+      "url": "/img/profile/title/challenge_4x.png",
+      "size": [
+       64,
+       44
+      ],
+      "bytes": 225,
+      "sha256": "20d1f0cb3c5388f966a3b37f3516c36d745cefd159559b7a9b094c4f569c755a"
+     }
+    },
+    "opaque_px": 140,
+    "transparent_px": 36,
+    "semi_alpha_px": 0,
+    "colors": 5,
+    "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+    "script": "art/ui_manga/scripts/egroup_assets.py",
+    "provenance": "original",
+    "rom_derived": false,
+    "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+   }
+  ]
+ }
 }

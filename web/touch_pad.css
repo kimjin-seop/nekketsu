@@ -10,6 +10,9 @@
 #nktp .nktp-btn.on{background:rgba(255,225,77,.42);border-color:rgba(255,225,77,.9)}
 #nktp .nktp-btn.p{border-radius:8px;pointer-events:auto;touch-action:none;font-size:22px}
 #nktp .nktp-btn.p.off{display:none}
+#nktp .nktp-btn.fs{border-radius:8px;pointer-events:auto;touch-action:none}
+#nktp .nktp-btn.fs::before{content:"";width:42%;height:42%;box-sizing:border-box;border:2px dashed rgba(255,255,255,.85);border-radius:2px}
+:fullscreen #nktp .nktp-btn.fs::before{width:28%;height:28%;border-style:solid}
 /* 설정 창(#nkm 안, 1280x720 논리 좌표). 줄 모양은 ui_manga.css .nkm-set 그대로 */
 #nkm .nktp-scr .nkm-set{line-height:56px}
 /* 설정 13줄(터치 패드 줄 추가): 줄 39 */

@@ -1,0 +1,23 @@
+/* 접근성 A2(web/a11y.js 가 켤 때만 불러온다). 신규 층 DOM 만 바꾼다(코어 캔버스·원작 글자·원작 팔레트 불변). */
+/* 색약 보정: 빨강·초록 구분에 기대던 색(1P 빨강·3P 초록·체력 초록/빨강)을 Okabe-Ito 계열로. 자리 표식은 원래 글자(1P·COM)·모양(▲·●)이 함께 있다 */
+html.nk-cb #nkm,html.nk-cb #nkm-hud,html.nk-cb #nko-bt,html.nk-cb #nkw{--p1:#E69F00;--p2:#56B4E9;--p3:#F0E442;--p4:#CC79A7;--hp:#56B4E9;--hp-mid:#F0E442;--hp-low:#D55E00}
+html.nk-cb #nktut .d i.cur{outline:2px solid #fff;outline-offset:1px} /* 튜토리얼 단계 점: 지금 단계 = 테두리(색만으로 구분하지 않게) */
+html.nk-cb #nktut .t.flash{animation:none}
+
+/* 글자 크기: --nkfs 배율(1.15·1.3). 값은 ui_manga.css 기준 크기 × 배율, 줄 높이·상자 크기는 그대로(넘치면 줄임표) */
+html.nk-fs1{--nkfs:1.15}
+html.nk-fs2{--nkfs:1.3}
+html:is(.nk-fs1,.nk-fs2) .nkm-toast{font-size:calc(24px*var(--nkfs));width:auto;min-width:520px;max-width:860px;overflow:hidden;text-overflow:ellipsis}
+html:is(.nk-fs1,.nk-fs2) #nkm.pl .nkm-toast{min-width:0;width:568px}
+html:is(.nk-fs1,.nk-fs2) .nkm-btn{font-size:calc(24px*var(--nkfs));text-align:center;line-height:1;word-break:keep-all}
+html:is(.nk-fs1,.nk-fs2) .nkm-set span{font-size:calc(24px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkm-head{font-size:calc(30px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkm-info{font-size:calc(20px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkm-info b{font-size:calc(24px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkh-name{font-size:calc(24px*var(--nkfs));overflow:hidden;text-overflow:ellipsis}
+html:is(.nk-fs1,.nk-fs2) .nkh-hp{font-size:calc(24px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkh-sp{font-size:calc(20px*var(--nkfs));overflow:hidden;text-overflow:ellipsis}
+html:is(.nk-fs1,.nk-fs2) .nkh-foot{font-size:calc(20px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkh-lvt{font-size:calc(20px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) .nkh-cap b{font-size:calc(24px*var(--nkfs))}
+html:is(.nk-fs1,.nk-fs2) #nko-bt{font-size:calc(16px*var(--nkfs))}

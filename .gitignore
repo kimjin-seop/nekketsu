@@ -125,3 +125,7 @@ art/ui_manga/portraits_orig/*
 !art/ui_manga/portraits_orig/hud/
 !art/ui_manga/portraits_orig/body/
 !art/ui_manga/portraits_orig/cutin/
+
+# 타격음 제작 중간물(분석 그림·생성 스크립트): 런타임은 web/audio_fx/*.wav·manifest.json 만
+web/audio_fx/_qa/
+web/audio_fx/_tools/

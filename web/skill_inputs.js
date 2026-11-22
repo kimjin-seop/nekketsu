@@ -65,5 +65,6 @@
   }
   if (window.NKKeymap && window.NKKeymap.on) window.NKKeymap.on(refresh);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refresh, () => {});
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', refresh); // ready 는 한 번만 풀린다: 그 뒤 HUD 가 처음 쓰며 받기 시작한 글꼴(NKM9 등)이 늦게 도착하면 대체 글꼴 폭으로 잰 자간이 남던 경합(실측 3회 중 1회) → 로드가 끝날 때마다 다시 잰다(로드 때만, 프레임 비용 0)
   window.NKSkillInputs = { SEQ, rows, box, badges, refresh, abbr, stat };
 })();

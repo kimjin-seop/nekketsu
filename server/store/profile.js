@@ -4,6 +4,7 @@
 // 통산 승·연승은 별도 집계 표 없이 rank_games 에서 계산한다. 키는 계정 key(닉네임 아님). 손님(guest:)은 기록하지 않는다(호출하지 않는다).
 const { RULES, ITEMS, KINDS, KIND_KEY, EQUIP_KEY, DEFAULT_EQUIP, find } = require('../profile/catalog');
 const { RANK } = require('../ranking/elo');
+const CH = require('../profile/challenges');
 
 const TIER_IDX = { bronze: 0, silver: 1, gold: 2, platinum: 3, diamond: 4, master: 5 };
 const tIdx = t => (t && TIER_IDX[t] !== undefined ? TIER_IDX[t] : -1);
@@ -24,6 +25,9 @@ const PRED = {
   season_done: f => f.seasonsDone >= 1, season_done_3: f => f.seasonsDone >= 3,
   season_silver: f => f.seasonTier >= 1, season_gold: f => f.seasonTier >= 2, season_platinum: f => f.seasonTier >= 3, season_master: f => f.seasonTier >= 5,
 };
+// 도전 수령 보상(at = 'claim'): facts.rules(이번에 수령한 도전의 보상 rule) · facts.claims(누적 수령 수)
+for (const d of CH.DEFS) PRED['ch_' + d.id] = f => !!(f.rules && f.rules.has('ch_' + d.id));
+PRED.claims_10 = f => f.claims >= 10; PRED.claims_50 = f => f.claims >= 50;
 for (const k of Object.keys(RULES)) if (k !== 'always' && !PRED[k]) throw new Error('PRED 없음: ' + k);
 
 /** 승패 열(앞이 오래된 판, true = 승)에서 통산 값 계산 */
@@ -107,6 +111,43 @@ class ProfileStore {
       let n = 0;
       for (const [key, p] of per) n += this._grant(key, p, 'season', p.at || this.now()).length;
       return n;
+    });
+  }
+  // ---------- 일일·주간 도전(analysis/27 P4b) — 진행도는 조회 때 계산(새 쓰기 지점 없음), 수령만 challenge_claims 에 기록 ----------
+  _metric(key, metric, from, to) { // 기간 [from, to) ms 안의 값
+    if (metric === 'login') return this.db.get('SELECT COUNT(*) AS n FROM login_days WHERE key = ? AND day >= ? AND day <= ?', key, CH.ymd(from), CH.ymd(to - 1)).n;
+    if (metric === 'story') return this.db.get('SELECT COUNT(*) AS n FROM story_clears WHERE key = ? AND at >= ? AND at < ?', key, from, to).n;
+    if (metric === 'wins') return this.db.get('SELECT COUNT(*) AS n FROM rank_games WHERE counted = 1 AND winner_key = ? AND at >= ? AND at < ?', key, from, to).n;
+    return this.db.get('SELECT COUNT(*) AS n FROM rank_games WHERE counted = 1 AND (a_key = ? OR b_key = ?) AND at >= ? AND at < ?', key, key, from, to).n; // games
+  }
+  /** challenge_list 본문: { serverTime, claims, daily: { period, startsAt, endsAt, list[] }, weekly: {...} } */
+  challenges(key, now) {
+    now = now || this.now(); const per = CH.periods(now), out = { serverTime: now, claims: this.db.get('SELECT COUNT(*) AS n FROM challenge_claims WHERE key = ?', key).n };
+    for (const kind of ['daily', 'weekly']) {
+      const p = per[kind], got = new Set(this.db.all('SELECT slot FROM challenge_claims WHERE key = ? AND period = ?', key, p.period).map(r => r.slot));
+      const owned = this._owned(key);
+      out[kind] = { period: p.period, startsAt: p.start, endsAt: p.end, list: CH.DEFS.filter(d => d.kind === kind).map(d => {
+        const progress = Math.min(d.goal, this._metric(key, d.metric, p.start, p.end)), r = find(d.reward.kind, d.reward.id);
+        return { id: d.id, slot: d.slot, name: d.name, desc: d.desc, goal: d.goal, progress, done: progress >= d.goal, claimed: got.has(d.slot),
+          reward: { kind: d.reward.kind, id: d.reward.id, name: r.name, got: owned.has(d.reward.kind + ':' + d.reward.id) } };
+      }) };
+    }
+    return out;
+  }
+  /**
+   * 수령. id = 도전 id, period = (선택) 클라이언트가 본 기간 라벨. 서버가 지금 시각·진행도를 다시 계산해 재검증한다.
+   * 거부 { bad: 'unknown' | 'expired' | 'notyet' }. 성공 { id, period, already, unlocked[] } — 이미 받은 도전은 already:true·unlocked:[](멱등, 오류 아님)
+   */
+  claim(key, id, period, now) {
+    now = now || this.now();
+    return this.db.tx(() => {
+      const d = typeof id === 'string' ? CH.byId.get(id) : null; if (!d) return { bad: 'unknown' };
+      const p = CH.periods(now)[d.kind];
+      if (period !== undefined && period !== null && period !== p.period) return { bad: 'expired', period: p.period };
+      if (this._metric(key, d.metric, p.start, p.end) < d.goal) return { bad: 'notyet', period: p.period };
+      if (!this.db.run('INSERT OR IGNORE INTO challenge_claims (key, period, slot, at) VALUES (?, ?, ?, ?)', key, p.period, d.slot, now).changes) return { id: d.id, period: p.period, already: true, unlocked: [] };
+      const claims = this.db.get('SELECT COUNT(*) AS n FROM challenge_claims WHERE key = ?', key).n;
+      return { id: d.id, period: p.period, already: false, unlocked: this._grant(key, { rules: new Set(['ch_' + d.id]), claims }, 'claim', now) };
     });
   }
   // ---------- 조회·장착 ----------

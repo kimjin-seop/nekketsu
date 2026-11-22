@@ -10,7 +10,7 @@
 //             STALL_RATE(느린 진행 기준. STALL_MS 창 동안 확정 프레임이 1배속 기대치의 이 비율 미만이면 입력이 뒤처진 자리를 멈춤 처리, 기본 0.25, 0 = 끔),
 //             MAX_DROPS(대전 중 한 자리의 끊김(멈춤 포함) 허용 횟수, 넘으면 재접속 대기 없이 기권, 기본 5), MATCH_MAX_MS(대전 방 실시간 상한, 기본 2400000 = 40분),
 //             PROVISIONAL(1 = 결과가 한쪽만 왔거나 지문 불일치 속 결과일 때 보고된 승자를 임시 채택. 기본 끔 = 종전처럼 승자 없는 무효), LEGACY_ROOMS(1 = hello 없는 create 로 종전 방 허용. 기본 거절. 검증 도구용),
-//             MAX_CONNS(전체 접속 수, 기본 400), MAX_CONNS_PER_IP(기본 8), MAX_ROOMS_PER_IP(기본 4), JOIN_FAILS_PER_MIN(IP당 분당 참가·재접속 실패 허용 수, 기본 10),
+//             MAX_CONNS(전체 접속 수, 기본 400), MAX_CONNS_PER_IP(기본 8), MAX_ASSET_CONNS(에셋 세션 소켓 /ws?k=asset 전체, 기본 2000)·MAX_ASSET_CONNS_PER_IP(기본 32)·HELLO_PER_MIN(IP당 분당 이름 hello, 기본 120), MAX_ROOMS_PER_IP(기본 4), JOIN_FAILS_PER_MIN(IP당 분당 참가·재접속 실패 허용 수, 기본 10),
 //             STATIC(정적 파일 서빙. 기본: HOST 가 루프백이고 ALLOWED_HOSTS 가 없으면 켬(STATIC=0 으로 끔), 그 밖에는 끔(STATIC=1 을 줄 때만 켬))
 //   /ws          -> 웹소켓(JSON 문자 메시지, 아래 프로토콜)
 //   그 밖의 경로 -> server_game.js 와 같은 규칙의 정적 파일(web/, /engine/, /state/, /fonts/, /logo/, /rom/nekketsu.nes). 8770 서버와 별개 프로세스.
@@ -36,6 +36,7 @@
 //             NK_TRUST_PROXY(1 = 신뢰하는 역방향 프록시 뒤: X-Forwarded-For 의 오른쪽에서 NK_TRUST_PROXY_HOPS 번째 값을 접속 IP 로 쓴다. 기본 끔 = 소켓 상대 주소. 프록시 없이 켜면 IP 위조가 된다),
 //             NK_TRUST_PROXY_HOPS(신뢰 프록시 단수, 기본 1 = 맨 오른쪽 값 = 맨 앞 프록시가 본 주소. 클라이언트가 보낸 왼쪽 값은 쓰지 않는다)
 // 비경제 보상·프로필(analysis/27 P1·P2, 계정 + DB 있을 때만): profile_get{nick?} profile_set{title?,frame?,portrait_bg?,portrait_stamp?} tutorial_done{} → profile{…} profile_set{equipped} tutorial_done{unlocked}
+// 일일·주간 도전(analysis/27 P4b): challenge_list{} challenge_claim{id,period?} → challenge_list{serverTime,claims,daily,weekly} challenge_claim{id,period,already,unlocked[]} / err challenge_bad{why}
 //   새 획득 = welcome·ranking_result·story_saved 의 unlocked[] (있을 때만). 판정은 서버만(래더 반영 판·스토리 완주·로그인 일자·시즌 종료), 새 표 v4
 // 래더·시즌(analysis/22 10절, 계정 + DB 있을 때만): ladder_join{} ladder_leave{} ladder_status{} ladder_board{top?} → ladder_queue{…} ladder_matched{code,you,counted,startBy,opp} ladder_status{…} ladder_board{season,total,masterQuota,top,me}
 //   매칭되면 서버가 랭크 방(create{opts{ranked}} 와 같은 경로)을 만들어 두 사람을 앉힌다. 래더 방은 로비 목록에 없고 참가 불가, 한 판만
@@ -131,11 +132,16 @@ function createServer(opt) {
   const provisional = opt.provisional !== undefined ? !!opt.provisional : process.env.PROVISIONAL === '1', legacyRooms = opt.legacyRooms !== undefined ? !!opt.legacyRooms : process.env.LEGACY_ROOMS === '1';
   const prefillN = opt.prefill !== undefined ? opt.prefill : (process.env.PREFILL !== undefined && +process.env.PREFILL >= 0 ? Math.min(MAX_AHEAD, +process.env.PREFILL | 0) : 1100);
   const maxConns = num('maxConns', 'MAX_CONNS', 400), maxConnsIp = num('maxConnsPerIp', 'MAX_CONNS_PER_IP', 8), maxRoomsIp = num('maxRoomsPerIp', 'MAX_ROOMS_PER_IP', 4), joinFails = num('joinFailsPerMin', 'JOIN_FAILS_PER_MIN', 10);
+  // 에셋 세션 소켓(web/asset_session.js 가 /ws?k=asset 로 붙는 원격 방문자 1명당 1개, analysis/27 M0 후속): 온라인 플레이 소켓과 한도를 따로 센다(IP당 MAX_ASSET_CONNS_PER_IP 기본 32, 전체 MAX_ASSET_CONNS 기본 2000).
+  //   한도를 넘으면 핸드셰이크 뒤 4029 로 닫는다(브라우저가 HTTP 429 는 구분하지 못하므로 = 클라이언트가 「접속 인원 초과」 토스트). 이 소켓은 손님 hello·lobby{on:false} 만 받는다.
+  //   HELLO_PER_MIN = IP당 분당 이름 hello 상한(기본 120, 두 종류 소켓 공통, 넘으면 err rate)
+  const maxAssetConns = num('maxAssetConns', 'MAX_ASSET_CONNS', 2000), maxAssetConnsIp = num('maxAssetConnsPerIp', 'MAX_ASSET_CONNS_PER_IP', 32), helloPerMin = num('helloPerMin', 'HELLO_PER_MIN', 120);
   const allowedHosts = opt.allowedHosts ? list(opt.allowedHosts.join(',')) : list(process.env.ALLOWED_HOSTS), allowOrigins = list(process.env.ALLOW_ORIGINS);
   // 정적 서빙 기본값: 루프백에만 묶이고 추가 허용 Host 가 없을 때만 켠다. 밖에 여는 설정이면 STATIC=1 을 명시해야 켜진다
   const bindHost = opt.host || process.env.HOST || '127.0.0.1', staticSet = opt.static !== undefined || process.env.STATIC === '0' || process.env.STATIC === '1';
   let serveStatic = opt.static !== undefined ? !!opt.static : (!LOOP_HOST.test(bindHost) || allowedHosts.length ? process.env.STATIC === '1' : process.env.STATIC !== '0');
   const conns = new Map(), fails = new Map(); // IP → 접속 수, IP → 참가·재접속 실패 시각들
+  const aconns = new Map(), helloHits = new Map(); let nGame = 0, nAsset = 0; // 에셋 세션 소켓 IP → 수, IP → 최근 1분 hello 시각들, 종류별 전체 수
   const profIpHits = new Map(), profCache = new Map(), PROF_CACHE_MS = 8000; // 프로필 타인 조회: IP → 시각들, 계정 키 → { t, nick, body }
   const hostOk = h => LOCAL.test(h || '') || allowedHosts.includes(String(h || '').toLowerCase().replace(/:\d+$/, ''));
   const originOk = (o, host) => {
@@ -211,10 +217,16 @@ function createServer(opt) {
     const ok = (req.url || '').split('?')[0] === '/ws' && hostOk(req.headers.host) && originOk(req.headers.origin, req.headers.host);
     if (!ok) { sock.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); return sock.destroy(); }
     const ip = clientIp(req);
-    if (wss.clients.size >= maxConns) { sock.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n'); return sock.destroy(); }
+    if (/[?&]k=asset(&|$)/.test(req.url || '')) { // 에셋 세션 소켓(위 maxAssetConns): 따로 센다. 한도 초과 = 업그레이드 뒤 4029(클라이언트가 이유를 안다)
+      if (nAsset >= maxAssetConns || (aconns.get(ip) || 0) >= maxAssetConnsIp) return wss.handleUpgrade(req, sock, head, ws => { ws.on('error', () => { /* 무시 */ }); try { ws.close(4029, 'full'); } catch (e) { ws.terminate(); } setTimeout(() => ws.terminate(), 2000).unref(); });
+      aconns.set(ip, (aconns.get(ip) || 0) + 1); nAsset++;
+      sock.once('close', () => { nAsset--; const c = (aconns.get(ip) || 1) - 1; if (c > 0) aconns.set(ip, c); else aconns.delete(ip); });
+      return wss.handleUpgrade(req, sock, head, ws => { ws.ip = ip; ws.asset = true; wss.emit('connection', ws, req); });
+    }
+    if (nGame >= maxConns) { sock.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n'); return sock.destroy(); }
     if ((conns.get(ip) || 0) >= maxConnsIp) { sock.write('HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n'); return sock.destroy(); }
-    conns.set(ip, (conns.get(ip) || 0) + 1); // 소켓이 닫힐 때(핸드셰이크 실패 포함) 한 번만 되돌린다
-    sock.once('close', () => { const c = (conns.get(ip) || 1) - 1; if (c > 0) conns.set(ip, c); else conns.delete(ip); });
+    conns.set(ip, (conns.get(ip) || 0) + 1); nGame++; // 소켓이 닫힐 때(핸드셰이크 실패 포함) 한 번만 되돌린다
+    sock.once('close', () => { nGame--; const c = (conns.get(ip) || 1) - 1; if (c > 0) conns.set(ip, c); else conns.delete(ip); });
     wss.handleUpgrade(req, sock, head, ws => { ws.ip = ip; wss.emit('connection', ws, req); });
   });
 
@@ -541,6 +553,11 @@ function createServer(opt) {
   const nameOf = v => { const raw = nfc(str(v, 64)).replace(/ +/g, ' ').trim(), name = clean(raw, 64); return name === raw && name.length >= NAME_MIN && name.length <= NAME_MAX ? { name, key: name.toLowerCase() } : null; };
   const authLimited = ws => { const a = (authHits.get(ws.ip) || []).filter(t => Date.now() - t < 60000); a.push(Date.now()); authHits.set(ws.ip, a); return a.length > authPerMin; };
   const authPerMin = num('authPerMin', 'MAX_AUTH_PER_MIN', 10);
+  const helloLimited = ws => { // IP당 분당 이름 hello. 표가 커지면 지난 기록을 한 번 쓸어 낸다
+    const t = Date.now(), a = (helloHits.get(ws.ip) || []).filter(x => t - x < 60000); a.push(t); helloHits.set(ws.ip, a);
+    if (helloHits.size > 10000) for (const [k, v] of helloHits) if (!v.length || t - v[v.length - 1] >= 60000) helloHits.delete(k);
+    return a.length > helloPerMin;
+  };
   const dropSess = ws => { const o = ws.sess; ws.sess = null; if (o && o.ws === ws) { o.ws = null; releaseSess(o); } };
   // 소켓 ws 를 계정 세션으로 묶는다. 같은 계정 세션이 있으면 그것을 넘겨받는다(앞 소켓 = err replaced + 4002. 방 소속은 종전 hello 처럼 방 토큰 rejoin 으로 되찾는다)
   function bindAcct(ws, acct, token) {
@@ -855,6 +872,21 @@ function createServer(opt) {
       const un = profile.tutorialDone(ws.sess.acct.key); profCache.delete(ws.sess.acct.key);
       send(ws, { t: 'tutorial_done', unlocked: un });
     },
+    challenge_list(ws) { // 일일·주간 도전 목록·진행도(조회 때 서버가 계산, analysis/27 P4b). 로그인 필요
+      if (acctOff(ws)) return;
+      if (!ws.sess || !ws.sess.acct) return err(ws, 'acct_required', '로그인해야 볼 수 있습니다');
+      if (profWriteLimited(ws, 30, 'chl')) return err(ws, 'rate', '잠시 뒤에 다시 시도하세요');
+      send(ws, Object.assign({ t: 'challenge_list' }, profile.challenges(ws.sess.acct.key)));
+    },
+    challenge_claim(ws, m) { // 도전 보상 수령 { id, period? }: 서버가 기간·진행도를 다시 계산. 이미 받았으면 already:true(멱등). 거부 = challenge_bad{why:'unknown'|'expired'|'notyet'}
+      if (acctOff(ws)) return;
+      if (!ws.sess || !ws.sess.acct) return err(ws, 'acct_required', '로그인해야 받을 수 있습니다');
+      if (profWriteLimited(ws, 20, 'chc')) return err(ws, 'rate', '잠시 뒤에 다시 시도하세요');
+      const a = ws.sess.acct, r = profile.claim(a.key, m.id, typeof m.period === 'string' ? m.period : undefined); profCache.delete(a.key);
+      if (r.bad) return send(ws, { t: 'err', code: 'challenge_bad', why: r.bad, id: typeof m.id === 'string' ? m.id.slice(0, 32) : null, period: r.period || null,
+        msg: r.bad === 'notyet' ? '아직 달성하지 못했습니다' : r.bad === 'expired' ? '기간이 지난 도전입니다' : '알 수 없는 도전입니다' });
+      send(ws, { t: 'challenge_claim', id: r.id, period: r.period, already: r.already, unlocked: r.unlocked });
+    },
     ranking_list(ws, m) { boardReply(ws, m, 'ranking_list'); }, // 종전 이름(내용은 ladder_board 와 같다. 하위 호환 = top·me 필드 유지 + 추가 필드)
     hello(ws, m) { // 이름 등록(가입 없음) / 같은 sid 로 되찾기 / token = 계정 자동 로그인
       if (ws.room) return err(ws, 'state', '방 안에서는 이름을 바꿀 수 없습니다');
@@ -864,6 +896,7 @@ function createServer(opt) {
         const a = accts.tokenAccount(m.token); if (!a) return err(ws, 'token_bad', '로그인이 만료되었습니다');
         return bindAcct(ws, a, m.token);
       }
+      if (helloLimited(ws)) return err(ws, 'rate', '잠시 뒤에 다시 시도하세요'); // IP당 분당 이름 hello(helloPerMin)
       const raw = nfc(str(m.name, 64)).replace(/ +/g, ' ').trim(), name = clean(raw, 64);
       if (name !== raw || name.length < NAME_MIN || name.length > NAME_MAX) return err(ws, 'name_bad', '이름은 2~8자(한글·영문·숫자)로 정해 주세요');
       const key = name.toLowerCase(), sid = /^[0-9a-f]{32}$/.test(str(m.sid, 64)) ? m.sid : '', held = names.get(key);
@@ -1083,6 +1116,7 @@ function createServer(opt) {
       if (data.length > MSG_MAX && !(m && m.t === 'story_seg')) { try { ws.close(1009, 'too big'); } catch (e) { /* 무시 */ } return; } // 종전 웹소켓 상한과 같은 결과(1009)
       const h = m && typeof m === 'object' && typeof m.t === 'string' && Object.prototype.hasOwnProperty.call(H, m.t) ? H[m.t] : null;
       if (!h) return err(ws, 'bad', '알 수 없는 메시지');
+      if (ws.asset && !(m.t === 'hello' && m.token === undefined) && !(m.t === 'lobby' && m.on === false)) return err(ws, 'asset_only', '에셋 세션 연결입니다'); // 에셋 세션 소켓 = 손님 hello·로비 유휴 방지만(방·계정·대전은 온라인 소켓으로)
       const oops = e => { log('처리 오류', m.t, e && e.message); err(ws, 'server', '서버 오류'); };
       try { const r = h(ws, m); if (r && typeof r.then === 'function') r.catch(oops); } catch (e) { oops(e); } // register·login 은 비동기(scrypt)
       if (!ws.room && ws.sess) armIdle(ws); // 로비 유휴(lobbyIdleMs)는 마지막 메시지부터 잰다(이름 없는 소켓의 idleMs 는 접속 시각 기준 그대로)

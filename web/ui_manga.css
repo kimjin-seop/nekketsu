@@ -5,7 +5,7 @@
 /* Galmuri9 는 다른 이름(NKM9)으로 올린다: web/korean.js 가 같은 이름의 FontFace 를 따로 올리고 document.fonts.check 로 확인하므로, 같은 이름의 미사용 @font-face 가 있으면 그 확인이 실패한다 */
 @font-face{font-family:NKM9;src:url(/fonts/Galmuri9.ttf) format('truetype');font-display:block}
 @font-face{font-family:Galmuri14;src:url(/fonts/Galmuri14.ttf) format('truetype');font-display:block}
-#nkm,#nkm-hud,#nko-bt{--wall:#8814B0;--wall-text:#E454EC;--outer:#20002E;--text:#fff;--sub:#BEBAD2;--dim:#78748C;--hp:#45E06A;--te:#FFB02E;--ashi:#FF5C7A;--nage:#B983FF;--subaya:#38D6F5;--bougyo:#5C8BFF;
+#nkm,#nkm-hud,#nko-bt,#nkw{--wall:#8814B0;--wall-text:#E454EC;--outer:#20002E;--text:#fff;--sub:#BEBAD2;--dim:#78748C;--hp:#45E06A;--te:#FFB02E;--ashi:#FF5C7A;--nage:#B983FF;--subaya:#38D6F5;--bougyo:#5C8BFF;
   --hp-low:#FF4646;--hp-mid:#FFC83C;--p1:#FF5252;--p2:#409CFF;--p3:#3DDC84;--p4:#FF9F1C;--com:#AAAABE;--sch0:#FF9A2E;--sch1:#35C8F0;--sch2:#FF5FA2;--sch3:#A77BFF;--focus:#FFE14D;--card-line:#56526E;--row-sel:#461860;
   color:var(--text);font:24px/1.2 Galmuri11,monospace;user-select:none;-webkit-tap-highlight-color:transparent;cursor:default}
 #nkm{position:fixed;inset:0;z-index:1;display:none;overflow:hidden;background:var(--wall);touch-action:manipulation}
@@ -495,3 +495,117 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 #nkm-hud .nksi b.cb>span.a{width:13px;font-size:11px}
 #nkm-hud .nksi i.or{width:auto;font-size:11px}
 #nkm-hud .nksi-row.tight .nksi{gap:1px;padding-left:3px}
+/* 프로필(ui_manga.js buildProfile, analysis/27 P4). 판 = 24n 정사각(정수배 n, --n), 배경 → 얼굴 → 프레임 → 스탬프(오른쪽·아래로 3n 넘침). 세로(#nkm.pl) = 논리 600x1300 */
+.nkpf-plate{position:relative;flex:none;width:calc(24px * var(--n));height:calc(24px * var(--n));overflow:visible}
+.nkpf-plate img{position:absolute;image-rendering:pixelated;pointer-events:none}
+.nkpf-plate .b,.nkpf-plate .r{left:0;top:0;width:100%;height:100%}
+.nkpf-plate .f{left:calc(4px * var(--n));top:calc(4px * var(--n));width:calc(16px * var(--n));height:calc(17px * var(--n))}
+.nkpf-plate .s{left:calc(18px * var(--n));top:calc(18px * var(--n));width:calc(9px * var(--n));height:calc(9px * var(--n))}
+.nkpf-hp,.nkpf-nm,.nkpf-ttl,.nkpf-tier{position:absolute;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nkpf-hp{overflow:visible}
+.nkpf-nm{font:700 34px/42px Galmuri11,monospace}
+.nkpf-ttl,.nkpf-tier{height:32px;line-height:32px}
+.nkpf-ttl .nkm-chip,.nkpf-tier .nkm-chip{height:30px;line-height:30px;font-size:22px;padding:0 10px}
+.nkpf-ttl .nkm-chip.line,.nkpf-tier .nkm-chip.line{line-height:27px}
+.nkpf-tier b{margin-left:12px;font:700 26px/30px Galmuri11,monospace}
+.nkpf .nkm-btn.nko-tab.new::after,.nkpf-tile .nkpf-new{position:absolute;top:-8px;right:-8px}
+.nkpf .nkm-btn.nko-tab.new::after{content:"";width:14px;height:14px;border-radius:50%;background:var(--hp-low);border:2px solid #fff}
+.nkpf .nkm-btn.nkpf-sub{font-size:22px}
+.nkpf .nkm-btn.nkpf-sub.sel:not(.cur){border:3px solid var(--focus);color:var(--focus);background:var(--row-sel)}
+.nkpf-stats{position:absolute;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.nkpf-st{box-sizing:border-box;border:1.5px solid var(--card-line);border-radius:6px;background:rgba(255,255,255,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.nkpf-st span{font:22px/1 NKM9,monospace;color:var(--sub)}
+.nkpf-st b{font:700 44px/1 Galmuri11,monospace}
+.nkpf-box{position:absolute;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#56526E transparent;padding:10px 6px 10px 0;box-sizing:border-box}
+.nkpf-row{display:flex;align-items:center;gap:12px;box-sizing:border-box;height:48px;margin-bottom:4px;padding:0 12px;border-radius:4px;white-space:nowrap;overflow:hidden}
+.nkpf-row:nth-child(odd){background:rgba(255,255,255,.04)}
+.nkpf-row b{flex:none;width:220px;font:700 24px/1 Galmuri11,monospace;color:var(--dim)}
+.nkpf-row.got b{color:#fff}
+.nkpf-row .nkm-chip{flex:none}
+.nkpf-row .d{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font:20px/1 NKM9,monospace;color:var(--dim)}
+.nkpf-grid{display:flex;flex-wrap:wrap;gap:12px}
+.nko .nkm-btn.nkpf-tile{position:relative;flex:none;width:108px;height:128px;flex-direction:column;justify-content:flex-start;padding-top:12px;gap:10px;font-size:20px}
+.nko .nkm-btn.nkpf-tile .nkpf-plate{margin-right:9px}
+.nko .nkm-btn.nkpf-tile .nm{max-width:100%;box-sizing:border-box;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:22px;font-size:18px}
+.nko .nkm-btn.nkpf-tile.tt{width:232px;height:52px;padding:0;justify-content:center;font-size:22px}
+.nko .nkm-btn.nkpf-tile.on:not(.cur){border:3px solid var(--focus);color:var(--focus);background:var(--row-sel)}
+.nko .nkm-btn.nkpf-tile.lock:not(.cur){color:var(--dim);border-color:var(--card-line)}
+.nko .nkm-btn.nkpf-tile.lock .nkpf-plate{opacity:.35}
+.nkpf-lock{position:absolute;right:-6px;top:-10px;padding:0 4px;border:1.5px solid var(--card-line);border-radius:4px;background:#0A0A10;font:700 14px/18px Galmuri11,monospace;font-style:normal;color:var(--sub)}
+.nko .nkm-btn.nkpf-tile.tt .nm{font-size:22px}
+.nko-row.nko-rk-row.nko-pf{cursor:pointer}
+.nko-row.nko-pf:not(.me):hover{border-color:rgba(255,255,255,.35)}
+#nkm.pl .nkpf>.nkm-foot,#nkm.pl .nkpf>.nkm-hint,#nkm.pl .nkpf>.nkm-keys{display:none}
+#nkm.pl .nkpf .nkm-head{left:16px;top:16px}
+#nkm.pl .nkpf .nkm-btn{font-size:26px}
+#nkm.pl .nkpf-stats{grid-template-columns:repeat(2,1fr)}
+#nkm.pl .nkpf-row{height:max(56px,calc(46px / var(--tk,1)))}
+#nkm.pl .nkpf-row b{width:180px}
+#nkm.pl .nko .nkm-btn.nkpf-tile.tt{width:264px;height:72px}
+/* 일일·주간 도전 탭(analysis/27 P4b): 가로 = 일일 | 주간 두 칸, 세로(#nkm.pl) = 위아래. 줄 = 이름·조건·보상 / 진행 막대·n/goal, 오른쪽 받기 */
+.nkpf-chw{padding:24px 12px;font:22px/1 NKM9,monospace;color:var(--sub)}
+.nkpf-chs{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.nkpf-chc{min-width:0}
+.nkpf-chh{display:flex;align-items:baseline;gap:12px;height:28px;padding:0 4px}
+.nkpf-chh b{font:700 24px/28px Galmuri11,monospace;color:var(--focus)}
+.nkpf-chh span{font:18px/28px NKM9,monospace;color:var(--sub)}
+.nkpf-ch{display:grid;grid-template-columns:auto minmax(0,1fr) auto 92px;grid-template-rows:34px 30px;column-gap:10px;align-items:center;box-sizing:border-box;height:78px;margin-top:4px;padding:4px 8px 4px 12px;border:1.5px solid var(--card-line);border-radius:6px;background:rgba(255,255,255,.04)}
+.nkpf-ch .nm{grid-area:1/1;font:700 22px/1 Galmuri11,monospace;color:#fff;white-space:nowrap}
+.nkpf-ch .d{grid-area:1/2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:18px/1 NKM9,monospace;color:var(--sub)}
+.nkpf-ch .rw{grid-area:1/3;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 16px/22px Galmuri11,monospace;color:var(--focus);border:1.5px solid currentColor;border-radius:4px;padding:0 6px}
+.nkpf-ch .rw:empty{display:none}
+.nkpf-ch .bar{grid-area:2/1/3/3;height:16px}
+.nkpf-ch .n{grid-area:2/3;justify-self:end;font:700 20px/1 Galmuri11,monospace;color:#fff}
+.nko .nkm-btn.nkpf-chb{position:relative;grid-area:1/4/3/5;width:92px;height:56px;font-size:22px}
+.nko .nkm-btn.nkpf-chb.off{cursor:default}
+.nkpf-ch.done{border-color:var(--focus)}
+.nkpf-ch.got{opacity:.6}
+#nkm.pl .nkpf-chs{grid-template-columns:1fr;gap:16px}
+#nkm.pl .nkpf-ch{height:96px;grid-template-rows:42px 36px}
+#nkm.pl .nko .nkm-btn.nkpf-chb{height:72px;font-size:24px}
+/* R1 결과 리본(web/img/result/ribbon_*_4x.png 368x80, 글자 포함): 제목 글자는 DOM 에 두고(상태·낭독) 그림으로 덮는다 */
+.nkm-res-title[data-r],.nko-big[data-r]{color:transparent!important;text-shadow:none!important;background:center/368px 80px no-repeat;image-rendering:pixelated}
+.nkm-res-title[data-r=win],.nko-big[data-r=win]{background-image:url(/img/result/ribbon_win_4x.png)}
+.nkm-res-title[data-r=lose],.nko-big[data-r=lose]{background-image:url(/img/result/ribbon_lose_4x.png)}
+.nkm-res-title[data-r=draw],.nko-big[data-r=draw]{background-image:url(/img/result/ribbon_draw_4x.png)}
+.nkm-res-info::before{content:"";position:absolute;left:-30px;top:3px;width:24px;height:24px;background:var(--ic) 0 0/24px 24px no-repeat;image-rendering:pixelated}
+.nkm-set.t30{line-height:30px;font-size:22px}.nkm-set.t30 em,.nkm-set.t30 span{height:30px}.nkm-set.t30 span .nkm-g{top:6px} /* 17줄(타격 효과·화질 추가): 줄 30 */
+/* M4 세로 폰: 결과 화면 = 논리 600x1300(#nkm.pl), 왼쪽 창 그대로(-24 이동) + 오른쪽 두 창을 그 아래로. 버튼 2x2·높이 80(실제 ≥ 44px), 본문 글자 ≥ 14px */
+#nkm.pl .nkm-resS{translate:-24px 0}
+#nkm.pl .nkm-resS .nkm-rr{translate:-616px 572px}
+#nkm.pl .nkm-resS>.nkm-foot,#nkm.pl .nkm-resS>.nkm-hint,#nkm.pl .nkm-resS>.nkm-keys{display:none}
+#nkm.pl .nkm-resS .nkm-head{left:40px;top:16px}
+#nkm.pl .nkm-resS .nkm-btn.nkm-resb{width:276px!important;height:80px!important;font-size:26px}
+#nkm.pl .nkm-resS .nkm-resb[data-id=again]{left:664px!important;top:452px!important}
+#nkm.pl .nkm-resS .nkm-resb[data-id=stage]{left:956px!important;top:452px!important}
+#nkm.pl .nkm-resS .nkm-resb[data-id=card]{left:664px!important;top:544px!important}
+#nkm.pl .nkm-resS .nkm-resb[data-id=exit]{left:956px!important;top:544px!important}
+#nkm.pl .nkm-resS .nkm-res-info,#nkm.pl .nkm-resS .nkm-res-info b{font-size:22px}
+#nkm.pl .nkm-resS .nkm-res-info b{left:100px} /* 22px 「스테이지」(4자 ≈ 88px)와 값 사이 간격 */
+/* M4 세로 폰: 설정 = 줄 높이 var(--rh)(setLayout), 바닥 띠 숨김(줄이 그 자리까지 내려온다) */
+#nkm .nkm-set.tp{line-height:calc(var(--rh) - 4px)}#nkm .nkm-set.tp em,#nkm .nkm-set.tp span{height:calc(var(--rh) - 4px)}#nkm .nkm-set.tp span .nkm-g{top:calc((var(--rh) - 22px) / 2)} /* #nkm = 줄 수 클래스(.t28 등, 뒤에 선언)보다 우선: 종전엔 .t28 줄 높이 28px 가 이겨 글자가 줄 위쪽에 붙어 첫 줄이 잘려 보였다. -4px = 테두리 2px 위아래 */
+#nkm.port .nkm-setS>.nkm-foot,#nkm.port .nkm-setS>.nkm-hint,#nkm.port .nkm-setS>.nkm-keys{display:none}
+/* M4 세로 폰: 프로필·도전 글자 ≥ 14px(배율 0.65 → 논리 22px), 뒤로 버튼 높이 */
+#nkm.pl .nkpf-row .d,#nkm.pl .nkpf-ch .d,#nkm.pl .nkpf-chh span,#nkm.pl .nkpf-ch .n{font-size:22px}
+#nkm.pl .nkpf-ch .rw{font-size:22px;line-height:28px}
+#nkm.pl .nkpf-st span{font-size:24px}
+/* 하단 띠 키 안내 = 지금 키 이름(Enter·RShift 등 여러 글자도 들어가게 폭 자동). 터치 기기(html.nk-mob) = 키 안내 숨김 */
+.nkm-keys b{width:auto;min-width:26px;padding:0 5px}
+html.nk-mob .nkm-keys{display:none}
+#nkm.pset .nkm-rot{display:none} /* 세로 설정 = 전용 줄 배치(setLayout), 가로 안내 없음 */
+.nkm-set.t28{line-height:28px;font-size:21px}.nkm-set.t28 em,.nkm-set.t28 span{height:28px}.nkm-set.t28 span .nkm-g{top:5px} /* 18줄(접근성 추가): 줄 28 */
+/* 가운데 WINNER + 승자 초상(ui_manga.js winFx, 1:5). 자리 = 코어 필드(#stage 의 --nk-l·--nk-t·--nk-s·--nk-h, game.js), 크기 = 코어 픽셀 배수. 번쩍임 약 1.6초 뒤 노랑으로 유지 */
+#nkw{position:absolute;left:calc(var(--nk-l,0px) + 128px*var(--nk-s,1));top:calc(var(--nk-t,0px) + 0.4px*var(--nk-h,240)*var(--nk-s,1));transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:calc(5px*var(--nk-s,1));pointer-events:none;z-index:4}
+#nkw.on{display:flex}
+#nkw .t{font:calc(24px*var(--nk-s,1))/1 Galmuri14,Galmuri11,monospace;font-weight:700;color:#FFE14D;letter-spacing:.08em;text-shadow:calc(1px*var(--nk-s,1)) calc(1px*var(--nk-s,1)) 0 #000,calc(-1px*var(--nk-s,1)) calc(1px*var(--nk-s,1)) 0 #000,calc(1px*var(--nk-s,1)) calc(-1px*var(--nk-s,1)) 0 #000,calc(-1px*var(--nk-s,1)) calc(-1px*var(--nk-s,1)) 0 #000,0 calc(3px*var(--nk-s,1)) 0 #8814B0;white-space:nowrap}
+#nkw.on .t{animation:nkw-pop .3s cubic-bezier(.2,1.5,.4,1) both,nkw-flash .16s steps(1,end) .3s 8}
+@keyframes nkw-pop{from{transform:scale(2.4);opacity:0}to{transform:none;opacity:1}}
+@keyframes nkw-flash{0%{color:#fff;filter:drop-shadow(0 0 calc(6px*var(--nk-s,1)) #FFE14D)}50%{color:#FFE14D;filter:none}}
+#nkw .p{display:flex;gap:calc(8px*var(--nk-s,1))}
+#nkw figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:calc(2px*var(--nk-s,1))}
+#nkw.on figure{animation:nkw-up .35s ease-out .2s both}#nkw.on figure+figure{animation-delay:.28s}
+@keyframes nkw-up{from{transform:translateY(calc(8px*var(--nk-s,1))) scale(.85);opacity:0}to{transform:none;opacity:1}}
+#nkw img,#nkw i{display:block;width:calc(32px*var(--nk-s,1));height:calc(34px*var(--nk-s,1));image-rendering:pixelated;border:calc(1px*var(--nk-s,1)) solid var(--c,#fff);background:#0A0A10;box-sizing:content-box}
+#nkw b{font:calc(8px*var(--nk-s,1))/1.2 NKM9,monospace;color:#fff;text-shadow:calc(1px*var(--nk-s,1)) calc(1px*var(--nk-s,1)) 0 #000;white-space:nowrap;max-width:calc(60px*var(--nk-s,1));overflow:hidden;text-overflow:ellipsis}
+#nkw.calm .t,#nkw.calm figure{animation:none!important}
+@media (prefers-reduced-motion:reduce){#nkw .t,#nkw figure{animation:none!important}}

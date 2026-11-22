@@ -1,0 +1,719 @@
+{
+ "date": "2026-11-22",
+ "scales": [
+  1,
+  4
+ ],
+ "scale_rule": "1x 를 정수배 n 으로만 확대(image-rendering: pixelated). 4x 파일은 1x 의 NEAREST 확대본",
+ "why_img": "/ui/ 는 루프백 전용(원격 403)이라 원작 파생이 아닌 이 에셋은 /img/ 아래",
+ "version": "1.0",
+ "scope": "M7 터치 패드 스킨(web/touch_pad.js·touch_pad.css 의 요소와 1:1)",
+ "unit_rule": "1x 기준 u=16(A·B 지름). touch_pad.js place() 의 u(48~84 CSS px)를 16의 배수(48=3x, 64=4x, 80=5x)로 내려 맞추면 도트가 고르게 확대된다. 그대로 두면 비정수 확대(흐림 없이 pixelated 이나 픽셀 폭이 들쭉날쭉)",
+ "map": {
+  ".nktp-btn A(btn[C.A])": {
+   "box": "u x u",
+   "img": "btn_a_normal / .on = btn_a_pressed",
+   "size_1x": [
+    16,
+    16
+   ]
+  },
+  ".nktp-btn B": {
+   "box": "u x u",
+   "img": "btn_b_normal / .on = btn_b_pressed",
+   "size_1x": [
+    16,
+    16
+   ]
+  },
+  ".nktp-btn 점프": {
+   "box": "0.84u (rr*2)",
+   "img": "btn_jump_normal / .on = btn_jump_pressed",
+   "size_1x": [
+    14,
+    14
+   ],
+   "note": "14/16=0.875u 로 맞추면 정수배"
+  },
+  ".nktp-btn.p ≡": {
+   "box": "48 x 48 고정",
+   "img": "btn_pause_normal / .on = btn_pause_pressed",
+   "size_1x": [
+    12,
+    12
+   ],
+   "note": "48 = 정확히 4x"
+  },
+  ".nktp-ring": {
+   "box": "2R = 1.56u",
+   "img": "stick_ring_on (손가락 닿은 동안), .hint = stick_ring_idle",
+   "size_1x": [
+    25,
+    25
+   ],
+   "note": "25/16=1.5625u"
+  },
+  ".nktp-knob": {
+   "box": "round(0.9R) = 0.70u",
+   "img": "stick_knob_normal / .edge = stick_knob_edge",
+   "size_1x": [
+    11,
+    11
+   ],
+   "note": "11/16=0.6875u"
+  }
+ },
+ "css_hint": "배경 그림으로: background:url(/img/touch/btn_a_normal_4x.png) 0 0/100% 100% no-repeat; image-rendering:pixelated; border:0; border-radius:0; 글자 포함 그림을 쓰면 color:transparent; text-shadow:none. 그림자·눌림 이동은 그림 안에 들어 있다(눌림 = 오른쪽 아래 1px(1x) 이동, 그림자 0). 4x 한 장을 크기만 바꿔 쓰면 3x·5x 도 NEAREST 축소/확대가 되므로 정확한 정수배가 필요하면 1x 를 쓰고 CSS 크기를 16n 으로",
+ "alpha_note": "몸통은 의도된 반투명(전투 화면이 비쳐 보이게, 알파 60~160). 테두리·글자는 불투명",
+ "load_hint": "터치 패드가 처음 켜질 때 normal·pressed 를 함께 프리로드(1x 합계 약 3KB)",
+ "assets": [
+  {
+   "key": "touch.btn_a_normal",
+   "id": "btn_a_normal",
+   "desc": "A 버튼(펀치)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_a_normal_1x.png",
+     "url": "/img/touch/btn_a_normal_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 324,
+     "sha256": "081e587531a1810ac6e0d46532723663b6ff873fc5c3ec0661d982a146a38d17"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_a_normal_4x.png",
+     "url": "/img/touch/btn_a_normal_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 441,
+     "sha256": "1bfd4c0dba59947332dbd41fba0ae9481625d9db328665605c4eb074b60ed79d"
+    }
+   },
+   "opaque_px": 58,
+   "transparent_px": 58,
+   "semi_alpha_px": 140,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_b_normal",
+   "id": "btn_b_normal",
+   "desc": "B 버튼(킥)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_b_normal_1x.png",
+     "url": "/img/touch/btn_b_normal_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 314,
+     "sha256": "37bc5a899c7d0efcf27307340bc7c4fae1c5f68e9ebd52dab3dd35f212bef0f1"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_b_normal_4x.png",
+     "url": "/img/touch/btn_b_normal_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 432,
+     "sha256": "56e20b00bf3b844604b591f8d7b2d49e99248e4d943bf0d867f116ffae961eb3"
+    }
+   },
+   "opaque_px": 61,
+   "transparent_px": 58,
+   "semi_alpha_px": 137,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_jump_normal",
+   "id": "btn_jump_normal",
+   "desc": "점프 버튼(A+B)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_jump_normal_1x.png",
+     "url": "/img/touch/btn_jump_normal_1x.png",
+     "size": [
+      14,
+      14
+     ],
+     "bytes": 301,
+     "sha256": "9339e467e2356cb9f7b14c164e2aa8fa006f6ae2686dcbebe47a8b8c20896c65"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_jump_normal_4x.png",
+     "url": "/img/touch/btn_jump_normal_4x.png",
+     "size": [
+      56,
+      56
+     ],
+     "bytes": 396,
+     "sha256": "55f765082e1274c69c77435b9e870342f76e6a19fca8400f566b525aa88de156"
+    }
+   },
+   "opaque_px": 44,
+   "transparent_px": 40,
+   "semi_alpha_px": 112,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_pause_normal",
+   "id": "btn_pause_normal",
+   "desc": "≡ 일시정지",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_pause_normal_1x.png",
+     "url": "/img/touch/btn_pause_normal_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 176,
+     "sha256": "ccedb7e771cdd7d7012327fefc1590cfab4115a5f361f512114ba903172c0a2e"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_pause_normal_4x.png",
+     "url": "/img/touch/btn_pause_normal_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 247,
+     "sha256": "70aadbf108c2a4b3418b8e4159540309c3ba73440fef84d5c5a320135ba415cc"
+    }
+   },
+   "opaque_px": 15,
+   "transparent_px": 18,
+   "semi_alpha_px": 111,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_a_blank_normal",
+   "id": "btn_a_blank_normal",
+   "desc": "A 버튼 몸통(글자는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_a_blank_normal_1x.png",
+     "url": "/img/touch/btn_a_blank_normal_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 260,
+     "sha256": "2351f4a696640c4608617af7940c5b3911f488ba68865d6b90b92e213bfe4595"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_a_blank_normal_4x.png",
+     "url": "/img/touch/btn_a_blank_normal_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 370,
+     "sha256": "f59de47f2e8becbbd869b36648cb98191f1124860803a205ef190dae0ca8a8a5"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 58,
+   "semi_alpha_px": 198,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_b_blank_normal",
+   "id": "btn_b_blank_normal",
+   "desc": "B 버튼 몸통(글자는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_b_blank_normal_1x.png",
+     "url": "/img/touch/btn_b_blank_normal_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 261,
+     "sha256": "f7f964625a3fc0f14033d39c495342fcb518e530843071b8f3014fc2b580b679"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_b_blank_normal_4x.png",
+     "url": "/img/touch/btn_b_blank_normal_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 374,
+     "sha256": "819b412380c0a00412661748368739b63ae2487b466d3500d9c284eb46f9103e"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 58,
+   "semi_alpha_px": 198,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_jump_blank_normal",
+   "id": "btn_jump_blank_normal",
+   "desc": "점프 버튼 몸통(글자 「점프」는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_jump_blank_normal_1x.png",
+     "url": "/img/touch/btn_jump_blank_normal_1x.png",
+     "size": [
+      14,
+      14
+     ],
+     "bytes": 261,
+     "sha256": "bb4a54befe2ea921f512335c1ee4fdd7bca80b575cee895d6929f83caeeaccaa"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_jump_blank_normal_4x.png",
+     "url": "/img/touch/btn_jump_blank_normal_4x.png",
+     "size": [
+      56,
+      56
+     ],
+     "bytes": 354,
+     "sha256": "52d978f33e3716f971853f526c063b1d87c4b1093030e0337bab8aa15d3b606c"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 40,
+   "semi_alpha_px": 156,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_a_pressed",
+   "id": "btn_a_pressed",
+   "desc": "A 버튼(펀치)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_a_pressed_1x.png",
+     "url": "/img/touch/btn_a_pressed_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 272,
+     "sha256": "358186b4b88670c9005a92e9537cb08c07597e70da088a888eafd8edf72f390d"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_a_pressed_4x.png",
+     "url": "/img/touch/btn_a_pressed_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 377,
+     "sha256": "bbd12ba231fac92100e7409c390bad0a8f4e9406f119c564aced40b38ab2285e"
+    }
+   },
+   "opaque_px": 18,
+   "transparent_px": 79,
+   "semi_alpha_px": 159,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_b_pressed",
+   "id": "btn_b_pressed",
+   "desc": "B 버튼(킥)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_b_pressed_1x.png",
+     "url": "/img/touch/btn_b_pressed_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 273,
+     "sha256": "fa8ca1451fd652adeea35483a875d195bdf7776cd9d22242e93ddca997466e89"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_b_pressed_4x.png",
+     "url": "/img/touch/btn_b_pressed_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 367,
+     "sha256": "1629d78c09ba80533989256554d088ac4382ca093eb12ad29d792c2f6fd31c2a"
+    }
+   },
+   "opaque_px": 20,
+   "transparent_px": 79,
+   "semi_alpha_px": 157,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_jump_pressed",
+   "id": "btn_jump_pressed",
+   "desc": "점프 버튼(A+B)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_jump_pressed_1x.png",
+     "url": "/img/touch/btn_jump_pressed_1x.png",
+     "size": [
+      14,
+      14
+     ],
+     "bytes": 246,
+     "sha256": "e7c47b2c0a1a30eae2f2a60d2770a552b8b97c44b2024d72cc953bdb9c020c2b"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_jump_pressed_4x.png",
+     "url": "/img/touch/btn_jump_pressed_4x.png",
+     "size": [
+      56,
+      56
+     ],
+     "bytes": 328,
+     "sha256": "1f8c386c4d1d006ecd82f172c1dcd513a175c6bfe5b72fb329513bb02f04ee5e"
+    }
+   },
+   "opaque_px": 18,
+   "transparent_px": 59,
+   "semi_alpha_px": 119,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_pause_pressed",
+   "id": "btn_pause_pressed",
+   "desc": "≡ 일시정지",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_pause_pressed_1x.png",
+     "url": "/img/touch/btn_pause_pressed_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 155,
+     "sha256": "7fbdee80a824deb0f20b54b8cb88de86e0437de945978d1d73295dfd9fe64732"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_pause_pressed_4x.png",
+     "url": "/img/touch/btn_pause_pressed_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 223,
+     "sha256": "ecad161a7f2c5bd71de4d98c2b39b713db55897c8c5eadca1b57c13728241ec7"
+    }
+   },
+   "opaque_px": 15,
+   "transparent_px": 35,
+   "semi_alpha_px": 94,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_a_blank_pressed",
+   "id": "btn_a_blank_pressed",
+   "desc": "A 버튼 몸통(글자는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_a_blank_pressed_1x.png",
+     "url": "/img/touch/btn_a_blank_pressed_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 232,
+     "sha256": "82e79aa23f0fbc8d7775c8983470b8e37b4574da7b82d00931c55178c798139a"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_a_blank_pressed_4x.png",
+     "url": "/img/touch/btn_a_blank_pressed_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 338,
+     "sha256": "c83bd64d98c3511a93445d0458ab7b3e6db249ac1c4486d0e43222a524839781"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 79,
+   "semi_alpha_px": 177,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_b_blank_pressed",
+   "id": "btn_b_blank_pressed",
+   "desc": "B 버튼 몸통(글자는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_b_blank_pressed_1x.png",
+     "url": "/img/touch/btn_b_blank_pressed_1x.png",
+     "size": [
+      16,
+      16
+     ],
+     "bytes": 220,
+     "sha256": "ed3d4eaadb58e37087c6e4ed504b4d843c0f53cf55c092c9be5cbac5d3cda8be"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_b_blank_pressed_4x.png",
+     "url": "/img/touch/btn_b_blank_pressed_4x.png",
+     "size": [
+      64,
+      64
+     ],
+     "bytes": 333,
+     "sha256": "7b5cefd7473fbe98dcf29ecea8c01987e5ac66f12e1e75eabbe13ad4a4072092"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 79,
+   "semi_alpha_px": 177,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.btn_jump_blank_pressed",
+   "id": "btn_jump_blank_pressed",
+   "desc": "점프 버튼 몸통(글자 「점프」는 DOM)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/btn_jump_blank_pressed_1x.png",
+     "url": "/img/touch/btn_jump_blank_pressed_1x.png",
+     "size": [
+      14,
+      14
+     ],
+     "bytes": 228,
+     "sha256": "3f79e35783cc2cab29fc3f9cc4c207dd11d7a4e28fbbbac5b74909b6cb4025e3"
+    },
+    "4x": {
+     "path": "web/img/touch/btn_jump_blank_pressed_4x.png",
+     "url": "/img/touch/btn_jump_blank_pressed_4x.png",
+     "size": [
+      56,
+      56
+     ],
+     "bytes": 305,
+     "sha256": "907f4ab71270f66715e79997d63e9f6072a5ac8de6c629edead462add424581f"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 59,
+   "semi_alpha_px": 137,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.stick_ring_idle",
+   "id": "stick_ring_idle",
+   "desc": "스틱 베이스(힌트·손 뗀 상태)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/stick_ring_idle_1x.png",
+     "url": "/img/touch/stick_ring_idle_1x.png",
+     "size": [
+      25,
+      25
+     ],
+     "bytes": 298,
+     "sha256": "6935f7810ebc555e6e86a9ee8e3f89be836c5363f4c2e0aabb8bdb229606f040"
+    },
+    "4x": {
+     "path": "web/img/touch/stick_ring_idle_4x.png",
+     "url": "/img/touch/stick_ring_idle_4x.png",
+     "size": [
+      100,
+      100
+     ],
+     "bytes": 491,
+     "sha256": "78ab4d1c98bf164bbedd9c047848924574ef08f56be204d9768e6f898ac4275c"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 136,
+   "semi_alpha_px": 489,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.stick_ring_on",
+   "id": "stick_ring_on",
+   "desc": "스틱 베이스(누르는 중)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/stick_ring_on_1x.png",
+     "url": "/img/touch/stick_ring_on_1x.png",
+     "size": [
+      25,
+      25
+     ],
+     "bytes": 302,
+     "sha256": "c502dc8db3ceea32c8a16eb4d8a45c4693e9a3978223f767c7bae5bc5f3883b6"
+    },
+    "4x": {
+     "path": "web/img/touch/stick_ring_on_4x.png",
+     "url": "/img/touch/stick_ring_on_4x.png",
+     "size": [
+      100,
+      100
+     ],
+     "bytes": 501,
+     "sha256": "d3b0dc55949fbaa7a39d2266c7ea0e4197e8e1eb961fef0b507dff037333bcc6"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 136,
+   "semi_alpha_px": 489,
+   "colors": 7,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.stick_knob_normal",
+   "id": "stick_knob_normal",
+   "desc": "스틱 노브",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/stick_knob_normal_1x.png",
+     "url": "/img/touch/stick_knob_normal_1x.png",
+     "size": [
+      11,
+      11
+     ],
+     "bytes": 197,
+     "sha256": "7276e56076ba09d81211b480222c7ddde030df5179ab3724066b470102bd3ee5"
+    },
+    "4x": {
+     "path": "web/img/touch/stick_knob_normal_4x.png",
+     "url": "/img/touch/stick_knob_normal_4x.png",
+     "size": [
+      44,
+      44
+     ],
+     "bytes": 254,
+     "sha256": "874dffdb40ddceac14c3bc74482e34a4e0868783609c5e0c131de543eac07a1f"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 24,
+   "semi_alpha_px": 97,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "touch.stick_knob_edge",
+   "id": "stick_knob_edge",
+   "desc": "스틱 노브(끝까지 = 달리기 보조 구간)",
+   "files": {
+    "1x": {
+     "path": "web/img/touch/stick_knob_edge_1x.png",
+     "url": "/img/touch/stick_knob_edge_1x.png",
+     "size": [
+      11,
+      11
+     ],
+     "bytes": 187,
+     "sha256": "1a30cb04e6815ad14900db1662d7dc96030aa26a3e4cce2751c6e7fca496e712"
+    },
+    "4x": {
+     "path": "web/img/touch/stick_knob_edge_4x.png",
+     "url": "/img/touch/stick_knob_edge_4x.png",
+     "size": [
+      44,
+      44
+     ],
+     "bytes": 254,
+     "sha256": "a38fdb9dbcc7036db4030a38a22eedbf846ec8d42273db733a0f859f48422bfe"
+    }
+   },
+   "opaque_px": 0,
+   "transparent_px": 24,
+   "semi_alpha_px": 97,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  }
+ ]
+}

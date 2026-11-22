@@ -1,0 +1,893 @@
+{
+ "date": "2026-11-22",
+ "scales": [
+  1,
+  4
+ ],
+ "scale_rule": "1x 를 정수배 n 으로만 확대(image-rendering: pixelated). 4x 파일은 1x 의 NEAREST 확대본",
+ "why_img": "/ui/ 는 루프백 전용(원격 403)이라 원작 파생이 아닌 이 에셋은 /img/ 아래",
+ "version": "1.0",
+ "scope": "R1 결과 카드 PNG 저장용 템플릿(캔버스 합성)",
+ "card": {
+  "size_1x": [
+   320,
+   180
+  ],
+  "export": "4x = 1280x720 캔버스에 card_bg_{win|lose|draw}_4x 를 깔고 아래 자리(1x 좌표 x4)에 그림·글자를 얹는다. imageSmoothingEnabled=false",
+  "layout_1x": {
+   "ribbon": [
+    8,
+    4,
+    92,
+    20
+   ],
+   "left_panel": [
+    6,
+    18,
+    120,
+    140
+   ],
+   "portrait": [
+    16,
+    30,
+    100,
+    96
+   ],
+   "name_strip": [
+    16,
+    130,
+    100,
+    18
+   ],
+   "mvp_badge": [
+    98,
+    16,
+    32,
+    32
+   ],
+   "right_panel": [
+    132,
+    18,
+    182,
+    140
+   ],
+   "match_rows": [
+    [
+     138,
+     26,
+     170,
+     18
+    ],
+    [
+     138,
+     44,
+     170,
+     18
+    ],
+    [
+     138,
+     62,
+     170,
+     18
+    ]
+   ],
+   "stat_rows": [
+    [
+     138,
+     84,
+     170,
+     18
+    ],
+    [
+     138,
+     102,
+     170,
+     18
+    ],
+    [
+     138,
+     120,
+     170,
+     18
+    ],
+    [
+     138,
+     138,
+     170,
+     18
+    ]
+   ],
+   "row_icon_offset": [
+    3,
+    3
+   ],
+   "row_text_x": 20,
+   "footer": [
+    0,
+    162,
+    320,
+    18
+   ],
+   "footer_logo": [
+    8,
+    165,
+    150,
+    12
+   ],
+   "footer_right": [
+    200,
+    165,
+    112,
+    12
+   ]
+  },
+  "draw_order": [
+   "card_bg_<결과>",
+   "초상(portrait 자리, 넘치면 자름)",
+   "이름 글자(name_strip)",
+   "ribbon_<결과>(ribbon 자리)",
+   "mvp_badge(mvp_badge 자리, MVP 일 때만)",
+   "줄 아이콘(stat_*, 줄 x+3,y+3) + 글자(줄 x+20)",
+   "footer 글자(게임 이름·날짜)"
+  ],
+  "text_hint": "글자는 앱이 그림: 본문 Galmuri11 12px(1x)·48px(4x), 흰 #FFFFFF 또는 #FFFDF5 (남색 #14121E 위 대비 18.9), 강조 노랑 #FFE14D (대비 14.4)"
+ },
+ "assets": [
+  {
+   "key": "result.card_bg_win",
+   "id": "card_bg_win",
+   "desc": "결과 카드 바탕 320x180(win), 판·창·줄 자리 포함, 불투명",
+   "files": {
+    "1x": {
+     "path": "web/img/result/card_bg_win_1x.png",
+     "url": "/img/result/card_bg_win_1x.png",
+     "size": [
+      320,
+      180
+     ],
+     "bytes": 1448,
+     "sha256": "195e677115713a4609f9f3b93946b57b35051e1009e7d2e2b116df2fc540b3a8"
+    },
+    "4x": {
+     "path": "web/img/result/card_bg_win_4x.png",
+     "url": "/img/result/card_bg_win_4x.png",
+     "size": [
+      1280,
+      720
+     ],
+     "bytes": 7568,
+     "sha256": "2e64ccf29d76f12654935c8959e540b57c956d56c830d5501fa1112805808209"
+    }
+   },
+   "opaque_px": 57600,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_win",
+   "id": "ribbon_win",
+   "desc": "승패 리본(win) 글자 포함",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_win_1x.png",
+     "url": "/img/result/ribbon_win_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 353,
+     "sha256": "3e0925a05302febdadd8fd44dc1ef9ac1e50b386b0b39a600c47d46dbea6980a"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_win_4x.png",
+     "url": "/img/result/ribbon_win_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 618,
+     "sha256": "f3fcacae39da916dcbd0585b001464ad238489d439d3245ea35cb4794ec16c49"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_win_blank",
+   "id": "ribbon_win_blank",
+   "desc": "승패 리본(win) 글자 없음(기권승 등 앱 글자)",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_win_blank_1x.png",
+     "url": "/img/result/ribbon_win_blank_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 259,
+     "sha256": "72533bccd5cf2c38f5aefa85f97ae912833dbeb3100bfb307d1189878ab4c507"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_win_blank_4x.png",
+     "url": "/img/result/ribbon_win_blank_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 513,
+     "sha256": "9ec7b51e5b8d90e996a860a089b2de5d326b359ab317a3d0ec1d0d011cd4e03f"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.card_bg_lose",
+   "id": "card_bg_lose",
+   "desc": "결과 카드 바탕 320x180(lose), 판·창·줄 자리 포함, 불투명",
+   "files": {
+    "1x": {
+     "path": "web/img/result/card_bg_lose_1x.png",
+     "url": "/img/result/card_bg_lose_1x.png",
+     "size": [
+      320,
+      180
+     ],
+     "bytes": 1442,
+     "sha256": "e7e4f8389147de1b7b893744f773edf26726a66f5625742be37d44b70f1f517d"
+    },
+    "4x": {
+     "path": "web/img/result/card_bg_lose_4x.png",
+     "url": "/img/result/card_bg_lose_4x.png",
+     "size": [
+      1280,
+      720
+     ],
+     "bytes": 7554,
+     "sha256": "e3738d38460b27e4fcd87eded339f77056b0ca4ae8a9cf974b4c96971041d356"
+    }
+   },
+   "opaque_px": 57600,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_lose",
+   "id": "ribbon_lose",
+   "desc": "승패 리본(lose) 글자 포함",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_lose_1x.png",
+     "url": "/img/result/ribbon_lose_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 372,
+     "sha256": "8d33ee4a81f8aa68968693b10e5a2f5c161ab8937a368e620c5e0240e0535e16"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_lose_4x.png",
+     "url": "/img/result/ribbon_lose_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 661,
+     "sha256": "72d28722c1c9b2a2872fc3fc6ae1c1a7aa2830fed5ab3bf0c3facdea0a7de051"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_lose_blank",
+   "id": "ribbon_lose_blank",
+   "desc": "승패 리본(lose) 글자 없음(기권승 등 앱 글자)",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_lose_blank_1x.png",
+     "url": "/img/result/ribbon_lose_blank_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 266,
+     "sha256": "5f705bad21c562563e88dc60965cfa157992a8496c9d9405b666e0a272a9f4f4"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_lose_blank_4x.png",
+     "url": "/img/result/ribbon_lose_blank_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 522,
+     "sha256": "10e094fe7f3c0dcc5f1b7986f78f1ff1fba7dc893639e7540224bfa074c98abf"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.card_bg_draw",
+   "id": "card_bg_draw",
+   "desc": "결과 카드 바탕 320x180(draw), 판·창·줄 자리 포함, 불투명",
+   "files": {
+    "1x": {
+     "path": "web/img/result/card_bg_draw_1x.png",
+     "url": "/img/result/card_bg_draw_1x.png",
+     "size": [
+      320,
+      180
+     ],
+     "bytes": 1445,
+     "sha256": "0824b9ce43b69077928d4d6a7fcf268d048c0e472137250b9e93151f9fc4232f"
+    },
+    "4x": {
+     "path": "web/img/result/card_bg_draw_4x.png",
+     "url": "/img/result/card_bg_draw_4x.png",
+     "size": [
+      1280,
+      720
+     ],
+     "bytes": 7558,
+     "sha256": "9276d5e0cf0d8d9820ee1d37dd4bf4d7aacf93a535e61876ae7e4c07514366be"
+    }
+   },
+   "opaque_px": 57600,
+   "transparent_px": 0,
+   "semi_alpha_px": 0,
+   "colors": 9,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_draw",
+   "id": "ribbon_draw",
+   "desc": "승패 리본(draw) 글자 포함",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_draw_1x.png",
+     "url": "/img/result/ribbon_draw_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 355,
+     "sha256": "8f689595df95aa63a1f0e466f8e22627e3d6e06dd55874e620df47023711ced9"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_draw_4x.png",
+     "url": "/img/result/ribbon_draw_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 626,
+     "sha256": "4b74b1a6684dcb5ed2586148ad1e5dd1931081b2cb233663ce3069aca5f18eb4"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.ribbon_draw_blank",
+   "id": "ribbon_draw_blank",
+   "desc": "승패 리본(draw) 글자 없음(기권승 등 앱 글자)",
+   "files": {
+    "1x": {
+     "path": "web/img/result/ribbon_draw_blank_1x.png",
+     "url": "/img/result/ribbon_draw_blank_1x.png",
+     "size": [
+      92,
+      20
+     ],
+     "bytes": 260,
+     "sha256": "af17b8e59eacd9f1bd447324897abc766839db1035bf9792bef53eff6cf7a132"
+    },
+    "4x": {
+     "path": "web/img/result/ribbon_draw_blank_4x.png",
+     "url": "/img/result/ribbon_draw_blank_4x.png",
+     "size": [
+      368,
+      80
+     ],
+     "bytes": 517,
+     "sha256": "9aeb7f257128ad1d1e1df330c5d5ec78e7272d07ec3e8edbff4000437beb89db"
+    }
+   },
+   "opaque_px": 1742,
+   "transparent_px": 98,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.mvp_badge",
+   "id": "mvp_badge",
+   "desc": "MVP 배지",
+   "files": {
+    "1x": {
+     "path": "web/img/result/mvp_badge_1x.png",
+     "url": "/img/result/mvp_badge_1x.png",
+     "size": [
+      32,
+      32
+     ],
+     "bytes": 477,
+     "sha256": "56ca2f08a7d0eaddd522643cec2b53f4b9d8ae507ad68c466d4ff69b63f1b949"
+    },
+    "4x": {
+     "path": "web/img/result/mvp_badge_4x.png",
+     "url": "/img/result/mvp_badge_4x.png",
+     "size": [
+      128,
+      128
+     ],
+     "bytes": 769,
+     "sha256": "15bff9aa8051411867b28e611882b90376ea70bc3e0dcc5ff0f0a50559f326e1"
+    }
+   },
+   "opaque_px": 626,
+   "transparent_px": 398,
+   "semi_alpha_px": 0,
+   "colors": 8,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_time",
+   "id": "stat_time",
+   "desc": "시간",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_time_1x.png",
+     "url": "/img/result/stat_time_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 197,
+     "sha256": "0d49549a69f3c115dea93f43cbcac0526604006cf38a3e5527b66fb575689706"
+    },
+    "4x": {
+     "path": "web/img/result/stat_time_4x.png",
+     "url": "/img/result/stat_time_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 267,
+     "sha256": "47753cea26e5bee39084f6bb47141a6d129d661efc65cc28dd814cd5e899050f"
+    }
+   },
+   "opaque_px": 120,
+   "transparent_px": 24,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_hp",
+   "id": "stat_hp",
+   "desc": "남은 HP",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_hp_1x.png",
+     "url": "/img/result/stat_hp_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 187,
+     "sha256": "039955a3b5e83c36f39898b508e6ad0c2523762cf66d32f9de1d45d5d8ea6c39"
+    },
+    "4x": {
+     "path": "web/img/result/stat_hp_4x.png",
+     "url": "/img/result/stat_hp_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 247,
+     "sha256": "b41356f7cb550d4adf12370fb79455eff8d50242b9dfa3de79683eafa7c9c7bf"
+    }
+   },
+   "opaque_px": 78,
+   "transparent_px": 66,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_stage",
+   "id": "stat_stage",
+   "desc": "스테이지",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_stage_1x.png",
+     "url": "/img/result/stat_stage_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 197,
+     "sha256": "d61147531f53bd13f8913b2599f6d73dffc731a0a1fd19a83ca8e44071528ee9"
+    },
+    "4x": {
+     "path": "web/img/result/stat_stage_4x.png",
+     "url": "/img/result/stat_stage_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 264,
+     "sha256": "8453931e68359a95d01f2e097689b2b5138d6bcee9bfdd3e3bebd6357c1121fa"
+    }
+   },
+   "opaque_px": 92,
+   "transparent_px": 52,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_rule",
+   "id": "stat_rule",
+   "desc": "룰",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_rule_1x.png",
+     "url": "/img/result/stat_rule_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 142,
+     "sha256": "4804c0f08a71b02bbb31f3b68e3f2e4c54a95ef5cf41aa575ee4de7a51582a16"
+    },
+    "4x": {
+     "path": "web/img/result/stat_rule_4x.png",
+     "url": "/img/result/stat_rule_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 210,
+     "sha256": "6741c71f383066fd0ff20a317f393fc97cf6f41ff1fe6fd5df358ab06feb352f"
+    }
+   },
+   "opaque_px": 106,
+   "transparent_px": 38,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_trophy",
+   "id": "stat_trophy",
+   "desc": "승수",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_trophy_1x.png",
+     "url": "/img/result/stat_trophy_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 206,
+     "sha256": "fae3253d93b4359d750c2e6d9b1b30f6075ef36f2800a300f296ff55b256ebe7"
+    },
+    "4x": {
+     "path": "web/img/result/stat_trophy_4x.png",
+     "url": "/img/result/stat_trophy_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 260,
+     "sha256": "5c2b29ad515fb27e5eb88801886f083e509ac210f78d140f3d82503c3df3e004"
+    }
+   },
+   "opaque_px": 94,
+   "transparent_px": 50,
+   "semi_alpha_px": 0,
+   "colors": 5,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_streak",
+   "id": "stat_streak",
+   "desc": "연승",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_streak_1x.png",
+     "url": "/img/result/stat_streak_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 190,
+     "sha256": "5cae9a676d27d45e68bd398845089d411f8e854224c26565b8a35dc968d620b3"
+    },
+    "4x": {
+     "path": "web/img/result/stat_streak_4x.png",
+     "url": "/img/result/stat_streak_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 286,
+     "sha256": "c1020eb4a83b255e039d8999a5fd8589a4f069628ed36710dede5e9910bfd8d4"
+    }
+   },
+   "opaque_px": 86,
+   "transparent_px": 58,
+   "semi_alpha_px": 0,
+   "colors": 6,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_damage",
+   "id": "stat_damage",
+   "desc": "준 대미지",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_damage_1x.png",
+     "url": "/img/result/stat_damage_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 180,
+     "sha256": "33ded8a7600b99d425ba35382a4b3d72ada2606831396e8410430ec50e2624cc"
+    },
+    "4x": {
+     "path": "web/img/result/stat_damage_4x.png",
+     "url": "/img/result/stat_damage_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 226,
+     "sha256": "12b659c7da7130120d12eb3c99419a072cf9c8fd4b6992ed42d66e4591d80b19"
+    }
+   },
+   "opaque_px": 78,
+   "transparent_px": 66,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_rate_up",
+   "id": "stat_rate_up",
+   "desc": "점수 오름",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_rate_up_1x.png",
+     "url": "/img/result/stat_rate_up_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 157,
+     "sha256": "b7d7bef79d0137af4db8babec29dc64d59378b8388cd1b8610ff310323d33c2f"
+    },
+    "4x": {
+     "path": "web/img/result/stat_rate_up_4x.png",
+     "url": "/img/result/stat_rate_up_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 233,
+     "sha256": "074c1b83516707795079530b4e432f4e3589ce75d4cf1ddd0e5d0c9fa13c198f"
+    }
+   },
+   "opaque_px": 66,
+   "transparent_px": 78,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_rate_same",
+   "id": "stat_rate_same",
+   "desc": "점수 그대로",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_rate_same_1x.png",
+     "url": "/img/result/stat_rate_same_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 114,
+     "sha256": "0b88f8d7843fc264b3328cca8a5b22cef99bbd493470b0dde9aa44bcdfec6752"
+    },
+    "4x": {
+     "path": "web/img/result/stat_rate_same_4x.png",
+     "url": "/img/result/stat_rate_same_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 160,
+     "sha256": "4864f4242be74e839f3efda661f605ca579314e8b5042a45dfb94ac44df230e8"
+    }
+   },
+   "opaque_px": 44,
+   "transparent_px": 100,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_rate_down",
+   "id": "stat_rate_down",
+   "desc": "점수 내림",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_rate_down_1x.png",
+     "url": "/img/result/stat_rate_down_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 162,
+     "sha256": "6f64fbece8d54e909b3ae1ff429a2afc0a443b76a59f395b942ed663580d312c"
+    },
+    "4x": {
+     "path": "web/img/result/stat_rate_down_4x.png",
+     "url": "/img/result/stat_rate_down_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 225,
+     "sha256": "1f30f9c3ef372f38044712b4f7166407cbb105722911f48b8fec0d3f9a894dca"
+    }
+   },
+   "opaque_px": 66,
+   "transparent_px": 78,
+   "semi_alpha_px": 0,
+   "colors": 4,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  },
+  {
+   "key": "result.stat_ko",
+   "id": "stat_ko",
+   "desc": "쓰러뜨림(KO) 수",
+   "files": {
+    "1x": {
+     "path": "web/img/result/stat_ko_1x.png",
+     "url": "/img/result/stat_ko_1x.png",
+     "size": [
+      12,
+      12
+     ],
+     "bytes": 158,
+     "sha256": "a646ba6d0b6c7da88619769b90689ae0f01dec86688580baaff457a1afff98a4"
+    },
+    "4x": {
+     "path": "web/img/result/stat_ko_4x.png",
+     "url": "/img/result/stat_ko_4x.png",
+     "size": [
+      48,
+      48
+     ],
+     "bytes": 211,
+     "sha256": "8a5fa03280bfde06f5aa97ef0f496240425c5837912a552f9904e4b1c3dc466f"
+    }
+   },
+   "opaque_px": 101,
+   "transparent_px": 43,
+   "semi_alpha_px": 0,
+   "colors": 3,
+   "generator": "code (Pillow pixel primitives / Galmuri11-Bold 비안티앨리어스, no generative AI)",
+   "script": "art/ui_manga/scripts/egroup_assets.py",
+   "provenance": "original",
+   "rom_derived": false,
+   "license": "project-original (글자 포함 리본은 Galmuri OFL 1.1 글꼴로 렌더한 그림)"
+  }
+ ]
+}

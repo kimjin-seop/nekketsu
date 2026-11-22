@@ -10,6 +10,9 @@
   DEF.hd = small() ? 0 : 1;
   DEF.cam = 1; // cam = 카메라 연출(web/cam_fx.js, analysis/27 Z1): 0 끔(transform 없음 = 픽셀 동일) · 1 약(기본) · 2 보통. 온라인은 약 이하, 동작 줄이기 = 끔
   DEF.tut = 0; DEF.tutok = 0; // 튜토리얼(web/tutorial.js, analysis/27 T2): tut 0 아직(배틀 → 1인 첫 진입 때 자동) · 1 봤음(완료·건너뜀·도중 종료), tutok 1 = 단계를 모두 성립한 적 있음(칭호 지급 근거, P1 이후)
+  DEF.quality = 'auto'; // 품질 단계(web/quality.js, analysis/27 M5): 'auto' 자동(프레임 시간으로 한 단계씩 낮춤) · 'high' 높음 · 'mid' 보통(HD 배경 끔) · 'low' 낮음(HD 배경·타격 이펙트 끔). 렌더 층만
+  DEF.impact = 2; // 타격감(web/impact_fx.js): 0 끔(픽셀·RAM 지문 동일) · 1 약 · 2 보통(기본) · 3 강. 히트스톱은 오프라인만
+  DEF.colorblind = 0; DEF.fontscale = 0; // 접근성(web/a11y.js, A2): colorblind 0 끔 · 1 색약 팔레트(표시 층만), fontscale 0 1.0 · 1 1.15 · 2 1.3(DOM 글자만). 0 = 종전 그대로
   const data = Object.assign({}, DEF), subs = [];
   function load() {
     let j = null; try { j = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { j = null; } // 저장소를 못 쓰면 기본값
@@ -19,6 +22,9 @@
     if (j.touch === 0 || j.touch === 1 || j.touch === 2) data.touch = j.touch; data.tdash = j.tdash === 0 ? 0 : 1; data.tvib = j.tvib === 0 ? 0 : 1;
     if (j.cam === 0 || j.cam === 1 || j.cam === 2) data.cam = j.cam; // 카메라 연출(없으면 기본 약)
     try { if (j.tut === 0 || j.tut === 1) data.tut = j.tut; data.tutok = j.tutok === 1 ? 1 : 0; } catch (e) { /* 튜토리얼 칸만 기본값 */ }
+    if (['auto', 'high', 'mid', 'low'].indexOf(j.quality) >= 0) data.quality = j.quality; // 품질 단계(없으면 자동)
+    if (j.impact === 0 || j.impact === 1 || j.impact === 2 || j.impact === 3) data.impact = j.impact; // 타격감(없으면 보통)
+    if (j.colorblind === 1) data.colorblind = 1; if (j.fontscale === 1 || j.fontscale === 2) data.fontscale = j.fontscale; // 접근성(없으면 끔·1.0)
     data.fxlv = Number.isInteger(j.fxlv) && j.fxlv >= 0 && j.fxlv <= 3 ? j.fxlv : j.hitfx === 0 ? 0 : 2; data.hitfx = data.fxlv ? 1 : 0; // 옛 저장(hitfx 만) = 끔·보통
     return data;
   }
