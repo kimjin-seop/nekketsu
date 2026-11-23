@@ -2339,7 +2339,7 @@
     if (og.cpu >= 0 && (!isHost() || R.opts.ranked || cd || (S[og.cpu] && S[og.cpu].kind === 'human') || (pl && og.zone !== 'grid'))) og.cpu = -1; // 고른 COM 카드가 사람 자리가 됨·잠금·시트 닫음 = 해제
     const sel = og.cpu >= 0 ? og.cpu : me; // 캐릭터 칸이 지금 고르는 자리(방장이 고른 COM 또는 나)
     s.classList.toggle('sheet', pl && og.zone === 'grid'); s.classList.toggle('cdn', cd); s.classList.toggle('tm2', tm); cdTick();
-    s.headEl.textContent = String(R.title || '') + (R.opts && R.opts.rollback ? ' · RB' : ''); // RB = 롤백 넷코드를 켠 방(방 설정 opts.rollback, 약어 한 칸)
+    s.headEl.textContent = String(R.title || '');
     s.tabT.forEach(it => { it.el.classList.toggle('sel', (it.tk === '2v2') === tm); it.el.style.display = ''; }); // 랭크·래더 방도 같은 자리에 표시(notHost = 흐림, 지금 값만 또렷)
     s.cells.forEach((e, i) => {
       const o = owner(i), t = o >= 0; e.classList.toggle('taken', t); e.classList.toggle('mine', o === sel); e.nm.textContent = cname(i);
