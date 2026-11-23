@@ -18,6 +18,8 @@ module.exports = {
       NK_TRUST_PROXY: '1',                         // nginx 뒤 필수: 없으면 모든 접속자가 IP 127.0.0.1 하나로 계산돼 MAX_CONNS_PER_IP(8)에 걸리고 랭크 SAME_IP 가 오판된다
       NK_TRUST_PROXY_HOPS: '1',                    // nginx 1단. Cloudflare 등 프록시가 더 앞에 있으면 2
       NK_DB_PATH: __dirname + '/../data/nekketsu.db', // 빈 DB 로 시작(스키마는 기동 때 자동 생성). 개발 DB 는 옮기지 않는 것을 권고
+      // WebRTC DataChannel 전송(DEPLOY.md 13절, 승인 뒤에만 주석 해제. 서버에서 npm ci --omit=dev + UDP 포트 개방 필요):
+      // NK_RTC: '1', NK_RTC_PORT: 3600, NK_RTC_IP: '<서버 공인 IPv4>',
       // NK_RANK_ALLOW_SAME_IP 는 넣지 않는다(개발 시험용). ADMIN_ACCOUNTS 같은 관리자 변수는 열혈에 없다.
     },
     max_memory_restart: '600M', // 스토리 재현 워커(NK_STORY_WORKERS 기본 2)와 압축 캐시를 감안. 운영 중 실측해 조정

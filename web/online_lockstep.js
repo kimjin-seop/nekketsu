@@ -11,13 +11,14 @@
 // 롤백 모드(PROTO 6, cfg.rollback 이 있을 때만. 설계: analysis/online_sync.md 9절): 서버가 확정 전에 중계하는 r{s,f,p[],x,a}(상대 자리 s 의 입력)를 받아 conf 에 채운다. 확정 방송 f 와 값이 같다(다르면 f 가 이긴다 = diff).
 //   .have = 내 입력까지 포함해 모든 자리의 실제 값을 안 프레임 수(최종값이라 다시 안 바뀐다). .predict(k) = 프레임 k 의 자리별 값(모르는 자리 = 그 자리의 마지막으로 안 값 반복). .take() 는 확정을 기다리지 않는다(실행 허가는 game.js 가 정한다).
 //   빠진 자리(peer gone)의 확정 값 = 그 사람이 나가기 전에 보내 이미 중계된 프레임은 그 값, 나머지는 0(server_online.js confirm). onMessage(peer gone) 을 넘기면 그 자리의 모르는 프레임을 0 으로 예측한다.
+//   .mineFrom(lo, n) = 내가 보낸 입력 lo 부터 최대 n 개(web/online_rtc.js 가 서버 미확인 구간을 DataChannel 로 다시 싣는다). r 의 x·a 는 새 값(x 가 커졌거나 같은 x 에 새 프레임)일 때만 반영한다.
 //   .setDelay(d) = 입력 지연 변경(자동 후퇴·방 단위 조정 rbd). .adv() = 내가 상대보다 앞선 프레임 수 추정(GGPO 방식: 서로 잰 값 a 를 주고받아 (내 값 - 상대 값) / 2). o.me = 내 자리(사람 j 번째), o.now = 시계(ms, 기본 Date.now)
 (function (root) {
   function create(o) {
     const cfg = o.cfg, lead = cfg.lead | 0, every = cfg.hashEvery | 0, W = cfg.humans >= 1 && cfg.humans <= 4 ? cfg.humans | 0 : 2;
     let delay = Math.max(1, cfg.delay | 0);
     const rb = !!cfg.rollback, me = o.me | 0, now = o.now || Date.now;
-    const lastV = new Array(W).fill(0), lastF = new Array(W).fill(-1), pD = new Array(W).fill(null), pA = new Array(W).fill(0), pT = new Array(W).fill(0); // 롤백: 자리별 마지막으로 안 값·그 프레임, 상대가 알린 앞섬 측정(pD = 내 실행 - 상대 실행(보낸 때) , pA = 상대가 잰 값, pT = 받은 시각)
+    const lastV = new Array(W).fill(0), lastF = new Array(W).fill(-1), pD = new Array(W).fill(null), pA = new Array(W).fill(0), pT = new Array(W).fill(0), pX = new Array(W).fill(-1); // pX = 자리별 마지막으로 받은 x(같은 r 이 두 경로(DC·웹소켓)로 겹쳐 오거나 뒤늦게 와도 앞섬 측정을 낡은 값으로 덮지 않게) // 롤백: 자리별 마지막으로 안 값·그 프레임, 상대가 알린 앞섬 측정(pD = 내 실행 - 상대 실행(보낸 때) , pA = 상대가 잰 값, pT = 받은 시각)
     const conf = [];          // conf[k*W + 자리]
     const mine = [];          // 내가 보낸 입력(재접속 때 다시 보내기용)
     let exec = lead, have = 0, sent = 0;
@@ -34,12 +35,13 @@
       myAdv() { let a = -Infinity, t = now(); for (let j = 0; j < W; j++) if (j !== me && pD[j] !== null && t - pT[j] < 1500 && pD[j] > a) a = pD[j]; return a === -Infinity ? 0 : Math.max(-1000, Math.min(1000, a | 0)); }, // 내가 보낼 값 = 상대들 중 가장 큰 (내 실행 - 상대 실행 + 전달 시간)
       predict(k) { const out = []; for (let j = 0; j < W; j++) { const v = conf[k * W + j]; out.push(v !== undefined ? v : j === me && mine[k] !== undefined ? mine[k] : lastV[j]); } return out; },
       known(k, j) { return conf[k * W + j] !== undefined; },
+      mineFrom(lo, n) { lo = Math.max(0, lo | 0); return mine.slice(lo, Math.min(sent, lo + (n | 0))); }, // DC 중복 창용: 내가 보낸 입력 lo.. (최대 n 개)
       adv() { let a = -Infinity, t = now(); for (let j = 0; j < W; j++) if (j !== me && pD[j] !== null && t - pT[j] < 1500) a = Math.max(a, (pD[j] - pA[j]) / 2); return a === -Infinity ? 0 : a; },
       diff: 0, diffLo: Infinity, // diff = 확정 방송이 이미 안 값(중계·내 값)과 달랐던 횟수(서버 계약상 0 이어야 한다), diffLo = 그중 가장 이른 프레임(game.js rbSync 가 읽고 Infinity 로 되돌린다: 그 프레임부터 이력을 다시 맞춘다)
       onMessage(m) {
         if (rb && m.t === 'r' && Number.isInteger(m.s) && m.s >= 0 && m.s < W && m.s !== me && Number.isInteger(m.f) && Array.isArray(m.p)) {
-          for (let i = 0; i < m.p.length; i++) { const k = m.f + i; if (conf[k * W + m.s] === undefined) conf[k * W + m.s] = m.p[i] & 255; if (k >= lastF[m.s]) { lastF[m.s] = k; lastV[m.s] = conf[k * W + m.s]; } }
-          if (Number.isInteger(m.x)) { pD[m.s] = exec - m.x; pA[m.s] = Number.isInteger(m.a) ? m.a : 0; pT[m.s] = now(); }
+          let nw = false; for (let i = 0; i < m.p.length; i++) { const k = m.f + i; if (conf[k * W + m.s] === undefined) { conf[k * W + m.s] = m.p[i] & 255; nw = true; } if (k >= lastF[m.s]) { lastF[m.s] = k; lastV[m.s] = conf[k * W + m.s]; } }
+          if (Number.isInteger(m.x) && (m.x > pX[m.s] || (m.x === pX[m.s] && nw))) { pX[m.s] = m.x; pD[m.s] = exec - m.x; pA[m.s] = Number.isInteger(m.a) ? m.a : 0; pT[m.s] = now(); }
           fillHave();
         } else if (m.t === 'f' && Number.isInteger(m.f) && Array.isArray(m.p)) {
           if (rb) { // 확정 방송: 모든 자리의 최종 값(중계·내 값과 다르면 이쪽이 이긴다)

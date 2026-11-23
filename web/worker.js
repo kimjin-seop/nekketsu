@@ -31,6 +31,13 @@
 //   결과 판정 비트(전투 종료 1:5 진입·팀 전멸·슬롯별 탈락/HP)를 rbq[SB + (c & 511)] 에 쓰고, 검증이 끝난 프레임 수를 rbq[Q_VER] 에 낸다(c <= Q_VER 이면 그 프레임까지 입력이 최종값과 같게 돈 것 = 지문·결과를 믿을 수 있다). 칸이 모자라면 기록하지 않는다(종전과 같다).
 const CREDIT = 0, PAD = 1, RESET = 3, AUDIO = 4, KO = 5, PAD34 = 6, SPR = 8, SPD = 10, SKIP = 11, TEAM = 12, RBF = 20;
 const Q_REQ = 0, Q_CONF = 1, Q_LIMIT = 2, Q_FRONT = 3, Q_STOP = 4, Q_NRB = 5, Q_DEPTH = 6, Q_MAXD = 7, Q_RESIMF = 8, Q_RESIM_US = 9, Q_SNAPN = 10, Q_SNAP_US = 11, Q_REST_US = 12, Q_MEM = 13, Q_OVF = 14, Q_SEQ = 15, Q_STALLS = 16, Q_SNAPCAP = 17, Q_MEMCAP = 18, Q_DBG = 19, Q_DBGREQ = 20, Q_POSTS = 21, Q_SNAPMAX_US = 22, Q_RESTMAX_US = 23, Q_RESIMMAX_US = 24, Q_VER = 25, Q_PAD = 32, RING = 512, RMASK = RING - 1, HB = Q_PAD + RING * 4, SB = HB + RING, NONE = 0x7FFFFFFF; // 점검·통계 칸(워커가 씀): FRONT 최전선 k, STOP 정지 중, NRB 롤백 횟수, DEPTH 마지막 깊이, MAXD 최대 깊이, RESIMF 재시뮬 프레임 합, *_US 누적 마이크로초(MAX 는 1회 최대), SNAPN 스냅샷 수, MEM 보관 바이트, OVF 스냅샷 못 뜸 횟수, SEQ 롤백 완료 번호, STALLS 정지 진입 횟수, SNAPCAP 보관 개수 상한(기본 64), MEMCAP 바이트 상한(기본 2MB), DBG 1 = 소리 이벤트 기록, DBGREQ 1 = 기록 요청, POSTS 보낸 메시지 수
+// 소리 이어 가기(2026-11-23): ctl[21] = 1(web/game.js 가 온라인 전투 중에만 켠다)이면 프레임 허가를 기다리는 동안 그림자 사운드 드라이버만 실시간으로 더 돌려 { snd } 로 보낸다(sound_clock.idle). 프레임이 서도 BGM 이 끊기지 않게. 엔진·지문 무관
+const IDLEA = 21, CYC_MS = 262 * 113.6667 * 60.0988 / 1000; let aT = 0;
+function audioMark(r) { const t = now(); aT = t - aT > 200 ? t : Math.min(aT + 1000 / 60.0988 / r, t + 60); } // aT = 소리를 만들어 둔 벽시계 시각
+function audioIdle(clock) {
+  if (ctl.length <= IDLEA || Atomics.load(ctl, IDLEA) !== 1) return; const t = now(); let lag = t - aT; if (lag < 30) return; if (lag > 150) { aT = t - 30; lag = 30; }
+  const ms = lag - 10, a = clock.idle(ms * CYC_MS); aT += ms; if (a && a.length) self.postMessage({ snd: a }, [a.buffer]);
+}
 const PAD_AT = [PAD, PAD + 1, PAD34, PAD34 + 1]; // 패드 포트(0 = 1P … 3 = 4P) → ctl 칸
 const RESET_SIGNAL = { reset: true };
 let ctl = null, rbq = null, mods = null, rom = null, boot = null, produced = 0;
@@ -97,12 +104,13 @@ function makeEngine(gen, team) {
     if (koOn && koFull) out.ko = { vram: koVram.slice(), pal: koPal.slice(), lt: lt.slice() };
     if (sprOn && sprFull) out.spr = { oam: sprOam.slice(), reg: sprReg.slice() };
     self.postMessage(out, fb ? [fb.buffer, audio.buffer, ram.buffer] : [audio.buffer, ram.buffer]);
-    produced++;
+    produced++; audioMark(sv > 1000 ? sv / 1000 : 1);
     for (;;) { // 다음 프레임 허가 대기(리셋 요청이면 엔진을 버리고 새로 만든다)
       if (Atomics.load(ctl, RESET) !== gen) throw RESET_SIGNAL;
       const c = Atomics.load(ctl, CREDIT);
       if (produced < c) break;
-      Atomics.wait(ctl, CREDIT, c, 100);
+      const ia = ctl.length > IDLEA && Atomics.load(ctl, IDLEA) === 1; if (ia) audioIdle(clock);
+      Atomics.wait(ctl, CREDIT, c, ia ? 16 : 100);
     }
     koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1; // 허가를 받은 뒤에 읽는다: 정지(P) 중에 한글 층을 켜고 한 프레임을 허가하면 바로 그 프레임부터 관측한다
   };
@@ -215,7 +223,7 @@ function makeEngine(gen, team) {
     } else {
       const rate = Atomics.load(ctl, AUDIO);
       if (rate && !synth.enabled) { synth.sampleRate = rate; synth.enabled = true; }
-      postRb(en, clock.frameEnd(C1, spdR), false); produced++; Atomics.store(rbq, Q_FRONT, R.k);
+      postRb(en, clock.frameEnd(C1, spdR), false); produced++; Atomics.store(rbq, Q_FRONT, R.k); audioMark(spdR);
     }
     for (;;) { // 다음 프레임 허가 대기(리셋·정정·정지 한도 확인)
       if (Atomics.load(ctl, RESET) !== gen) throw RESET_SIGNAL;
@@ -226,7 +234,8 @@ function makeEngine(gen, team) {
       if (stalled !== R.stalled) { R.stalled = stalled; Atomics.store(rbq, Q_STOP, stalled ? 1 : 0); if (stalled) Atomics.add(rbq, Q_STALLS, 1); }
       const c = Atomics.load(ctl, CREDIT);
       if (!stalled && produced < c) break;
-      Atomics.wait(ctl, CREDIT, c, 20);
+      audioIdle(clock);
+      Atomics.wait(ctl, CREDIT, c, 16);
     }
     koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1;
   }

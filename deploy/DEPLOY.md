@@ -181,3 +181,20 @@ curl -s http://127.0.0.1:3600/online/status -H 'Host: nekketsu.oddplay.kr'   # {
 8. 결정: 빈 DB 로 시작할지(권고) / 개발 계정·랭킹 이전 여부
 9. 결정: 원격 클라이언트 세션 구현(0절 1번)을 먼저 할지, ROM 파생물 중 게이트 밖(`web/hd` 등) 처리 방침
 10. 포털 카드를 `soon` → `play` 로 바꾸는 시점
+
+## 13. WebRTC DataChannel 전송(선택, 기본 꺼짐) — 2026-11-23 추가
+입력·중계·확정을 UDP(DataChannel)로도 보내 손실이 있는 망에서 정지를 줄인다(설계·측정: `analysis/webrtc_transport_plan.md` 9~11절). **켜지 않으면 종전과 같다**(`NK_RTC` 없음 = 모듈을 읽지도 않는다). 아래는 켤 때만 필요하고, 전부 **운영 승인 뒤**에 한다(이번 작업에서 운영 서버는 건드리지 않았다).
+
+| 항목 | 내용 |
+|---|---|
+| 의존성 | `node-datachannel`(네이티브, 플랫폼별 프리빌드). `deploy/pack.js` 는 종전대로 `node_modules/ws` 만 복사한다 → **서버에서 `cd <배포폴더> && npm ci --omit=dev` 필수**(Windows 에서 만든 node_modules 를 복사하면 리눅스용 바이너리가 없다). 설치 실패·누락이면 서버는 `RTC 끔(node-datachannel 을 읽지 못함)` 한 줄을 남기고 종전 경로로 돈다. 리눅스(glibc/musl) 실제 설치는 **미확인** |
+| `NK_RTC` | `1` = 켬. 끄려면 지우고 pm2 재시작(진행 중 대전 소실) |
+| `NK_RTC_PORT` | UDP 단일 포트(모든 접속을 이 포트 하나로 받는다, 예 `3600`). **방화벽·보안 그룹에서 이 UDP 포트를 열어야 한다**(nginx 는 UDP 를 중계하지 않는다. Node 가 직접 받는다). 없으면 접속마다 임의 UDP 포트 |
+| `NK_RTC_IP` | 광고할 공인 IPv4. 서버가 사설 IP 뒤(1:1 NAT)이면 필수, 공인 IP 를 직접 가진 서버도 넣는 것을 권고(후보를 한 줄로 줄인다) |
+| `NK_RTC_BIND` | (선택) UDP 바인딩 주소 |
+| `NK_RTC_STUN` | (선택) `stun:host:3478`. 클라이언트–서버 구조라 보통 필요 없다. TURN 은 쓰지 않는다 |
+| `NK_RTC_GAP_MS` | (선택, 기본 8) 받는 사람당 DC 패킷 최소 간격 |
+| `NK_ONLINE_SPEED` | (선택, 기본 1.3) 온라인 진행 배율. `1` = 60틱/초(화면 주기와 1:1). RTC 와 무관 |
+| 확인 | `/online/status` 에 `rtc{on,port,pcs,open,opened,rx,tx,bad,err}` 와 `eld{meanMs,p99Ms,maxMs}`(이벤트루프 지연)가 붙는다. 클라이언트는 `?diag=1` 오버레이의 `rtc DC open ...` 줄, 끄고 비교는 `?rtc=0` |
+| 폴백 | UDP 가 막힌 사용자는 5초 뒤 자동으로 웹소켓만 쓴다(안내 없음). 웹소켓 경로는 항상 함께 돈다(이중 송신) |
+| 위험 | 네이티브 모듈 오류는 단일 프로세스 서버 전체(진행 중 대전)를 내릴 수 있다 → 먼저 일부 시간대에만 켜서 확인, 이상 시 `NK_RTC` 제거 |

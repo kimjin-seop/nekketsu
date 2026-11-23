@@ -6,6 +6,7 @@
 // 공유 메모리(game.js 가 만든다): ring = Float32Array(65536) 링 버퍼, st = Int32Array: [0] wpos(메인이 쓴 누계, 32비트 순환) [1] rpos(여기서 읽은 누계)
 //   [2] 플래그(bit0 = 무음: 음소거·구동 중 등, bit1 = 정지 P, bit2 = 히트스톱 멈춤: 이 블록은 무음·링을 읽지 않음 = 엔진 프레임 정지 동안 바닥남·선버퍼 재대기 없음, web/impact_fx.js) [3] 언더런 누계 [4] 건너뛰기 누계. 음량·허가율 보정은 port 메시지.
 const RING = 65536, XF = 256, PREBUF = 2205, LOW_TGT = 1024, ADJ_MAX = 0.001, ADJ_GAIN = 0.1, LOW_WIN = 43, BLK = 1024;
+const LOW_ON = 2048, ADJ_ON = 0.004; // 온라인 전투(플래그 bit3)에서만: 대기열 바닥 목표 46ms(종전 23ms)·보정 ±0.4%(종전 ±0.1%) = 망 지터·짧은 대기에 바닥나지 않게(analysis/stutter_rootcause.md 수정안 2). 오프라인은 종전 값 그대로(비트 단위 같음)
 class NKOut extends AudioWorkletProcessor {
   constructor(o) {
     super();
@@ -14,7 +15,7 @@ class NKOut extends AudioWorkletProcessor {
     this.port.onmessage = e => { if (typeof e.data.vol === 'number') this.vol = e.data.vol; };
   }
   block() { // 종전 onaudioprocess 한 번과 같다(out = 1024 샘플)
-    const out = this.blk, ring = this.ring, st = this.st, sr = sampleRate, f = Atomics.load(st, 2), silent = !!(f & 1), paused = !!(f & 2), vol = this.vol;
+    const out = this.blk, ring = this.ring, st = this.st, sr = sampleRate, f = Atomics.load(st, 2), silent = !!(f & 1), paused = !!(f & 2), vol = this.vol, on = !!(f & 8); // on = 온라인 전투(bit3): 대기열 바닥 목표·허가율 보정 폭을 넓힌다(아래 LOW_ON·ADJ_ON)
     if (f & 4 && this.primed) { out.fill(0); return; } // 히트스톱: 소리도 잠깐 멈춘다(대기열 그대로)
     const wpos = Atomics.load(st, 0); let rpos = Atomics.load(st, 1), i = 0;
     if (((wpos - rpos) | 0) > RING) rpos = wpos - RING; // 재생이 멈춰 있는 동안 덮어쓴 구간은 버림(종전 pushAudio 의 처리를 읽는 쪽으로 옮김)
@@ -35,7 +36,7 @@ class NKOut extends AudioWorkletProcessor {
     Atomics.store(st, 1, rpos);
     if (paused) { this.lowWin = Infinity; this.lowN = 0; if (this.rateAdj !== 0) { this.rateAdj = 0; this.port.postMessage({ adj: 0 }); } } else { // 바닥값 창 → 허가율 보정(바닥났으면 0 으로 본다)
       const low = this.primed ? (wpos - rpos) | 0 : 0; if (low < this.lowWin) this.lowWin = low;
-      if (++this.lowN >= LOW_WIN) { this.rateAdj = Math.max(-ADJ_MAX, Math.min(ADJ_MAX, (LOW_TGT - this.lowWin) / sr * ADJ_GAIN)); this.port.postMessage({ adj: this.rateAdj, low: this.lowWin }); this.lowWin = Infinity; this.lowN = 0; }
+      if (++this.lowN >= LOW_WIN) { this.rateAdj = Math.max(-(on ? ADJ_ON : ADJ_MAX), Math.min(on ? ADJ_ON : ADJ_MAX, ((on ? LOW_ON : LOW_TGT) - this.lowWin) / sr * ADJ_GAIN)); this.port.postMessage({ adj: this.rateAdj, low: this.lowWin }); this.lowWin = Infinity; this.lowN = 0; }
     }
   }
   process(inputs, outputs) {

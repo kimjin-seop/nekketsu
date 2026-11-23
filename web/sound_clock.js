@@ -62,7 +62,15 @@ function create(main, makeShadow) {
   };
   };
   install();
-  let base0 = 0, at = 0;
+  let base0 = 0, at = 0, gridOn = false;
+  // 게임 프레임이 멈춘 동안(온라인 락스텝·롤백의 입력 대기) 그림자 드라이버만 합성기 시간 dS(사이클)만큼 더 돌려 그 샘플을 돌려준다 = 프레임이 서도 BGM 은 이어진다(2026-11-23).
+  //   배속 격자 모드(mode 1, 배율 > 1) 또는 롤백 방(그림자 고정)에서만. 본 엔진·RAM·지문에는 손대지 않는다(그림자는 자기 RAM). 다음 frameEnd 는 늘어난 sc 에서 이어 가므로 시간이 되돌아가지 않는다. 안 되는 때(1배속·거울·재시뮬·드라이버 실행 중)는 null
+  function idle(dS) {
+    if (!mode || !(gridOn || (rb && rb.force)) || depth || (rb && rb.resim) || !(dS > 0)) return null; // 롤백 방(force = 그림자 고정)은 1배속(거울)이어도 된다: 그림자가 본 엔진보다 앞서 가지만 되돌아가지 않으므로 무해
+    const s1 = sc + dS; if (nextU < sc) nextU = sc;
+    while (nextU < s1) { const u = nextU; at = Math.round(u); shadowCall(FC16, 0); lastU = u; nextU += FRAME_CYC; st.shadowUpd++; }
+    sc = s1; synth.runTo(Math.round(s1)); st.idle = (st.idle | 0) + 1; return synth.drain();
+  }
   function shadowCall(entry, A) {
     const sh = shadow, m = sh.m;
     m[0x1FD] = 0xFF; m[0x1FC] = 0xFF;
@@ -106,7 +114,7 @@ function create(main, makeShadow) {
         else if (!grid) { run(s, () => shadowCall(FC16, 0)); lastU = s; nextU = s + FRAME_CYC; st.shadowUpd++; }
       }
       if (grid) while (nextU < s1) { const u = nextU; run(u, () => shadowCall(FC16, 0)); lastU = u; nextU += FRAME_CYC; st.shadowUpd++; }
-      ev = []; sc = s1;
+      ev = []; sc = s1; gridOn = grid;
       synth.runTo(Math.round(s1)); out = synth.drain();
       if (!grid) { // 거울 모드: 새 곡 시작(id 20~36)·전체 정지(00) 요청이 있었거나 드라이버 RAM 이 같아지면 본 엔진으로 되돌린다
         mirrorN++;
@@ -177,7 +185,7 @@ function create(main, makeShadow) {
       if (!rb || rb.mute) { main.apu = mode || (rb && rb.resim) ? null : synth; if (rb && rb.resim && !mode) rb.muted = true; } depth = 0; exp = main.m[0x700];
     },
   };
-  return { frameEnd, stats: st, rollback, get mode() { return mode; } };
+  return { frameEnd, idle, stats: st, rollback, get mode() { return mode; } };
 }
 const api = { create, FRAME_CYC, MIRROR_MAX, SFXQ };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;

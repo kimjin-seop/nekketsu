@@ -4,6 +4,7 @@
   "private": true,
   "description": "nekketsu local project (online relay server dependency only)",
   "dependencies": {
+    "node-datachannel": "^0.33.6",
     "ws": "^8.23.0"
   }
 }

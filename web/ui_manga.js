@@ -1676,11 +1676,14 @@
     p.then(() => { if (net.connP === p) net.connP = null; }, () => { if (net.connP === p) net.connP = null; });
     return p;
   }
+  // WebRTC DataChannel 전송(web/online_rtc.js, analysis/webrtc_transport_plan.md 9절): 서버가 room{rtc:1} 을 줄 때만 쓴다. ?rtc=0 = 끔(종전 웹소켓만). 웹소켓 경로는 그대로 함께 돈다
+  const RTC_ON = !/[?&]rtc=0(&|$)/.test(location.search);
+  function rtcUp(fresh) { if (!RTC_ON || !window.NKRtc || !window.NKDcCodec) return; if (!net.rtc) net.rtc = window.NKRtc.create({ sig: nsend, onMsg: m => { if (net.playing && net.sink) net.sink.msg(m); } }); if (fresh) net.rtc.restart(); else net.rtc.start(); }
   const ffUnsend = () => { if (ffEl) ffEl.classList.remove('sent'); }; // 기권(leave)을 보낸 직후 끊기면 서버에 닿지 않았을 수 있다: 끊김·재접속 때 풀어 다시 누를 수 있게 한다
   const PROTO_C = 6; // (6 = 롤백 넷코드 r 중계·cfg.rollback, 5 = 대전 뒤 같은 방 대기실 유지 end{stay}·back) 클라이언트 프로토콜(analysis/30 10.1): hello 에 실어 보낸다(4 이상 = 팀전 방 사용). login·register 에도 싣는다(서버가 아직 읽지 않으면 아래 welcome 에서 hello{token} 로 한 번 더 알린다)
-  const nsend = m => { if (net.ws && net.ws.readyState === 1) { if (m.t === 'hello' || m.t === 'login' || m.t === 'register') { m = Object.assign({}, m, { proto: PROTO_C }); if (m.t === 'hello') net.ws.p4 = true; } net.ws.send(JSON.stringify(m)); } };
+  const nsend = m => { if (net.ws && net.ws.readyState === 1) { if (m.t === 'hello' || m.t === 'login' || m.t === 'register') { m = Object.assign({}, m, { proto: PROTO_C }, RTC_ON && typeof RTCPeerConnection !== 'undefined' ? { rtc: 1 } : null); if (m.t === 'hello') net.ws.p4 = true; } net.ws.send(JSON.stringify(m)); } };
   function onClose(ws, ev) {
-    if (ws !== net.ws) return; net.ws = null;
+    if (ws !== net.ws) return; net.ws = null; if (net.rtc) net.rtc.stop(); // 서버 쪽 PeerConnection 은 소켓과 함께 닫힌다(재접속하면 room 에서 다시 만든다)
     if (net.playing) { ffUnsend(); if (ev.code === 4002) return lost(); if (!net.lostAt) net.lostAt = Date.now(); toast('연결 끊김 — 재접속 중', 'hp-low', 4000); return rejoinLater(); }
     const why = ev.code === 4002 ? 'replaced' : 'down'; // 4002 = 다른 창이 같은 계정으로 접속(서버 err replaced): 「연결할 수 없습니다」 대신 그 사유를 알린다
     if (sx.wait) { const w = sx.wait; sx.wait = null; clearTimeout(w.tm); w.rej({ code: why }); } if (sx.hello) { const h = sx.hello; sx.hello = null; h(false); } if (sx.segOn) segErr({ code: why }); // 스토리 요청·저장 = 다시 시도
@@ -1730,7 +1733,9 @@
       case 'profile': case 'profile_set': case 'tutorial_done': return profNet(m);
       case 'challenge_list': case 'challenge_claim': return chNet(m);
       case 'rooms': net.rooms = Array.isArray(m.list) ? m.list : []; if (active && scr === 'olobby') { render(); if (net.invWait) invJoin(); } return;
+      case 'rtc': if (net.rtc) net.rtc.onSig(m); return;
       case 'room':
+        if (m.rtc === 1) rtcUp(net.playing);
         if (net.playing) { ffUnsend(); if (R && m.token) R.token = m.token; net.lostAt = 0; clearTimeout(net.rjTm); net.rjTm = 0; if (Array.isArray(m.left)) setGone(m.left); return; } // 재접속(3·4인: 그동안 빠진 자리 left)
         if (Number.isFinite(m.proto)) net.proto = m.proto;
         if (m.moved && R && R.code === String(m.code || '')) { R.you = m.you | 0; if (m.token) R.token = m.token; if (m.seats) R.seats = m.seats; if (m.opts) R.opts = m.opts; if (m.title !== undefined) R.title = m.title; if (m.host !== undefined) R.host = m.host; R.hostSlot = m.hostSlot; if (active && scr === 'oroom') render(); return; } // 자리 당기기(analysis/25 4.5): 자리·토큰만 바꾸고 화면은 그대로(you 0 = 이제 방장)
@@ -1773,7 +1778,7 @@
         if (m.code === 'ranked_locked' && scr === 'olobby') render();
     }
   }
-  function loadLs() { if (window.NKLockstep || lsLoad) return; lsLoad = true; const sc = document.createElement('script'); sc.src = 'online_lockstep.js'; sc.onerror = () => { lsLoad = false; }; document.head.appendChild(sc); }
+  function loadLs() { if (window.NKLockstep || lsLoad) return; lsLoad = true; const sc = document.createElement('script'); sc.src = 'online_lockstep.js'; sc.onerror = () => { lsLoad = false; }; document.head.appendChild(sc); if (RTC_ON && !window.NKRtc) { const c = document.createElement('script'); c.src = 'online_dc_codec.js'; c.onload = () => { const r = document.createElement('script'); r.src = 'online_rtc.js'; document.head.appendChild(r); }; document.head.appendChild(c); } } // DataChannel 전송 모듈(없어도 온라인은 종전대로 된다)
   function buildPrint() { // 지문(ready.build): 엔진·워커·구동기·이 층(구동 계획)·락스텝·시작 상태·ROM 의 SHA-1. 양쪽이 같은 서버 파일을 받으면 같다
     if (net.buildP) return net.buildP;
     const fs = ['/engine/core.js', '/engine/atk_step.js', '/engine/guard_as.js', '/engine/no_winner.js', '/engine/gen/code.js', '/engine/core_team.js', '/engine/gen/code_team.js', '/engine/render.js', '/engine/apu.js', 'worker.js', 'menu_driver.js', 'ui_manga.js', 'game.js', 'online_lockstep.js', '/state/boot_title.json', '/rom/nekketsu.nes'];
@@ -1944,7 +1949,7 @@
     s.strip.textContent = 'STAGE ' + ((cfg.stage | 0) + 1) + ' · ' + ruleLab(cfg.rule | 0);
     s.cuts.forEach((c, i) => { const id = ch[i] | 0, ro = role(i); cvar(c, 'sch' + (id >> 2)); c.im.src = face(id); c.tag.textContent = ''; tmChip(chip(c.tag, ro[0], ro[1]), T ? ro[1] : ''); c.tag.appendChild(document.createTextNode(names[i] || cname(id))); });
     net.playing = true; net.lostAt = 0; net.rr = null; net.game = { H, names, team: T, me, chars: [0, 1, 2, 3].map(i => ch[i] | 0), stage: Number.isInteger(cfg.stage) ? cfg.stage : -1, rule: Number.isInteger(cfg.rule) ? cfg.rule : -1 }; setGone(null); if (document.activeElement && root.contains(document.activeElement)) document.activeElement.blur(); busy = true; root.classList.add('busy'); go('vs'); // me = 내 자리(엔진 슬롯)
-    const ok = onPick('online', { cfg, slot: R.you, names, send: nsend, attach: sink => { net.sink = sink; } });
+    const ok = onPick('online', { cfg, slot: R.you, names, send: nsend, rtc: net.rtc || null, attach: sink => { net.sink = sink; } });
     if (ok !== true) { net.playing = false; net.sink = null; net.game = null; busy = false; root.classList.remove('busy'); nsend({ t: 'leave' }); toLobby(); toast('시작할 수 없습니다', 'hp-low'); }
   }
   // 대전 끝(game.js 가 엔진을 처음부터 다시 만든 뒤 부른다). m = 서버 end(또는 끊김 { reason: 'lost' | 'error' }), slot = 내 자리

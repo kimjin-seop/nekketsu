@@ -101,6 +101,7 @@ const ATK_STEP = ({ 0: false, dir: 'dir', auto: 'auto' })[process.env.NK_ATK_STE
 // 온라인 가드(server/engine/guard_as.js, 사용자 결정 2026-11-22: 온라인 락스텝 대전만 켬, 키 = 스페이스바 → 패드 Select 비트). start.cfg.guardAS = 1 을 모든 참가자 워커가 같게 받는다(없음 = 끔). NK_GUARD_AS=0|1 로 서버 설정, 기본 켬
 const GUARD_AS = process.env.NK_GUARD_AS === '1' ? 1 : 0;
 const RB_ABSORB = 10, RB_LIMIT_MIN = 6, RB_LIMIT_MAX = 12, RB_X_BACK = 60, RB_STEP_MS = 2000, RB_CALM_MS = 15000, RB_REUP_MS = 20000; // 롤백 방: 입력 지연은 (상대에게 닿는 시간 - RB_ABSORB 프레임)로 줄이고 그만큼은 예측으로 흡수, 예측 한도 6~12 프레임(analysis/online_sync.md 9절)
+const MIN_DELAY = 2; // 락스텝 입력 지연 바닥(프레임). 측정 결과에 따라 조정(analysis/webrtc_transport_plan.md 11절)
 const ONLINE_SPEED = 1.3; // 온라인 진행 배율(프레임 진행의 벽시계 속도만. 엔진·프레임 수·결과 무관). start.cfg.speed 로 모든 참가자에게 같은 값을 알린다(옛 서버 = 없음 = 1배)
 const LOBBY_TTL = 30 * 60 * 1000, FRAME_MS = 1000 / 60.0988, MAX_STALLS = 3; // MAX_STALLS: 같은 자리가 멈춤으로 이만큼 걸리면 재접속 대기 없이 바로 기권
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 글자(0 O 1 I) 제외
@@ -139,6 +140,8 @@ const stageOk = v => Number.isInteger(v) && v >= -1 && v <= 6, ruleOk = v => v =
 function createServer(opt) {
   opt = opt || {};
   const graceMs = opt.graceMs !== undefined ? opt.graceMs : (+process.env.GRACE_MS || 20000);
+  // 온라인 진행 배율: 기본 ONLINE_SPEED. NK_ONLINE_SPEED(1 ~ 1.5) 또는 createServer({ speed }) 로 바꾼다(1 = 60틱/초 = 화면 주기 60Hz 와 1:1. analysis/webrtc_transport_plan.md 10절)
+  const SPEED = opt.speed >= 1 && opt.speed <= 1.5 ? +opt.speed : (+process.env.NK_ONLINE_SPEED >= 1 && +process.env.NK_ONLINE_SPEED <= 1.5 ? +process.env.NK_ONLINE_SPEED : ONLINE_SPEED);
   const num = (k, e, d) => opt[k] !== undefined ? opt[k] : (+process.env[e] > 0 ? +process.env[e] : d);
   const pingMs = num('pingMs', 'PING_MS', 30000), stallMs = num('stallMs', 'STALL_MS', 10000), resultWaitMs = num('resultWaitMs', 'RESULT_WAIT_MS', 30000), idleMs = num('idleMs', 'IDLE_MS', 60000);
   // LOBBY_IDLE_MS: 이름을 등록한(hello) 소켓은 방 없이 로비에 머물 수 있어야 하므로 유휴 제한을 따로 둔다(기본 10분)
@@ -197,7 +200,7 @@ function createServer(opt) {
   const rankGoF = opt.rankGoFrames !== undefined ? opt.rankGoFrames : (process.env.RANK_GO_F !== undefined && +process.env.RANK_GO_F >= 0 ? +process.env.RANK_GO_F | 0 : 600);
   // 랭크 반영 조건(analysis/22 4절): 같은 IP 두 자리 = SAME_IP, 실시간 경과 < max(rankMinRealMs, 전투 확정 프레임 실시간 × rankRealFrac) = TOO_FAST
   const rankAllowSameIp = opt.rankAllowSameIp !== undefined ? !!opt.rankAllowSameIp : process.env.NK_RANK_ALLOW_SAME_IP === '1';
-  const rankMinRealMs = opt.rankMinRealMs !== undefined ? opt.rankMinRealMs : RANK.minRealMs, rankRealFrac = opt.rankRealFrac !== undefined ? opt.rankRealFrac : RANK.realFrac / ONLINE_SPEED; // 1.3배로 도는 판의 실시간 하한도 같은 배율로 낮춘다(안 낮추면 정상 판이 전부 TOO_FAST)
+  const rankMinRealMs = opt.rankMinRealMs !== undefined ? opt.rankMinRealMs : RANK.minRealMs, rankRealFrac = opt.rankRealFrac !== undefined ? opt.rankRealFrac : RANK.realFrac / SPEED; // 1.3배로 도는 판의 실시간 하한도 같은 배율로 낮춘다(안 낮추면 정상 판이 전부 TOO_FAST)
   const trustProxy = opt.trustProxy !== undefined ? !!opt.trustProxy : process.env.NK_TRUST_PROXY === '1';
   const proxyHops = Math.max(1, (opt.trustProxyHops !== undefined ? +opt.trustProxyHops : +(process.env.NK_TRUST_PROXY_HOPS || 1)) | 0 || 1);
   // 접속 IP: 기본 = 소켓 상대 주소. 신뢰 프록시(NK_TRUST_PROXY=1)일 때만 X-Forwarded-For 의 오른쪽에서 proxyHops 번째 값(analysis/22 2절).
@@ -219,7 +222,7 @@ function createServer(opt) {
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); return res.end('method not allowed'); }
     if ((req.url || '').split('?')[0] === '/online/status') { // 운영 확인용(방 수·누계만, 입력·이름 없음)
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      return res.end(JSON.stringify({ proto: PROTO, rooms: rooms.size, names: names.size, started: stats.started, frames: stats.frames, desync: stats.desync }));
+      return res.end(JSON.stringify(Object.assign({ proto: PROTO, rooms: rooms.size, names: names.size, started: stats.started, frames: stats.frames, desync: stats.desync }, NDC ? { rtc: Object.assign({ on: 1, port: rtcPort }, rtcStats) } : null, eld ? { eld: { meanMs: +(eld.mean / 1e6).toFixed(2), p99Ms: +(eld.percentile(99) / 1e6).toFixed(2), maxMs: +(eld.max / 1e6).toFixed(2) } } : null))); // rtc·eld 는 NK_RTC=1(또는 NK_ELD=1)일 때만 붙는다
     }
     if (!serveStatic) { res.writeHead(404); return res.end('not found'); }
     const g = gate.check(req, LOOP_ADDR.test(req.socket.remoteAddress || '') && LOCAL.test(req.headers.host || '')); // off = 종전 local 판정 그대로
@@ -257,6 +260,59 @@ function createServer(opt) {
 
   const send = (ws, m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
   const cast = (room, m) => { for (const p of room.players) if (p) send(p.ws, m); };
+  // ---------- WebRTC DataChannel 전송(analysis/webrtc_transport_plan.md 9절). NK_RTC=1(또는 createServer({ rtc: true }))일 때만. 꺼져 있으면 아래 코드는 전부 건너뛴다 = 종전 경로 그대로 ----------
+  //   사람마다(소켓마다) PeerConnection 1개 + 클라이언트가 만든 DataChannel 1개(비신뢰·비순서). 시그널링 = 웹소켓 rtc{id,sdp,type}·rtc{id,cand,mid}.
+  //   DC 로 오가는 것 = 입력(I)과 방 상태 묶음(S: 확정 프레임 + 다른 자리의 확정 전 입력 + 내 입력 수신 확인). 웹소켓 in·r·f 는 그대로 함께 보낸다(이중 송신: DC 가 막혀도 종전 경로가 정확성을 보장).
+  //   환경변수: NK_RTC_PORT(UDP 단일 포트 mux. 없으면 접속마다 임의 포트), NK_RTC_IP(광고할 공인 IPv4: 서버 host 후보의 주소를 이 값으로 바꿔 한 개만 보낸다 = 1:1 NAT 뒤 서버),
+  //             NK_RTC_BIND(바인딩 주소), NK_RTC_STUN(예: stun:host:3478, 기본 없음), NK_RTC_ADV_PORT·NK_RTC_NO_REMOTE_CAND=1(측정용: 후보 포트를 UDP 지연 프록시 포트로 바꾸고 클라이언트 후보를 버려 프록시 경유만 남긴다)
+  const rtcWant = opt.rtc !== undefined ? !!opt.rtc : process.env.NK_RTC === '1';
+  const rtcPort = opt.rtcPort !== undefined ? opt.rtcPort | 0 : (+process.env.NK_RTC_PORT | 0), rtcIp = opt.rtcIp || process.env.NK_RTC_IP || '', rtcBind = opt.rtcBind || process.env.NK_RTC_BIND || '', rtcStun = opt.rtcStun || process.env.NK_RTC_STUN || '';
+  const rtcAdvPort = opt.rtcAdvPort !== undefined ? opt.rtcAdvPort | 0 : (+process.env.NK_RTC_ADV_PORT | 0), rtcNoRemote = opt.rtcNoRemoteCand !== undefined ? !!opt.rtcNoRemoteCand : process.env.NK_RTC_NO_REMOTE_CAND === '1';
+  const rtcGapMs = opt.rtcGapMs !== undefined ? +opt.rtcGapMs : (process.env.NK_RTC_GAP_MS !== undefined && +process.env.NK_RTC_GAP_MS >= 0 ? +process.env.NK_RTC_GAP_MS : 8); // NK_RTC_GAP_MS = 받는 사람당 DC 패킷 최소 간격(0 = 제한 없음)
+  // 입력 지연·예측 한도 바닥(analysis/webrtc_transport_plan.md 11절): NK_MIN_DELAY = 락스텝(롤백 꺼진 방) 입력 지연 최소 프레임, NK_RB_MIN_DELAY = 롤백 방 입력 지연 최소, NK_RB_LIMIT_MIN = 롤백 예측 한도 최소
+  const envInt = (k, e, d, lo, hi) => { const v = opt[k] !== undefined ? +opt[k] : +process.env[e]; return Number.isInteger(v) && v >= lo && v <= hi ? v : d; };
+  const minDelay = envInt('minDelay', 'NK_MIN_DELAY', MIN_DELAY, 1, 24), rbMinDelay = envInt('rbMinDelay', 'NK_RB_MIN_DELAY', 2, 1, 24), rbLimitMin = envInt('rbLimitMin', 'NK_RB_LIMIT_MIN', RB_LIMIT_MIN, 3, 24);
+  let NDC = null, DCC = null, eld = null; const rtcStats = { pcs: 0, open: 0, opened: 0, rx: 0, tx: 0, bad: 0, err: 0 };
+  if (rtcWant) { try { NDC = require('node-datachannel'); DCC = require('./web/online_dc_codec.js'); } catch (e) { NDC = null; console.log('RTC 끔(node-datachannel 을 읽지 못함): ' + (e && e.message)); } }
+  if (NDC || process.env.NK_ELD === '1') { try { eld = require('perf_hooks').monitorEventLoopDelay({ resolution: 5 }); eld.enable(); } catch (e) { eld = null; } } // 이벤트루프 지연(서버 쪽 정지 구분용, /online/status 에 표시)
+  function rtcClose(ws) { const r = ws.rtc; if (!r) return; ws.rtc = null; rtcStats.pcs--; if (r.open) { r.open = false; rtcStats.open--; } try { if (r.dc) r.dc.close(); } catch (e) { /* 무시 */ } try { r.pc.close(); } catch (e) { /* 무시 */ } }
+  function rtcCand(r, cand) { // 서버 후보 걸러 보내기: 광고 IP·측정용 포트를 쓸 때는 IPv4 UDP host 후보만 고쳐서(같은 줄은 한 번만)
+    if (!rtcIp && !rtcAdvPort) return cand;
+    const a = String(cand).split(' '); if (a.length < 8 || !/^udp$/i.test(a[2]) || a[7] !== 'host' || !net.isIPv4(a[4])) return null;
+    if (rtcIp) a[4] = rtcIp; if (rtcAdvPort) a[5] = String(rtcAdvPort);
+    const s = a.join(' '); if (r.cs.has(a[4] + ':' + a[5])) return null; r.cs.add(a[4] + ':' + a[5]); return s;
+  }
+  const rtcEpoch = (r, room) => { if (r.ep !== room.startAt) { r.ep = room.startAt; r.ack = 0; r.xs = []; } }; // 판이 바뀌면 프레임 번호가 다시 0 부터
+  function rtcRx(ws, r, msg) {
+    if (ws.rtc !== r || typeof msg === 'string') return; const d = DCC.dec(msg); if (!d) { rtcStats.bad++; return; } rtcStats.rx++;
+    if (d.t === 'P') { try { r.dc.sendMessageBinary(Buffer.from(DCC.encP(d.id, true))); } catch (e) { /* 닫히는 중 */ } return; }
+    if (d.t !== 'I') return;
+    r.loss.on(d.seq); const room = ws.room; if (!room || room.state !== 'playing') return;
+    rtcEpoch(r, room); if (d.ack > r.ack) r.ack = d.ack;
+    if (d.p.length) { try { H.in(ws, { t: 'in', f: d.f, p: d.p, x: d.x, a: d.a }); } catch (e) { rtcStats.err++; log('RTC 입력 처리 오류', e && e.message); } }
+    if (ws.room === room) rtcDirty(room, ws.slot);
+  }
+  // 방 상태 묶음 송신: 한 이벤트루프 틱에 들어온 입력들을 모아 받는 사람마다 패킷 1개(setImmediate). 내용은 방의 현재 상태에서 다시 만든다(무상태) → 어떤 패킷이 사라져도 다음 패킷이 같은 내용을 싣는다.
+  //   확정 구간 = [받는 사람이 안다고 한 곳(없으면 확정 - NWIN), 확정), 그 뒤 = 다른 자리의 확정 전 입력(롤백 방만). 새 내용이 없는 사람에게는 그 사람이 방금 패킷을 보냈을 때만 답한다(하트비트 응답 = 마지막 패킷 손실 복구)
+  function rtcDirty(room, slot) { if (!NDC) return; if (slot >= 0) (room.rtcWho || (room.rtcWho = new Set())).add(slot); else room.rtcAll = true; if (room.rtcQ) return; room.rtcQ = true; setImmediate(() => { room.rtcQ = false; try { rtcFlush(room); } catch (e) { rtcStats.err++; log('RTC 송신 오류', e && e.message); } }); }
+  function rtcRun(room, p) { if (!p) return null; let f = room.conf; const e = f + 16; while (f < e && p.ins[f] === undefined) f++; const out = []; if (f < e) for (let k = f; out.length < DCC.NMAX && p.ins[k] !== undefined; k++) out.push(k < LEAD ? 0 : p.ins[k]); return { f, p: out, ex: p.rex || null, exN: p.rexN | 0 }; }
+  function rtcFlush(room) {
+    const all = room.rtcAll, who = room.rtcWho; room.rtcAll = false; room.rtcWho = null;
+    if (room.state !== 'playing' || !rooms.has(room.code)) return;
+    const ps = room.players, W = room.H, conf = room.conf, t = Date.now(); let runs = null, wait = 0;
+    for (let i = 0; i < ps.length; i++) {
+      const q = ps[i], r = q && !q.gone && q.ws && q.ws.rtc; if (!r || !r.open || !(all || r.pend || (who && who.has(i)))) continue;
+      // 받는 사람마다 rtcGapMs(기본 8ms)에 1개까지: SCTP 혼잡 제어(손실이 있으면 보낼 수 있는 양이 RTT·손실률로 묶인다)에 걸려 대기열에 쌓이지 않게 패킷 수를 틱당 1개 수준으로 줄인다. 미룬 사람은 다음 입력 도착 때(보통 한 틱 안) 또는 타이머로 최신 상태 1개를 받는다
+      if (t - r.txAt < rtcGapMs) { r.pend = true; wait = Math.max(wait, rtcGapMs - (t - r.txAt)); continue; }
+      r.pend = false; r.txAt = t;
+      rtcEpoch(r, room); if (!runs) runs = room.rb ? ps.map(p => rtcRun(room, p)) : [];
+      let ack = conf; while (q.ins[ack] !== undefined) ack++;
+      const lo = Math.max(0, r.ack > 0 ? Math.min(conf, r.ack) : conf - DCC.NWIN, conf - 200), hi = Math.min(conf, lo + 64), rs = [];
+      for (let s = 0; s < runs.length; s++) { const u = runs[s]; if (s === i || !u) continue; const hx = !!u.ex && r.xs[s] !== u.exN; if (!u.p.length && !hx) continue; rs.push(hx ? { s, f: u.f, p: u.p, x: u.ex.x, a: u.ex.a } : { s, f: u.f, p: u.p }); if (hx) r.xs[s] = u.exN; }
+      try { r.seq = (r.seq + 1) & 65535; r.dc.sendMessageBinary(Buffer.from(DCC.encS({ seq: r.seq, ack, f: lo, w: W, p: room.log.slice(lo * W, hi * W), rs }))); rtcStats.tx++; } catch (e) { /* 닫히는 중 */ }
+    }
+    if (wait && !room.rtcTm) room.rtcTm = setTimeout(() => { room.rtcTm = null; if (room.rtcQ) return; try { rtcFlush(room); } catch (e) { rtcStats.err++; } }, Math.max(1, Math.ceil(wait)));
+  }
   const err = (ws, code, msg) => send(ws, { t: 'err', code, msg });
   const pub = room => room.players.map(p => p ? { name: p.name, ready: p.ready, on: !!p.ws } : null);
   // 자리 4개 공개 상태(자리 방만). 사람 자리 = 빈자리면 name null. CPU 자리 = char -1 이면 「자동」(시작 때 서버가 정해 start.cfg.chars 로 알림)
@@ -433,7 +489,7 @@ function createServer(opt) {
   const limited = ws => { const a = (fails.get(ws.ip) || []).filter(t => Date.now() - t < 60000); if (a.length) fails.set(ws.ip, a); else fails.delete(ws.ip); return a.length >= joinFails; };
   const failed = ws => { const a = fails.get(ws.ip) || []; a.push(Date.now()); fails.set(ws.ip, a); };
   const roomsOf = ip => { let n = 0; for (const r of rooms.values()) if (r.ip === ip) n++; return n; };
-  function sendRoom(ws, room, slot, extra) { send(ws, Object.assign({ t: 'room', proto: PROTO, code: room.code, slot, you: slot, token: room.players[slot].token, opts: room.opts, players: pub(room) }, roomView(room), extra)); }
+  function sendRoom(ws, room, slot, extra) { send(ws, Object.assign({ t: 'room', proto: PROTO, code: room.code, slot, you: slot, token: room.players[slot].token, opts: room.opts, players: pub(room) }, roomView(room), NDC && ws.rtcCap ? { rtc: 1 } : null, extra)); } // rtc: 1 = 이 서버는 DataChannel 을 받는다(클라이언트가 offer 를 낸다)
   // 캐릭터 c 를 자리 except 밖에서 이미 쓰는지(사람 자리 + 고정 CPU 자리)
   const usedBy = (room, c, except) => room.players.some((p, i) => p && i !== except && p.char === c) || room.cpu.some((v, j) => room.H + j !== except && v === c);
   function resolveChars(room) { // 사람 자리 캐릭터 + CPU(자동 = 남은 캐릭터 중 서버 무작위. 양쪽 무작위가 달라지지 않게 서버가 정해 보낸다)
@@ -494,12 +550,12 @@ function createServer(opt) {
       const med = p => { const s = p.rtt.slice().sort((x, y) => x - y); return s.length ? s[s.length >> 1] : 150; }; // 응답 없으면 150ms 로 가정
       const rtt = room.players.map(med), top = rtt.slice().sort((x, y) => y - x);
       // 내 입력이 상대에게 닿는 시간 = (내 왕복 + 상대 왕복) / 2 → 가장 느린 두 자리로 잰다(H = 2 면 종전 식과 같다). 여유 2프레임(표본화 1 + 흔들림 1). 모두 같은 값(공정성)
-      const jit = Math.max(...room.players.map(p => p.rtt.length ? Math.max(...p.rtt) - Math.min(...p.rtt) : 1e9)), margin = jit <= FRAME_MS / ONLINE_SPEED ? 1 : 2; // 여유: 핑 표본 흔들림이 한 프레임 이하면 1(표본화 1), 크거나 표본이 없으면 종전 2(표본화 1 + 흔들림 1)
-      const auto = Math.max(2, Math.min(24, Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin)); // 프레임 길이 = FRAME_MS / 배율(같은 지연 시간을 덮도록 입력 지연 프레임을 배율만큼 늘림) 상한 24(2026-11-22: 종전 12 = 1.3배속 약 154ms 라 RTT 200ms 이상 방이 늘 기다렸다. 계산값이 12 이하인 방은 종전과 같다)
+      const jit = Math.max(...room.players.map(p => p.rtt.length ? Math.max(...p.rtt) - Math.min(...p.rtt) : 1e9)), margin = jit <= FRAME_MS / SPEED ? 1 : 2; // 여유: 핑 표본 흔들림이 한 프레임 이하면 1(표본화 1), 크거나 표본이 없으면 종전 2(표본화 1 + 흔들림 1)
+      const auto = Math.max(minDelay, Math.min(24, Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / SPEED)) + margin)); // 프레임 길이 = FRAME_MS / 배율(같은 지연 시간을 덮도록 입력 지연 프레임을 배율만큼 늘림) 상한 24(2026-11-22: 종전 12 = 1.3배속 약 154ms 라 RTT 200ms 이상 방이 늘 기다렸다. 계산값이 12 이하인 방은 종전과 같다)
       const rbOn = !!room.opts.rollback && !room.opts.ranked && !room.ladder && room.players.every(p => p.ws && p.ws.proto >= PROTO); // 롤백 방: 전원이 PROTO 6 일 때만(한 명이라도 아니면 이 판은 종전 락스텝)
-      const base = Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / ONLINE_SPEED)) + margin; // 입력이 상대에게 닿는 시간(프레임) = auto 의 상한 자르기 전 값
-      const rbDelay = room.opts.delay || rbDelayFixed || Math.max(2, Math.min(24, base - RB_ABSORB)), rbLimit = Math.max(RB_LIMIT_MIN, Math.min(RB_LIMIT_MAX, base - rbDelay + 3)); // 지연 = 닿는 시간 - 롤백이 흡수할 프레임(RB_ABSORB), 예측 한도 = 남은 시간 + 여유 3(6~12)
-      room.cfg = { proto: PROTO, speed: ONLINE_SPEED, delay: rbOn ? rbDelay : room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined, guardAS: GUARD_AS || undefined };
+      const base = Math.ceil((top[0] + (top.length > 1 ? top[1] : top[0])) / 2 / (FRAME_MS / SPEED)) + margin; // 입력이 상대에게 닿는 시간(프레임) = auto 의 상한 자르기 전 값
+      const rbDelay = room.opts.delay || rbDelayFixed || Math.max(rbMinDelay, Math.min(24, base - RB_ABSORB)), rbLimit = Math.max(rbLimitMin, Math.min(Math.max(RB_LIMIT_MAX, rbLimitMin), base - rbDelay + 3)); // 지연 = 닿는 시간 - 롤백이 흡수할 프레임(RB_ABSORB), 예측 한도 = 남은 시간 + 여유 3(6~12)
+      room.cfg = { proto: PROTO, speed: SPEED, delay: rbOn ? rbDelay : room.opts.delay || auto, lead: LEAD, hashEvery: HASH_EVERY, view: room.opts.view, state: room.opts.state, mode: room.opts.mode, rtt: rtt.map(v => Math.round(v)), humans: room.H, atkStep: ATK_STEP || undefined, guardAS: GUARD_AS || undefined };
       room.rb = rbOn; room.rbFloor = rbOn ? rbDelay : 0; room.rbAt = room.rbUpAt = room.rbDownAt = 0; for (const p of room.players) p.rbDown = false; if (rbOn) room.cfg.rollback = { limit: rbLimit, fb: Math.max(rbDelay, room.opts.delay || auto) }; // fb = 자동 후퇴(델레이 방식) 때 클라이언트가 올릴 입력 지연
       if (room.team) room.cfg.team = { mode: '2v2', cpu: room.kinds.map(k => k === 'cpu' ? 1 : 0), seatOf: humanSeats(room) }; // 팀전: 엔진 teamCfg.cpu · 락스텝 j 번째 사람 → 자리
       let prefill = 0;
@@ -531,6 +587,7 @@ function createServer(opt) {
     const x = int(m.x), ex = x >= 0 && x < MAX_FRAMES ? { x: Math.max(Math.max(0, top - RB_X_BACK), Math.min(top, x)), a: Number.isInteger(m.a) && Math.abs(m.a) <= 1000 ? m.a : 0 } : null;
     room.players.forEach((q, i) => { if (q && i !== slot && !q.gone && q.ws) for (const r of runs) send(q.ws, Object.assign({ t: 'r', s: slot, f: r.f, p: r.p }, ex)); });
     stats.relayed = (stats.relayed || 0) + runs.length;
+    if (NDC) { if (ex) { const sp = room.players[slot]; sp.rex = ex; sp.rexN = (sp.rexN | 0) + 1; } rtcDirty(room, -1); } // DC 묶음에도 싣는다(x·a 는 새 값일 때 한 번만)
   }
   // 사람 H 명의 입력이 모인 프레임을 차례로 확정해 보낸다(f.p = 프레임마다 자리 0..H-1 순서)
   function confirm(room) {
@@ -543,7 +600,7 @@ function createServer(opt) {
       if (out.length >= MAX_BATCH * H) cast(room, { t: 'f', f: room.conf - out.length / H, p: out.splice(0) });
     }
     if (out.length) cast(room, { t: 'f', f: room.conf - out.length / H, p: out });
-    stats.frames += room.conf - start; if (room.conf > start) room.adv = Date.now();
+    stats.frames += room.conf - start; if (room.conf > start) { room.adv = Date.now(); if (NDC) rtcDirty(room, -1); }
     if (room.conf >= MAX_FRAMES) endRoom(room, { reason: 'timeout' });
   }
   // 자리 방 대기 중 이탈(analysis/25): 카운트다운 취소 → 난투는 뒤 사람을 앞자리로 당긴다(방장 = 항상 자리 0, 사람은 앞자리부터). 팀전(2:2)은 당기지 않는다(아래). 자리가 바뀐 사람에게 room{moved, from} 재송신(토큰·캐릭터·준비는 사람을 따라간다).
@@ -651,6 +708,7 @@ function createServer(opt) {
     if (acctOff(ws)) return null;
     if (ws.room) { err(ws, 'state', '방 안에서는 할 수 없습니다'); return null; }
     if (Number.isInteger(m.proto)) { if (m.proto < PROTO) { err(ws, 'proto', '버전이 바뀌었습니다. 새로 고침한 뒤 이용해 주세요'); return null; } ws.proto = m.proto; } // hello 와 같은 검사(구 클라이언트가 login·register 로 계정 세션을 얻어 방에 들어오지 못하게)
+    if (m.rtc === 1) ws.rtcCap = true;
     if (authLimited(ws)) { err(ws, 'rate', '잠시 뒤에 다시 시도하세요'); return null; }
     const n = nameOf(m.name); if (!n) { err(ws, 'name_bad', '이름은 2~8자(한글·영문·숫자)로 정해 주세요'); return null; }
     return n;
@@ -967,6 +1025,7 @@ function createServer(opt) {
     hello(ws, m) { // 이름 등록(가입 없음) / 같은 sid 로 되찾기 / token = 계정 자동 로그인. m.proto = 클라이언트 프로토콜(4 이상이어야 팀전 방을 쓴다)
       if (ws.room) return err(ws, 'state', '방 안에서는 이름을 바꿀 수 없습니다');
       if (Number.isInteger(m.proto)) { if (m.proto < PROTO) return err(ws, 'proto', '버전이 바뀌었습니다. 새로 고침한 뒤 이용해 주세요'); ws.proto = m.proto; } // 구 클라이언트(PROTO 5 이하) 거절: 서버·클라 동시 교체
+      if (m.rtc === 1) ws.rtcCap = true; // 클라이언트가 DataChannel 전송을 쓸 수 있다(서버가 NK_RTC=1 일 때만 room{rtc:1} 로 답한다)
       if (m.token !== undefined) { // 계정 로그인 토큰(30일)
         if (acctOff(ws)) return;
         if (authLimited(ws)) return err(ws, 'rate', '잠시 뒤에 다시 시도하세요');
@@ -1171,6 +1230,31 @@ function createServer(opt) {
       const room = ws.room; if (!room) return; const p = room.players[ws.slot], t0 = p.pings.get(m.id);
       if (t0 === undefined) return; p.pings.delete(m.id); p.rtt.push(Number(process.hrtime.bigint() - t0) / 1e6);
     },
+    rtc(ws, m) { // DataChannel 시그널링(위 「WebRTC DataChannel 전송」). 꺼진 서버·방 밖 = 조용히 무시. 소켓당 PeerConnection 1개(새 offer = 앞 것을 닫고 다시), 수립 시도는 소켓당 12회까지
+      if (!NDC || !ws.room) return;
+      if (m.close === true) return rtcClose(ws);
+      if (typeof m.sdp === 'string') {
+        if (m.type !== 'offer' || m.sdp.length > 8000 || (ws.rtcN = (ws.rtcN | 0) + 1) > 12) return;
+        rtcClose(ws);
+        const cfg = { iceServers: rtcStun ? [rtcStun] : [] }; if (rtcPort) Object.assign(cfg, { enableIceUdpMux: true, portRangeBegin: rtcPort, portRangeEnd: rtcPort }); if (rtcBind) cfg.bindAddress = rtcBind;
+        let pc; try { pc = new NDC.PeerConnection('nk', cfg); } catch (e) { rtcStats.err++; return log('RTC 생성 오류', e && e.message); }
+        const r = ws.rtc = { pc, dc: null, open: false, id: m.id | 0, txAt: 0, pend: false, seq: 0, ack: 0, ep: 0, xs: [], nc: 0, cs: new Set(), loss: DCC.lossMeter() }; rtcStats.pcs++;
+        const later = () => setImmediate(() => { if (ws.rtc === r) rtcClose(ws); }); // 네이티브 콜백 안에서 바로 닫지 않는다
+        try {
+          pc.onLocalDescription((sdp, type) => { if (ws.rtc === r) send(ws, { t: 'rtc', id: r.id, sdp, type }); });
+          pc.onLocalCandidate((cand, mid) => { if (ws.rtc !== r) return; const c = rtcCand(r, cand); if (c) send(ws, { t: 'rtc', id: r.id, cand: c, mid }); });
+          pc.onStateChange(st => { if (st === 'failed' || st === 'closed') later(); });
+          pc.onDataChannel(dc => {
+            if (ws.rtc !== r || r.dc) return; r.dc = dc;
+            const up = () => { if (ws.rtc !== r || r.open) return; r.open = true; rtcStats.open++; rtcStats.opened++; };
+            dc.onOpen(up); dc.onClosed(later); dc.onMessage(msg => rtcRx(ws, r, msg)); try { if (dc.isOpen()) up(); } catch (e) { /* 무시 */ }
+          });
+          pc.setRemoteDescription(m.sdp, 'offer');
+        } catch (e) { rtcStats.err++; log('RTC 수립 오류', e && e.message); rtcClose(ws); }
+        return;
+      }
+      const r = ws.rtc; if (typeof m.cand === 'string' && r && (m.id | 0) === r.id) { if (rtcNoRemote || m.cand.length > 400 || ++r.nc > 40) return; try { r.pc.addRemoteCandidate(m.cand, str(m.mid, 16) || '0'); } catch (e) { /* 해석 못 하는 후보(mDNS 등)는 버린다 */ } }
+    },
     dgp(ws, m) { send(ws, { t: 'dgp', id: m.id }); }, // 끊김 진단(?diag=1) 왕복 시간 측정용 에코
     dg(ws, m) { // 끊김 진단 판 요약 한 줄(사용자 식별정보 없음, 숫자 값만). pm2 logs 에서 [diag] 로 집계
       const t = Date.now(); if (ws.dgAt && t - ws.dgAt < 3000) return; ws.dgAt = t;
@@ -1264,18 +1348,18 @@ function createServer(opt) {
       try { const r = h(ws, m); if (r && typeof r.then === 'function') r.catch(oops); } catch (e) { oops(e); } // register·login 은 비동기(scrypt)
       if (!ws.room && ws.sess) armIdle(ws); // 로비 유휴(lobbyIdleMs)는 마지막 메시지부터 잰다(이름 없는 소켓의 idleMs 는 접속 시각 기준 그대로)
     });
-    ws.on('close', () => { clearTimeout(ws.idle); ws.idle = null; clearTimeout(ws.lobTm); ws.lobTm = null; lobbySubs.delete(ws); ladderDrop(ws, 'disconnect'); onDrop(ws); sessGone(ws); });
+    ws.on('close', () => { rtcClose(ws); clearTimeout(ws.idle); ws.idle = null; clearTimeout(ws.lobTm); ws.lobTm = null; lobbySubs.delete(ws); ladderDrop(ws, 'disconnect'); onDrop(ws); sessGone(ws); });
     ws.on('error', () => { /* close 로 이어진다 */ });
   });
 
   return {
-    srv, wss, rooms, stats, names,
+    srv, wss, rooms, stats, names, rtcStats, get rtc() { return !!NDC; },
     get serveStatic() { return serveStatic; },
     listen(port, host) {
       host = host || bindHost; if (!LOOP_HOST.test(host) && !staticSet) serveStatic = false; // 밖에 묶으면 명시 없이는 정적 서빙을 하지 않는다
       return new Promise((res, rej) => { srv.once('error', rej); srv.listen(port, host, () => res(srv.address().port)); });
     },
-    close() { clearInterval(watchIv); clearInterval(pingIv); clearInterval(ladderIv); clearInterval(seasonIv); clearTimeout(lobbyTm); for (const s of sids.values()) clearTimeout(s.timer); for (const c of wss.clients) { clearTimeout(c.idle); clearTimeout(c.lobTm); } for (const r of [...rooms.values()]) closeRoom(r, '서버 종료'); for (const c of wss.clients) c.terminate(); wss.close(); return new Promise(res => srv.close(() => { if (db) db.close(); res(); })); },
+    close() { for (const c of wss.clients) rtcClose(c); if (eld) eld.disable(); clearInterval(watchIv); clearInterval(pingIv); clearInterval(ladderIv); clearInterval(seasonIv); clearTimeout(lobbyTm); for (const s of sids.values()) clearTimeout(s.timer); for (const c of wss.clients) { clearTimeout(c.idle); clearTimeout(c.lobTm); } for (const r of [...rooms.values()]) closeRoom(r, '서버 종료'); for (const c of wss.clients) c.terminate(); wss.close(); return new Promise(res => srv.close(() => { if (db) db.close(); res(); })); },
     get db() { return db; },
   };
 }
