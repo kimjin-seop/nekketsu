@@ -609,6 +609,7 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 html.nk-mob .nkm-keys{display:none}
 #nkm.pset .nkm-rot{display:none} /* 세로 설정 = 전용 줄 배치(setLayout), 가로 안내 없음 */
 .nkm-set.t28{line-height:28px;font-size:21px}.nkm-set.t28 em,.nkm-set.t28 span{height:28px}.nkm-set.t28 span .nkm-g{top:5px} /* 18줄(접근성 추가): 줄 28 */
+.nkm-set.t27{line-height:27px;font-size:21px}.nkm-set.t27 em,.nkm-set.t27 span{height:27px}.nkm-set.t27 span .nkm-g{top:4px} /* 19줄(롤백 넷코드 추가): 줄 27 */
 /* 가운데 WINNER + 승자 초상(ui_manga.js winFx, 1:5). 자리 = 코어 필드(#stage 의 --nk-l·--nk-t·--nk-s·--nk-h, game.js), 크기 = 코어 픽셀 배수. 번쩍임 약 1.6초 뒤 노랑으로 유지 */
 #nkw{position:absolute;left:calc(var(--nk-l,0px) + 128px*var(--nk-s,1));top:calc(var(--nk-t,0px) + 0.4px*var(--nk-h,240)*var(--nk-s,1));transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;gap:calc(5px*var(--nk-s,1));pointer-events:none;z-index:4}
 #nkw.on{display:flex}

@@ -127,7 +127,7 @@
   const SET_KEY = 'nk_manga_settings', SCALES = ['자동', '꽉 채우기', '2배', '3배', '4배'], SPEEDS = [1, 1.15, 1.3, 1.5], SPEED_T = ['1배', '1.15배', '1.3배', '1.5배'], set = window.NKSettings ? window.NKSettings.data : { vol: 8, scale: 0, hud: 1, nf: 1, speed: 1.3, tags: 2, hitfx: 1, op: 1, fxlv: 2, mute: 0 }, /* fxlv = 이펙트 강도 0 끔 · 1 약 · 2 보통 · 3 강(hitfx = fxlv > 0), mute = 음소거. hitfx = 타격 효과(web/hit_fx.js): 0 끔 · 1 보통(기본), op = 오프닝 장면(web/opening_scene.js): 0 끔 · 1 켬(기본) */ TAGS_T = ['끔', '자리', '자리+이름']; // tags = 선수 표시(web/unit_tags.js): 0 끔 · 1 팀 표식만 · 2 팀 표식 + 이름(기본)
   const NKS = window.NKSettings || null; // 설정 모듈(web/settings.js, 21절): 같은 키·값을 읽어 둔 살아 있는 객체를 그대로 쓴다(fxlv·mute 칸 추가). 없으면 아래 종전 읽기
   if (!NKS) try { const j = JSON.parse(localStorage.getItem(SET_KEY) || 'null'); if (j) { if (j.vol >= 0 && j.vol <= 10) set.vol = j.vol | 0; if (j.scale >= 0 && j.scale < SCALES.length) set.scale = j.scale | 0; set.hud = j.hud === 0 ? 0 : 1; set.nf = j.nf === 0 ? 0 : 1; if (SPEEDS.indexOf(+j.speed) >= 0) set.speed = +j.speed; if (j.tags === 0 || j.tags === 1) set.tags = j.tags; set.hitfx = j.hitfx === 0 ? 0 : 1; set.op = j.op === 0 ? 0 : 1; } } catch (e) { /* 저장소를 못 쓰면 기본값 */ }
-  const SET_ROWS = [['vol', '소리'], ['scale', '화면 배율'], ['hud', '게이지 패널'], ['nf', '깜박임 제거'], ['speed', '전투 속도'], ['tags', '선수 표시'], ['fxlv', '이펙트'], ['op', '오프닝 장면'], ['hd', 'HD 배경'], ['mute', '음소거'], ['classic', '클래식 화면'], ['keys', '조작 설정'], ['touch', '터치 패드'], ['cam', '카메라 연출'], ['tut', '튜토리얼'], ['impact', '타격 효과'], ['quality', '화질'], ['a11y', '접근성']], SET_BACK = SET_ROWS.length, FX_T = ['끔', '약', '보통', '강']; // 21절: 이펙트 = 종전 타격 효과(끔·보통)를 4단계로, 클래식 화면 = ?classic=1&ko=1 로 다시 열기, 조작 설정 = web/keymap.js 창 // SET_BACK = 뒤로 버튼의 setIdx
+  const SET_ROWS = [['vol', '소리'], ['scale', '화면 배율'], ['hud', '게이지 패널'], ['nf', '깜박임 제거'], ['speed', '전투 속도'], ['tags', '선수 표시'], ['fxlv', '이펙트'], ['op', '오프닝 장면'], ['hd', 'HD 배경'], ['mute', '음소거'], ['classic', '클래식 화면'], ['keys', '조작 설정'], ['touch', '터치 패드'], ['cam', '카메라 연출'], ['tut', '튜토리얼'], ['impact', '타격 효과'], ['quality', '화질'], ['a11y', '접근성'], ['rb', '롤백 넷코드']], SET_BACK = SET_ROWS.length, FX_T = ['끔', '약', '보통', '강'], RB_KEY = 'nk.rollback', RB_I = SET_ROWS.length - 1; let rbSet = 1; try { if (localStorage.getItem(RB_KEY) === '0') rbSet = 0; } catch (e) { /* 저장소를 못 쓰면 기본 켬 */ } // rb = 내가 만드는 방의 롤백 넷코드(값 없음 = 켬, createRoom 이 opts.rollback 으로 보낸다. ?rb= 주소가 있으면 주소 우선) // 21절: 이펙트 = 종전 타격 효과(끔·보통)를 4단계로, 클래식 화면 = ?classic=1&ko=1 로 다시 열기, 조작 설정 = web/keymap.js 창 // SET_BACK = 뒤로 버튼의 setIdx
   const FOCUS = { title: [410, 460], mode: [410, 460], story: [410, 460], splayers: [410, 460], players: [410, 460], pause: [410, 460], settings: [370, 540] }; // 세로 화면에서 창 너비에 맞출 논리 구간 [x, 너비](가운데 창만 크게). 없는 화면은 1280 전체
   const BTN_RECT = [[476, 304, 328, 80], [476, 404, 328, 80], [476, 520, 328, 56]];
   const BTN_ROW = [[256, 284, 232, 64], [524, 284, 232, 64], [792, 284, 232, 64]]; // 메인 메뉴(덮개 아닌 MENUS) 가로 배치: 원작 판 가운데 768 폭(256~1024)에 세 칸
@@ -695,7 +695,7 @@
     foot(s, '', false);
   }
   function buildSettings() { // 설정: 소리 음량 · 화면 배율 · 게이지 패널(HUD) · 깜박임 제거 · 게임 속도 + 뒤로. ← → 로 바꾸면 바로 적용·저장
-    const s = els.settings = el('div', 'nkm-scr nkm-setS', stageEl); s.headEl = head(s, '설정'); const sy = SET_ROWS.length > 7 ? 28 : 0, sh = SET_ROWS.length > 7 ? 55 : 0, T = SET_ROWS.length > 8, RS = SET_ROWS.length > 17 ? 28 : SET_ROWS.length > 16 ? 30 : SET_ROWS.length > 14 ? 34 : SET_ROWS.length > 13 ? 36 : SET_ROWS.length > 12 ? 39 : SET_ROWS.length > 11 ? 42 : 46; s.win = abs(el('div', 'nkm-win', s), 390, T ? 104 : 150 - sy, 500, T ? 600 : 488 + sh); // 8줄(오프닝 장면 추가): 창을 위로 28, 아래로 27 늘림. 9줄 이상(21절, 11줄) = 줄 46 간격(t46)
+    const s = els.settings = el('div', 'nkm-scr nkm-setS', stageEl); s.headEl = head(s, '설정'); const sy = SET_ROWS.length > 7 ? 28 : 0, sh = SET_ROWS.length > 7 ? 55 : 0, T = SET_ROWS.length > 8, RS = SET_ROWS.length > 18 ? 27 : SET_ROWS.length > 17 ? 28 : SET_ROWS.length > 16 ? 30 : SET_ROWS.length > 14 ? 34 : SET_ROWS.length > 13 ? 36 : SET_ROWS.length > 12 ? 39 : SET_ROWS.length > 11 ? 42 : 46; s.win = abs(el('div', 'nkm-win', s), 390, T ? 104 : 150 - sy, 500, T ? 600 : 488 + sh); // 8줄(오프닝 장면 추가): 창을 위로 28, 아래로 27 늘림. 9줄 이상(21절, 11줄) = 줄 46 간격(t46)
     s.rows = SET_ROWS.map(([key, label], i) => {
       const r = abs(el('div', 'nkm-set' + (T ? ' t' + RS : ''), s, label), 410, T ? 118 + RS * i : 166 - sy + 55 * i, 460, T ? RS : 56); r.dataset.id = key; // 7줄(타격 효과 추가): 줄 간격 62 → 55, 높이 56(글줄 높이와 같음)
       const dn = el('em', '', r, '◀'), v = el('span', '', r), up = el('em', '', r, '▶'); up.style.right = '0';
@@ -728,6 +728,7 @@
     else if (setIdx === 15) set.impact = (((set.impact === undefined ? 2 : set.impact) | 0) + d + 4) % 4; // 타격 효과(web/impact_fx.js): 끔·약·보통·강
     else if (setIdx === 16) { const L = QUAL; set.quality = L[(Math.max(0, L.indexOf(set.quality)) + d + L.length) % L.length]; } // 화질(web/quality.js): 자동·높음·보통·낮음(자동으로 바꾸면 아래에서 NKQuality.reset)
     else if (SET_ROWS[setIdx] && SET_ROWS[setIdx][0] === 'a11y') { if (window.NKA11y) window.NKA11y.open({ onClose: render }); return; } // 접근성 창(web/a11y.js: 색약·글자 크기)
+    else if (setIdx === RB_I) { if (/[?&]rb=[01](&|$)/.test(Q)) return; rbSet = rbSet ? 0 : 1; try { localStorage.setItem(RB_KEY, rbSet ? '1' : '0'); } catch (e) { toast('설정을 저장하지 못했습니다'); } render(); return; } // 롤백 넷코드: 다음에 만드는 방부터(이미 열린 방은 그대로). ?rb= 주소 = 고정
     else if (setIdx === 14) { const T = window.NKTutorial; if (!T || speedLocked()) return; if (ovl) { T.start(); hide(); onPick('resume', null); } else if (!tutGo()) toast('지금은 시작할 수 없습니다'); return; } // 튜토리얼 다시 보기(web/tutorial.js): 일시정지 중 = 지금 판에서, 그 밖 = 튜토리얼 판(tutGo)
     else return;
     if (NKS) { if (!NKS.save()) toast('설정을 저장하지 못했습니다'); } else try { localStorage.setItem(SET_KEY, JSON.stringify(set)); } catch (e) { toast('설정을 저장하지 못했습니다'); }
@@ -745,6 +746,7 @@
     if (s.rows[15]) { s.rows[15].classList.toggle('off', !!(window.NKQuality && window.NKQuality.off('fx'))); s.rows[15].num.textContent = FX_T[set.impact === undefined ? 2 : set.impact | 0] || '보통'; } // 화질 낮음 = 타격 효과 꺼짐(행만 흐리게, 값은 그대로)
     if (s.rows[16]) { const Qm = window.NKQuality, q = QUAL.indexOf(set.quality) >= 0 ? set.quality : 'auto'; s.rows[16].num.textContent = q === 'auto' && Qm ? '자동 · ' + (Qm.NAMES[Qm.level] || '') : QUAL_T[q]; }
     { const ai = SET_ROWS.findIndex(r => r[0] === 'a11y'), r = s.rows[ai]; if (r) { r.classList.toggle('off', !window.NKA11y); r.num.textContent = window.NKA11y ? window.NKA11y.label() : '—'; } }
+    { const rq = /[?&]rb=([01])(&|$)/.exec(Q), r = s.rows[RB_I]; r.classList.toggle('off', !!rq); r.num.textContent = (rq ? rq[1] === '1' : rbSet) ? '켬' : '끔'; } // ?rb= 주소는 고정(행만 흐리게)
     if (s.rows[14]) { s.rows[14].classList.toggle('off', !window.NKTutorial || speedLocked()); s.rows[14].num.textContent = '다시 보기'; }
     if (s.rows[13]) { s.rows[13].classList.toggle('off', !window.NKCam || window.NKCam.blocked); s.rows[13].num.textContent = ['끔', '약', '보통'][set.cam === undefined ? 1 : set.cam]; } // 카메라 연출: 동작 줄이기·클래식 = 늘 끔(행만 흐리게)
   }
@@ -1867,7 +1869,7 @@
   }
   const T_SEATS = { 2: ['human', 'cpu', 'human', 'cpu'], 3: ['human', 'human', 'human', 'cpu'], 4: ['human', 'human', 'human', 'human'] }; // 팀전 기본 자리(사람 2 = 팀마다 1명 + COM). 방에서 방장이 바꾼다
   const RB_Q = (/[?&]rb=([01])(&|$)/.exec(location.search) || [])[1]; // ?rb=1 · ?rb=0 = 이 방의 롤백 넷코드 켬·끔 요청(없으면 서버 기본 NK_ROLLBACK). 서버는 방 사람 전원이 PROTO 6 일 때만 쓴다
-  function createRoom() { nsend({ t: 'create', title: (els.ocreate.tin.value || '').trim(), opts: Object.assign({ stage: oc.stage, rule: oc.rule }, oc.humans > 2 ? { humans: oc.humans } : null, oc.teams === '2v2' ? { teams: '2v2', seats: T_SEATS[oc.humans] } : null, RB_Q !== undefined ? { rollback: RB_Q === '1' } : null) }); } // 2인 난투는 종전 메시지 그대로(humans 없음 = 서버 기본 2)
+  function createRoom() { nsend({ t: 'create', title: (els.ocreate.tin.value || '').trim(), opts: Object.assign({ stage: oc.stage, rule: oc.rule }, oc.humans > 2 ? { humans: oc.humans } : null, oc.teams === '2v2' ? { teams: '2v2', seats: T_SEATS[oc.humans] } : null, { rollback: RB_Q !== undefined ? RB_Q === '1' : !!rbSet }) }); } // rollback = ?rb= 주소가 있으면 그 값, 없으면 설정(nk.rollback, 기본 켬) // 2인 난투는 종전 메시지 그대로(humans 없음 = 서버 기본 2)
   const owner = c => net.room ? net.room.seats.findIndex(x => x && x.char === c) : -1;
   function pickCell(i) {
     const R = net.room; if (!R) return; if (net.count) return toast(LOCKT); const o = owner(i);
