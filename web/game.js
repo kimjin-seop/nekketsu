@@ -316,7 +316,7 @@
   function rbPut(o, d, pads) { const hi = d.rb.f + 1; for (let p = 0; p < 4; p++) hPut(hi, p, pads[p] | 0); } // 워커가 다음에 돌 프레임(워커 카운터 f + 1)의 패드
   function rbSync(o) { // 새로 안 실제 값으로 이미 쓴 예측을 정정하고 확정 프레임 수를 올린다
     const R = o.rb, ls = o.ls; if (!R || R.hd < 0 || o.tail) return; // 꼬리(결과 합의 뒤 연출)는 패드 0 으로 혼자 진행: 실제 입력으로 정정하지 않는다
-    let ch = false; const top = ls.exec;
+    let ch = false, fxm = 0; const top = ls.exec;
     if (ls.diffLo < Infinity) { // 안전장치: 확정 방송 값이 이미 안 값(중계)과 달랐다(서버 계약상 없어야 한다). 그 프레임부터 이력을 다시 맞춘다. 워커가 이미 검증을 마친 프레임이면 되감을 수 없으므로 경고만(서버 지문 비교가 desync 로 잡는다)
       const lo = ls.diffLo; ls.diffLo = Infinity;
       if (lo < R.hLo) { if (lo - R.hd < Atomics.load(rbq, QVER)) { R.bad++; console.warn('롤백: 확정 값이 검증을 마친 프레임과 다름 f=' + lo); if (MG && R.bad === 1) MG.toast('동기 어긋남 감지', 'hp-low'); } R.hLo = Math.max(R.k0, lo); }
@@ -325,9 +325,9 @@
       // 아는 자리 = 실제 값, 모르는 자리 = 그 자리의 지금 마지막 값(lastV)으로 다시 쓴다: 상대 입력이 한 번 바뀌면 아직 안 온 뒤 프레임들의 예측도 새 값으로 같이 고쳐 한 번만 되감는다
       //   (아는 자리만 고치면 뒤 프레임에 옛 예측이 남아 프레임마다 되감기 + 누름→뗌→누름 가짜 에지가 생긴다)
       const hi = kk - R.hd; if (hi < 0) continue; const pr = ls.predict(kk);
-      for (let j = 0; j < ls.width; j++) { const q = o.team ? o.team.seatOf[j] : j, ix = QPAD + ((hi & 511) << 2) + q; if (Atomics.load(rbq, ix) !== pr[j]) { Atomics.store(rbq, ix, pr[j]); ch = true; R.fix++; } }
+      for (let j = 0; j < ls.width; j++) { const q = o.team ? o.team.seatOf[j] : j, ix = QPAD + ((hi & 511) << 2) + q; if (Atomics.load(rbq, ix) !== pr[j]) { Atomics.store(rbq, ix, pr[j]); ch = true; R.fix++; if (DG) fxm |= 1 << j; } }
     }
-    R.hLo = Math.max(R.hLo, Math.min(ls.have, top));
+    R.hLo = Math.max(R.hLo, Math.min(ls.have, top)); if (fxm) for (let j = 0; j < 4; j++) if (fxm & (1 << j)) dgS(j).fx++; // 진단: 이번 정정을 일으킨 자리(예측이 틀린 자리)
     const fin = Math.min(ls.have, top) - R.hd; if (fin > R.conf) { R.conf = fin; Atomics.store(rbq, QCONF, fin); ch = true; }
     if (ch) Atomics.notify(ctl, CREDIT, 1);
   }
@@ -381,6 +381,42 @@
     R.rd = m.delay; o.ls.setDelay(R.on && o.drvState !== 'run' ? m.delay : Math.max(m.delay, R.fb)); R.voted = false; R.reqT = performance.now(); R.steps++; // rd = 방 지연(구동 중·예측 끈 창은 fb 이상으로 쓴다)
   }
   function rbInfo(o) { const R = o.rb; return { on: R.on, why: R.why, stMs: Math.round(R.stMs), ups: R.ups, steps: R.steps, d0: R.d0, bad: R.bad, hd: R.hd, conf: R.conf, ver: Atomics.load(rbq, QVER), delay: o.ls.delay, lim: Atomics.load(rbq, QLIMIT), adv: R.adv, slow: R.slow, fix: R.fix, hashes: R.hashes, diff: o.ls.diff, redo: o.rbRedo | 0, nrb: Atomics.load(rbq, QNRB), depth: Atomics.load(rbq, QDEPTH), maxd: Atomics.load(rbq, QMAXD), resimF: Atomics.load(rbq, QRESIMF), resimUs: Atomics.load(rbq, QRESIM_US), stalls: Atomics.load(rbq, QSTALLS), ovf: Atomics.load(rbq, QOVF), stop: Atomics.load(rbq, QSTOP) }; }
+  // ── 끊김 진단(개발자용, 기본 숨김): URL ?diag=1 또는 localStorage nkDiag=1 일 때만. 1초마다 구석 오버레이 갱신 + 판 끝에 요약 1회를 서버 로그([diag])로. 엔진·롤백 판정에는 읽기만 한다
+  const DG = (() => { try { return /[?&]diag=1(&|$)/.test(location.search) || localStorage.getItem('nkDiag') === '1'; } catch (e) { return false; } })();
+  const dg = { el: null, t: 0, rx: 0, jS: 0, jN: 0, jMx: 0, jTS: 0, jTN: 0, jTMx: 0, rtt: 0, rttMx: 0, rttT: 0, hid: 0, hidAt: 0, nrb: 0, rbps: 0, sMx: 0, st: [], t0: 0, stall: 0, ok: false, sg: [] }; // sg[j] = 자리별 { l: 마지막 수신, s·n·mx: 1초 창 간격, tS·tN·tMx: 판 전체 간격, w: 그 자리 입력을 기다리며 선 시간(ms), fx: 그 자리 예측이 틀려 정정한 횟수 }
+  const dgS = j => dg.sg[j] || (dg.sg[j] = { l: 0, s: 0, n: 0, mx: 0, tS: 0, tN: 0, tMx: 0, w: 0, fx: 0 });
+  const dgMob = () => !!(window.NKMobile && window.NKMobile.on) || (() => { try { return matchMedia('(hover: none) and (pointer: coarse)').matches; } catch (e) { return false; } })();
+  const dgNet = () => { const c = navigator.connection; return c && c.effectiveType ? String(c.effectiveType) : '-'; };
+  function dgRx(t) { if (dg.rx) { const g = t - dg.rx; dg.jS += g; dg.jN++; if (g > dg.jMx) dg.jMx = g; dg.jTS += g; dg.jTN++; if (g > dg.jTMx) dg.jTMx = g; } dg.rx = t; } // 수신(f·r) 간격
+  function dgSeat(m, t) { if (!Number.isInteger(m.s) || m.s < 0 || m.s > 3) return; const z = dgS(m.s); if (z.l) { const g = t - z.l; z.s += g; z.n++; if (g > z.mx) z.mx = g; z.tS += g; z.tN++; if (g > z.tMx) z.tMx = g; } z.l = t; } // 자리별 입력 도착 간격(서버 중계 r)
+  function dgStall(o, dt) { const ls = o.ls; for (let j = 0; j < ls.width; j++) if (j !== o.slot && !ls.known(ls.have, j)) dgS(j).w += dt; } // 서 있는 동안 아직 못 받은 자리 = 기다리는 대상(여럿이면 각각)
+  function dgPong(m) { const r = performance.now() - m.id; if (r >= 0 && r < 60000) { dg.rtt = r; if (r > dg.rttMx) dg.rttMx = r; } }
+  if (DG) document.addEventListener('visibilitychange', () => { const t = performance.now(); if (document.hidden) dg.hidAt = t; else if (dg.hidAt) { dg.hid += t - dg.hidAt; dg.hidAt = 0; } });
+  function dgSeatLines(o) { // 3인 이상 방: 자리별 도착 간격(평균/최대 ms) · 기다리며 선 시간(누계 s, 판 경과 대비 %) · 예측 틀림 횟수
+    if (o.ls.width < 3) return ''; const el = Math.max(1, performance.now() - dg.t0); let r = '';
+    for (let j = 0; j < o.ls.width; j++) { const z = dgS(j); r += 'seat' + j + (j === o.slot ? '*' : '') + (j === o.slot ? '' : ' gap ' + (z.n ? (z.s / z.n).toFixed(0) : '-') + '/' + z.mx.toFixed(0) + 'ms wait ' + (z.w / 1000).toFixed(1) + 's ' + (z.w / el * 100).toFixed(1) + '% fix ' + z.fx) + '\n'; z.s = 0; z.n = 0; z.mx = 0; }
+    return r;
+  }
+  function dgTick(o, t) {
+    if (t - dg.t < 1000) return; const dt = t - dg.t; dg.t = t;
+    if (!dg.t0) dg.t0 = t;
+    const R = o.rb, lim = R ? Atomics.load(rbq, QLIMIT) : 0, nrb = R ? Atomics.load(rbq, QNRB) : 0;
+    if (R) { dg.st.push({ t, s: R.stMs }); while (dg.st.length > 1 && t - dg.st[1].t >= 5000) dg.st.shift(); const a = dg.st[0]; dg.stall = t - a.t > 500 ? Math.min(100, (R.stMs - a.s) / (t - a.t) * 100) : 0; if (dg.stall > dg.sMx) dg.sMx = dg.stall; dg.rbps = dg.nrb ? (nrb - dg.nrb) * 1000 / dt : 0; dg.nrb = nrb; }
+    const hid = dg.hid + (dg.hidAt ? t - dg.hidAt : 0), jA = dg.jN ? dg.jS / dg.jN : 0;
+    if (t - dg.rttT >= 2000) { dg.rttT = t; o.send({ t: 'dgp', id: t }); }
+    if (!dg.el) { const e = dg.el = document.createElement('pre'); e.style.cssText = 'position:fixed;left:2px;bottom:2px;margin:0;padding:2px 4px;font:10px/1.25 monospace;color:#9f9;background:rgba(0,0,0,.6);z-index:99999;pointer-events:none;white-space:pre'; document.body.appendChild(e); }
+    const c0 = o.cfg && o.cfg.rtt;
+    dg.el.textContent = 'rtt ' + (dg.rtt ? dg.rtt.toFixed(0) : '-') + 'ms' + (c0 ? ' (start ' + c0.map(v => Math.round(v)).join('/') + ')' : '') + ' stall5s ' + dg.stall.toFixed(1) + '%\n' +
+      'delay ' + o.ls.delay + 'f rb ' + (R ? (R.on ? 'on' : 'off:' + R.why) : 'none') + ' lim ' + lim + ' rb/s ' + dg.rbps.toFixed(1) + '\n' +
+      'rx gap avg ' + jA.toFixed(1) + ' max ' + dg.jMx.toFixed(0) + 'ms  hidden ' + (hid / 1000).toFixed(1) + 's\n' +
+      dgSeatLines(o) + dgNet() + (dgMob() ? ' mobile' : ' desktop');
+    dg.jS = 0; dg.jN = 0; dg.jMx = 0;
+  }
+  function dgEnd(o) { // 판 끝 요약 1회(숫자만, 사용자 식별정보 없음)
+    if (!dg.t0) return; const R = o.rb, t = performance.now(), sec = (t - dg.t0) / 1000;
+    o.send({ t: 'dg', rtt: dg.rtt, rttMax: dg.rttMx, stall: dg.stall, stallMax: dg.sMx, delay: o.ls.delay, rb: R ? (R.on ? 1 : 0) : -1, lim: R ? Atomics.load(rbq, QLIMIT) : -1, rbps: R && sec > 0 ? Atomics.load(rbq, QNRB) / sec : 0, nrb: R ? Atomics.load(rbq, QNRB) : 0, jAvg: dg.jTN ? dg.jTS / dg.jTN : 0, jMax: dg.jTMx, hid: (dg.hid + (dg.hidAt ? t - dg.hidAt : 0)) / 1000, sec, mob: dgMob() ? 1 : 0, net: dgNet(), why: R ? R.why : '', seats: dg.sg.map(z => z ? [z.tN ? z.tS / z.tN : 0, z.tMx, z.w / 1000, z.fx] : [0, 0, 0, 0]) });
+    if (dg.el) { dg.el.remove(); dg.el = null; } console.log('[diag] 판 요약 전송'); Object.assign(dg, { t: 0, rx: 0, jS: 0, jN: 0, jMx: 0, jTS: 0, jTN: 0, jTMx: 0, rtt: 0, rttMx: 0, rttT: 0, hid: 0, hidAt: 0, nrb: 0, rbps: 0, sMx: 0, st: [], t0: 0, stall: 0, sg: [] });
+  }
   function onlineStart(o) {
     const cfg = o && o.cfg, plan = cfg && cfg.plan, D = window.NKDriver, H = cfg ? cfg.humans | 0 : 0;
     const t = cfg && cfg.team, T = t && t.mode === '2v2' && Array.isArray(t.cpu) && t.cpu.length === 4 && Array.isArray(t.seatOf) && t.seatOf.length === H && t.seatOf.every(i => Number.isInteger(i) && i >= 0 && i < 4 && !t.cpu[i]) ? t : null; // 팀전(analysis/30 10절): cpu[4]·seatOf[H](j 번째 사람의 자리)
@@ -445,6 +481,7 @@
   }
   function onlineMsg(m) {
     const o = online; if (!o) return;
+    if (DG) { if (m.t === 'f' || m.t === 'r') { const t = performance.now(); dgRx(t); if (m.t === 'r') dgSeat(m, t); } else if (m.t === 'dgp') return dgPong(m); }
     if (m.t === 'f' || m.t === 'start' || m.t === 'r') { o.ls.onMessage(m); if (m.t === 'start' && m.resume && o.rb && m.cfg) rbRoom(o, { delay: m.cfg.delay | 0, off: !!(m.cfg.rollback && m.cfg.rollback.off) }); /* 끊긴 사이에 바뀐 방 지연 */ if (m.t === 'start' && m.resume && o.res) o.send(o.res); /* 재접속: 결과를 다시 보낸다(서버는 자리마다 첫 보고만 받으므로 겹쳐도 무해) */ if (o.rb) { rbSync(o); rbPoll(o); } onlineAdvance(); } // r = 롤백 방 상대 입력 중계(PROTO 6)
     else if (m.t === 'rbd') rbRoom(o, m); // 롤백 방 지연 조정·예측 끔(방 단위, 서버가 방 전원에게)
     else if (m.t === 'peer' && m.ev === 'gone') { if (o.rb) { o.rb.away.delete(m.slot); o.ls.onMessage(m); rbSync(o); } const at = o.team ? o.team.seatOf[m.slot] | 0 : m.slot | 0; if (MG) MG.toast((o.names[at] || (at + 1) + 'P') + ' 나감', 'hp-low'); } // 3·4인·팀전: 그 자리가 판에서 빠졌다(판은 계속, 그 자리 입력은 서버가 0 으로 확정). 팀전 slot = j 번째 사람
@@ -453,7 +490,7 @@
     else if (m.t === 'end') { const r = mirror.m; if (m.reason === 'result' && o.resSent && !o.tail && MG && r[0x641] === 1 && (r[0x642] & 0x7F) === 5) { o.tail = m; o.tailN = 0; onlineAdvance(); } else onlineStop(o.tail || m); } // 결과 합의(end result)가 1:5 첫 프레임에 바로 와도 WINNER 연출(1:5)을 끝까지 보여 준 뒤 닫는다. 그 밖(기권·끊김 등)은 바로
   }
   function onlineStop(m) { // 대전 끝(결과·기권·끊김): 엔진을 처음부터 다시 만들고 신규 층 결과 화면
-    const o = online; if (!o) return; online = null; if (ctl.length > RBF) Atomics.store(ctl, RBF, 0); Atomics.store(ctl, 13, 0); Atomics.store(ctl, 15, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; bgSync(); if (!DEBUG) info.style.display = 'none'; // bgSync = 숨은 탭 타이머 바로 끔. ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
+    const o = online; if (!o) return; if (DG) { try { dgEnd(o); } catch (e) { /* 진단 실패는 무시 */ } } online = null; if (ctl.length > RBF) Atomics.store(ctl, RBF, 0); Atomics.store(ctl, 13, 0); Atomics.store(ctl, 15, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; bgSync(); if (!DEBUG) info.style.display = 'none'; // bgSync = 숨은 탭 타이머 바로 끔. ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
     zeroExt(); const to = holdOf(); if (curBoot !== to) bootWith(to); else { Atomics.add(ctl, RESET, 1); Atomics.notify(ctl, RESET); Atomics.notify(ctl, CREDIT); } // 신규 층 = 타이틀 대기 상태(대련부터, reset 과 같게)
     openMenu(() => { if (UI.onlineEnd) UI.onlineEnd(m, o.slot); else UI.show('title'); });
   }
@@ -696,7 +733,7 @@
     if (online) { // 리셋 대기(워커가 멈출 때까지 허가하지 않는다) → 락스텝: 내 입력 보내기 + 60Hz 예산(밀려도 2프레임까지만 따라잡기)
       const o = online;
       if (o.phase === 'idle') { if (ready && received >= 1 && granted <= received) onlineReset(); } // 시작 때 bootWith 로 새로 만든 워커 = 준비되고 첫 프레임을 낸 뒤(허가 대기로 멈춤)에 리셋(그 전에 리셋하면 앞 세대 첫 프레임이 run 단계로 들어와 프레임이 어긋난다)
-      else { if (!o.tail) o.ls.pump(); if (o.rb) { if (o.rb.on && !o.rb.away.size && Atomics.load(rbq, QSTOP) === 1) o.rb.stMs += dt; rbPoll(o); rbWatch(o, t); } if (o.drvState !== 'run' || o.tail) o.acc = Math.min(o.acc + dt * RATE * spd() * (1 + rateAdj) * (o.rb ? rbSlow(o) : 1) / 1000, 2); onlineAdvance(); }
+      else { if (!o.tail) o.ls.pump(); if (o.rb) { if (o.rb.on && !o.rb.away.size && Atomics.load(rbq, QSTOP) === 1) { o.rb.stMs += dt; if (DG) dgStall(o, dt); } rbPoll(o); rbWatch(o, t); } if (DG) dgTick(o, t); if (o.drvState !== 'run' || o.tail) o.acc = Math.min(o.acc + dt * RATE * spd() * (1 + rateAdj) * (o.rb ? rbSlow(o) : 1) / 1000, 2); onlineAdvance(); }
     } else if (rec) { // 스토리 저장 기록: 60Hz 예산(밀려도 2프레임) 안에서 워커가 멈춰 있을 때 한 프레임씩
       if (!fatal && !paused && ready && !hs) { acc = Math.min(acc + dt * RATE * spd() * (1 + rateAdj) / 1000, 2); if (acc >= 1 && recGrant()) acc -= 1; }
     } else if (!fatal && !paused && ready && !hs) {

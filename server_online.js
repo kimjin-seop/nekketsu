@@ -1171,6 +1171,12 @@ function createServer(opt) {
       const room = ws.room; if (!room) return; const p = room.players[ws.slot], t0 = p.pings.get(m.id);
       if (t0 === undefined) return; p.pings.delete(m.id); p.rtt.push(Number(process.hrtime.bigint() - t0) / 1e6);
     },
+    dgp(ws, m) { send(ws, { t: 'dgp', id: m.id }); }, // 끊김 진단(?diag=1) 왕복 시간 측정용 에코
+    dg(ws, m) { // 끊김 진단 판 요약 한 줄(사용자 식별정보 없음, 숫자 값만). pm2 logs 에서 [diag] 로 집계
+      const t = Date.now(); if (ws.dgAt && t - ws.dgAt < 3000) return; ws.dgAt = t;
+      const n = k => { const v = Number(m[k]); return Number.isFinite(v) ? Math.round(Math.max(-1e6, Math.min(1e6, v)) * 10) / 10 : '-'; };
+      log('[diag]', ['rtt', 'rttMax', 'stall', 'stallMax', 'delay', 'rb', 'lim', 'rbps', 'nrb', 'jAvg', 'jMax', 'hid', 'sec', 'mob'].map(k => k + '=' + n(k)).join(' '), 'net=' + String(m.net || '-').replace(/[^a-z0-9-]/gi, '').slice(0, 8), 'seats=' + (Array.isArray(m.seats) ? m.seats.slice(0, 4).map((z, i) => i + ':' + (Array.isArray(z) ? z.slice(0, 4).map(v => { v = Number(v); return Number.isFinite(v) ? Math.round(Math.max(-1e6, Math.min(1e6, v)) * 10) / 10 : '-'; }).join('/') : '-')).join(' ') : '-') + '(gapAvg/gapMax/waitS/fix)', 'off=' + String(m.why || '-').replace(/[^a-z0-9_-]/gi, '').slice(0, 12));
+    },
     in(ws, m) { // 입력: 프레임 f 부터 연속한 패드 값들. 순서가 뒤섞여 와도 된다(프레임 번호로 정렬), 같은 프레임은 먼저 온 값만 쓴다
       const room = ws.room; if (!room || room.state !== 'playing') return;
       const p = room.players[ws.slot], f0 = int(m.f), a = m.p;

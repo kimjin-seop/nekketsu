@@ -1741,7 +1741,7 @@
         if (m.cancel) { cdSet(null); net.stAt = 0; net.cxAt = Date.now(); if (active && scr === 'oroom') { toast(CWHY[m.why] || '시작 취소', 'hp-low'); render(); } return; }
         net.stAt = 0; net.cntAt = Date.now(); /* cntAt = 카운트 받은 시각(직후 0.7초 취소 클릭 무시, roomMain) */ cdSet(Math.max(0, +m.ms || 0)); if (oPl() && og.zone === 'grid') og.zone = 'side'; if (active && scr === 'oroom') render(); return;
       case 'start': if (m.resume) { ffUnsend(); if (net.sink) net.sink.msg(m); return; } cdSet(null); return startBattle(m.cfg);
-      case 'f': case 'r': case 'rbd': case 'peer': case 'desync': if (m.t === 'peer' && m.ev === 'gone' && net.playing) setGone(Array.isArray(m.left) ? m.left : net.gone.concat(m.slot | 0)); if (net.sink) net.sink.msg(m); return;
+      case 'f': case 'r': case 'rbd': case 'dgp': case 'peer': case 'desync': if (m.t === 'peer' && m.ev === 'gone' && net.playing) setGone(Array.isArray(m.left) ? m.left : net.gone.concat(m.slot | 0)); if (net.sink) net.sink.msg(m); return;
       case 'end':
         if (net.playing) { if (net.sink) net.sink.msg(m); return; }
         if (R) { net.room = null; toLobby(); toast(m.reason === 'host_left' ? '방장이 나가 방이 닫혔습니다' : m.reason === 'ladder_cancel' ? '상대가 나가 래더 대전 취소' : m.reason === 'ladder_timeout' ? '시간 초과로 래더 대전 취소' : '방이 닫혔습니다'); } return;
