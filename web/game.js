@@ -71,6 +71,24 @@
   // 화면·소리 생략(web/worker.js ctl[11]): 덮개 아래 빨리 감기(fastOn, turbo 제외) 프레임을 허가할 때만 1. 그 프레임은 fb 가 null(화면 안 그림), 소리 샘플 없음(어차피 버림).
   //   엔진·패드·RAM 은 같다. fbStale = 마지막으로 받은 프레임이 생략 프레임 → 그리지 않고, 덮개 걷기(tryLink)는 다음 그린 프레임까지 미룬다
   const SKIP = 11; let fbStale = false;
+  // 렌더 솎기·틱 예산 감시(2026-11-23, analysis/stutter_rootcause.md 10절). 표시만 바꾼다: 엔진·패드·소리·락스텝·롤백 지문 불변. ?thin=0 = 끔(종전 그대로: 틱마다 그린다)
+  //   (가) 그리기 합치기: 원작 화면이 보이는 동안(덮개 없음) 워커 프레임마다 그리지 않고 화면 주기(rAF)마다 마지막 프레임을 한 번만 그린다(한 주기에 2틱이 와도 putImageData·한글 층·HD 층은 한 번. 화면에 나오는 시점은 같다)
+  //   (나) 화면만 생략(web/worker.js ctl[22], 자동 단계 1 이상에서만): 같은 화면 주기에 다음 틱이 바로 이어서 허가될 틱은 워커가 픽셀을 그리지 않고 fb 없이 보낸다({ vs: 1 }, 소리는 그대로). 워커가 두 틱 연속으로는 생략하지 않는다.
+  //       단계 0 에서 쓰지 않는 이유(실측, 4배 스로틀): 뒤 틱이 화면 주기를 놓치면 그 주기에 새 그림이 없다(화면 주기의 1~7%). 워커 절감(틱당 렌더 약 0.4ms 의 23%)보다 손해가 커서 예산을 넘는 기기에서만 켠다
+  //   (다) 자동 단계 PF.st.lv(온라인 전투만, 판마다 0 부터): 1초마다 (워커 왕복 p95 + 메인 처리 p95) > 틱 예산(1000 / (60.0988 x 배율) ms)이고 실제 진행이 목표의 97% 미만인 상태가 5번 연속이면 한 단계 올린다. 1 = 이펙트 단순화(web/quality.js 이번 판 상한 '낮음': HD 배경·타격 이펙트 끔, 품질 설정이 자동일 때만) + 화면만 생략 (나), 2 = 한 틱 건너 한 틱만 그린다
+  //       방 전원의 합의가 필요 없는 이 창의 표시만 바꾼다(속도·입력 지연은 건드리지 않는다). ?thinauto=0 = 자동 단계 끔, ?thinlv=1|2 = 그 단계로 고정(검증용)
+  const VIS = 22, THIN = !/[?&]thin=0(&|$)/.test(location.search), THIN_AUTO = !/[?&]thinauto=0(&|$)/.test(location.search), THIN_LV = +((/[?&]thinlv=([12])(&|$)/.exec(location.search) || [])[1] || 0);
+  let pDirty = false, pm = null, pmF = -1; // pDirty = 그릴 프레임이 기다리는 중, pm·pmF = img32 와 짝인 RAM·프레임 번호(화면 생략 프레임의 RAM 으로 한글·HD 층을 그리지 않게)
+  const PF = { rt: new Float32Array(128), hd: new Float32Array(128), rf: new Float32Array(256), ri: 0, hi: 0, fi: 0, g: 0, lr: 0, t: 0, bad: 0, lh: false, st: { lv: THIN_LV, rt95: 0, hd95: 0, bud: 0, over: 0, raf95: 0, raf99: 0, hid: 0, paints: 0, ticks: 0, ups: 0, pfr: -1, tps: 0 }, tk: 0 }; // rt = 허가 → 프레임 도착(ms, 온라인), hd = 프레임 메시지 처리(ms), rf = 화면 주기 간격(ms). st = 1초마다 낸 값(__game.perf·진단 오버레이)
+  const pfQ = (a, n, p) => { n = Math.min(n, a.length); if (!n) return 0; const q = Array.from(a.subarray(0, n)).sort((x, y) => x - y); return q[Math.min(n - 1, Math.floor(n * p))]; };
+  function pfLv(v) { PF.st.lv = v; PF.bad = 0; PF.ri = 0; PF.hi = 0; PF.lh = false; if (window.NKQuality && window.NKQuality.cap) window.NKQuality.cap(v >= 1 ? 2 : 0); }
+  function pfTick(t) { // 화면 주기마다 부른다(1초에 한 번만 계산)
+    if (t - PF.t < 1000) return; const z = PF.st, o = online; z.tps = PF.t ? (z.ticks - PF.tk) * 1000 / (t - PF.t) : 0; PF.tk = z.ticks; PF.t = t; // tps = 지난 1초의 틱 수
+    z.rt95 = pfQ(PF.rt, PF.ri, 0.95); z.hd95 = pfQ(PF.hd, PF.hi, 0.95); z.raf95 = pfQ(PF.rf, PF.fi, 0.95); z.raf99 = pfQ(PF.rf, PF.fi, 0.99); z.bud = 1000 / (RATE * spd());
+    if (!o || o.phase !== 'run' || o.drvState === 'run' || o.tail || menuOn || document.hidden || PF.ri < 48) { PF.bad = 0; z.over = 0; return; }
+    z.over = z.rt95 + z.hd95 > z.bud ? 1 : 0; PF.bad = z.over && z.tps < 0.97 * RATE * spd() ? PF.bad + 1 : 0; // 올리는 조건 = 예산 초과 + 실제 진행이 목표의 97% 미만(메인 스레드 대기만 길고 진행은 정상인 경우는 올리지 않는다)
+    if (PF.bad >= 5 && THIN && THIN_AUTO && !THIN_LV && z.lv < 2) { z.ups++; pfLv(z.lv + 1); }
+  }
   // 타이틀 밖 메뉴 = 효과음 끔(2026-11-22 사용자 요청: 타이틀 데모 대련 효과음은 타이틀에서만, 다른 메뉴 화면은 배경음악만). ctl[16] 1 = web/sound_clock.js 가 그림자 드라이버로 소리를 내며 효과음 요청(id 01~1F)만 넘기지 않는다(본 엔진 RAM·로직 불변).
   //   신규 층 MG.sfxQuiet(메뉴 층이 떠 있고 타이틀이 아님 · 「다른 게임」 팝업) 일 때만, 온라인(락스텝 중)은 늘 0. 타격음 층(web/audio_fx.js)도 같은 값(__game.sfxQuiet)을 본다
   const SFXQ = 16, sfxQuiet = () => !online && !!MG && UI === MG && menuOn && !!MG.sfxQuiet;
@@ -102,7 +120,7 @@
   // 한글 덧그리기 층(analysis/13_korean_ui.md). 기본 켬(?ko=0 으로 끔, K 키로 원작/한글 비교). ?classic=1 에서는 기본 꺼짐: ?ko=1 또는 K 키로 켰을 때만 web/korean.js 를 불러오고 워커에 PPU 상태 사본을 요청한다.
   // 코어 256x240 출력(img)은 그대로 그린 뒤 그 위에 덧그린다.
   let ko = CLASSIC ? /[?&]ko=1(&|$)/.test(location.search) : !/[?&]ko=0(&|$)/.test(location.search), koMod = null, koLoading = false, koSnap = null, koErr = null, romChr = null, pal32 = null;
-  const RATE = 60.0988, MAX_AHEAD = 3, ACC_CAP = (() => { const q = (/[?&]acccap=([0-9.]+)(&|$)/.exec(location.search) || [])[1]; return q && +q >= 2 ? -q : 4; })(); // ACC_CAP = 온라인 프레임 허가 예산 상한(?acccap=2 = 종전 값 고정으로 비교 측정: 음수로 담아 두면 그 값 그대로 쓴다)
+  const RATE = 60.0988, MAX_AHEAD = 3, ACC_CAP = (() => { const q = (/[?&]acccap=([0-9.]+)(&|$)/.exec(location.search) || [])[1]; return q && +q >= 2 ? -Math.min(8, +q) : 4; })(); // ACC_CAP = 온라인 프레임 허가 예산 상한(?acccap=2 = 종전 값 고정으로 비교 측정: 음수로 담아 두면 그 값 그대로 쓴다)
   let worker = null, ctl = null, ready = false, paused = false, muted = false, actx = null, node = null, fatal = null;
   let granted = 0, received = 0, rbq = null;
   // 신규 메뉴 층 연결. 층이 떠 있는 동안(menuOn) 엔진은 덮개 아래에서 그대로 돈다: 원작 타이틀을 START 로 넘겨(pre, 그동안 무음) 원작 모드 선택 화면(모드 5)에 세워 두고,
@@ -277,7 +295,7 @@
   }
   function bootWith(st) { // 지금 워커를 끝내고 st 로 새로 만든다(허가·받은 수는 새 워커 기준 0 부터. 패드 칸 0 = lead)
     if (worker) worker.terminate(); worker = null;
-    ready = false; fatal = null; Atomics.store(ctl, PAD, 0); Atomics.store(ctl, PAD + 1, 0); zeroExt(); granted = 0; received = 0; Atomics.store(ctl, CREDIT, 0);
+    ready = false; fatal = null; Atomics.store(ctl, PAD, 0); Atomics.store(ctl, PAD + 1, 0); zeroExt(); granted = 0; received = 0; Atomics.store(ctl, CREDIT, 0); Atomics.store(ctl, VIS, 0); PF.g = 0;
     bootFrame = Number.isInteger(st.frameNo) ? st.frameNo : -1; startWorker(st);
   }
   function recNew(o) { // 새 게임(계정 슬롯): 엔진을 시작 상태(boot_title)로 다시 만들고 첫 프레임부터 기록. 덮개 아래 원작 타이틀 넘김(pre)부터 다시
@@ -344,7 +362,7 @@
       o.resSent = true; o.res = { t: 'result', f: R.resC + R.hd, r }; o.send(o.res); if (MG && MG.forfeitDone) MG.forfeitDone(); break;
     }
   }
-  const RBS = { gain: 0.01, cap: 0.05, fgain: 0, fcap: 0, lim: 0 }; { const q = (/[?&]rbs=([0-9.,]+)(&|$)/.exec(location.search) || [])[1]; if (q) q.split(',').forEach((v, i) => { const k = ['gain', 'cap', 'fgain', 'fcap', 'lim'][i]; if (k && v !== '' && +v >= 0) RBS[k] = +v; }); } // 속도 보정 기준값(?rbs=gain,cap,fgain,fcap,lim = 측정용): 앞섬 1프레임당 늦춤·상한, 뒤처짐 1프레임당 빠르게·상한, lim = 예측 한도 바닥(0 = 서버 값 그대로)
+  const RBS = { gain: 0.01, cap: 0.05, fgain: 0, fcap: 0, lim: 0 }; { const q = (/[?&]rbs=([0-9.,]+)(&|$)/.exec(location.search) || [])[1]; if (q) q.split(',').forEach((v, i) => { const k = ['gain', 'cap', 'fgain', 'fcap', 'lim'][i]; if (k && v !== '' && +v >= 0) RBS[k] = +v; }); RBS.lim = Math.min(24, RBS.lim); } // 속도 보정 기준값(?rbs=gain,cap,fgain,fcap,lim = 측정용): 앞섬 1프레임당 늦춤·상한, 뒤처짐 1프레임당 빠르게·상한, lim = 예측 한도 바닥(0 = 서버 값 그대로)
   function rbSlow(o) { // 프레임 어드밴티지 보정: 내가 상대보다 앞서 달리면 진행을 최대 5% 까지 서서히 늦춘다(롤백이 한꺼번에 몰리지 않게)
     const R = o.rb; if (!R.on || o.drvState === 'run' || o.tail) return R.slow = 1;
     const a = o.ls.adv(); R.adv = a; return R.slow = a > 1 ? 1 - Math.min(RBS.cap, RBS.gain * (a - 1)) : a < -1 && RBS.fcap > 0 ? 1 + Math.min(RBS.fcap, RBS.fgain * (-a - 1)) : 1; // 앞서 있으면 늦추고, 뒤처져 있으면(RBS.fcap > 0 일 때) 조금 빨리 돌아 서로 절반씩 맞춘다
@@ -358,18 +376,21 @@
   //   최근 5초 중 예측 한도에 걸려 서 있던 시간이 RBW.up 이상이면 (가) 이 창의 예측 한도를 2프레임 넓히고(RBW.lim 까지, 입력 지연 불변) (나) 방 지연 +1(RBW.up2 이상이면 +2)을 서버에 요청한다(상한 = 델레이 방식 지연 fb, 예측은 계속 켠 채).
   //   최근 10초의 정지 비율이 RBW.calm 이하이고 지연이 시작값보다 높으면 내림 표(rbd down)를 낸다(방 전원이 내야 서버가 1 내린다 = 재진입. 서버가 되튐을 막는다).
   //   내가 앞서 있어서 서는 것(R.adv > 2)은 속도 보정(rbSlow)이 맡는다. 스냅샷 부족(OVF)·재시뮬이 벽시계의 25% 이상이면 방 단위로 예측을 끈다
-  const RBW = { up: 0.04, up2: 0.12, calm: 0.005, lim: 16 }; { const q = (/[?&]rbw=([0-9.,]+)(&|$)/.exec(location.search) || [])[1]; if (q) q.split(',').forEach((v, i) => { const k = ['up', 'up2', 'calm', 'lim'][i]; if (k && v !== '' && +v >= 0) RBW[k] = +v; }); } // ?rbw=up,up2,calm,lim = 측정용 기준값 바꾸기
+  const RBW = { up: 0.04, up2: 0.12, calm: 0.005, lim: 16, wide: 0.01 }; { const q = (/[?&]rbw=([0-9.,]+)(&|$)/.exec(location.search) || [])[1]; if (q) q.split(',').forEach((v, i) => { const k = ['up', 'up2', 'calm', 'lim', 'wide'][i]; if (k && v !== '' && +v >= 0) RBW[k] = +v; }); } // ?rbw=up,up2,calm,lim = 측정용 기준값 바꾸기
   function rbWatch(o, t) {
     const R = o.rb; if (!R.on || o.drvState === 'run' || R.hd < 0 || o.tail || t - R.wT < 500) return; R.wT = t;
     R.hist.push({ t, us: Atomics.load(rbq, QRESIM_US), st: R.stMs }); while (R.hist.length && t - R.hist[0].t > 12500) R.hist.shift();
     if (Atomics.load(rbq, QOVF) > 0) return rbOffReq(o, 'OVF');
     const h = R.hist, z = h[h.length - 1], a10 = h.find(x => t - x.t <= 10200), a5 = h.find(x => t - x.t <= 5200), a2 = h.find(x => t - x.t <= 2200);
     if (a2 && t - a2.t >= 1500 && (z.us - a2.us) / 1000 / (t - a2.t) >= 0.25) return rbOffReq(o, 'cpu');
+    if (a2 && t - a2.t >= 1500 && t - R.reqT >= 1500 && R.adv <= 2) { // (가) 먼저 이 창의 예측 한도만 넓힌다(2026-11-23, 4인 방): 최근 2초의 정지 비율이 RBW.wide(1%) 이상이면 +2(RBW.lim 까지). 입력 지연은 그대로라 방 전원에게 영향이 없다
+      const lim = Atomics.load(rbq, QLIMIT); if (lim < RBW.lim && (z.st - a2.st) / (t - a2.t) >= RBW.wide) { R.reqT = t; R.ups++; R.voted = false; Atomics.store(rbq, QLIMIT, Math.min(RBW.lim, lim + 2)); return; }
+    }
     if (a5 && t - a5.t >= 4000 && t - R.reqT >= 2500 && R.adv <= 2) {
       const r = (z.st - a5.st) / (t - a5.t);
       if (r >= RBW.up) {
         R.reqT = t; R.ups++; R.voted = false;
-        const lim = Atomics.load(rbq, QLIMIT); if (lim < RBW.lim) Atomics.store(rbq, QLIMIT, Math.min(RBW.lim, lim + 2));
+        const lim = Atomics.load(rbq, QLIMIT); if (lim < RBW.lim) { Atomics.store(rbq, QLIMIT, Math.min(RBW.lim, lim + 2)); return; } // 한도를 다 넓힌 뒤에도 서면 그때 (나) 방 지연을 올려 달라고 한다(한 창의 짧은 정지로 방 전원의 입력 지연이 오르지 않게)
         if (o.ls.delay < R.fb) o.send({ t: 'rbd', up: r >= RBW.up2 ? 2 : 1 });
         return;
       }
@@ -409,6 +430,7 @@
     if (!dg.el) { const e = dg.el = document.createElement('pre'); e.style.cssText = 'position:fixed;left:2px;bottom:2px;margin:0;padding:2px 4px;font:10px/1.25 monospace;color:#9f9;background:rgba(0,0,0,.6);z-index:99999;pointer-events:none;white-space:pre'; document.body.appendChild(e); }
     const c0 = o.cfg && o.cfg.rtt, ex = o.ls.exec, fpsNow = dg.ex ? (ex - dg.ex) * 1000 / dt : 0, ur = audioStat.underruns | 0; dg.ex = ex; if (dg.ur0 === undefined) dg.ur0 = ur; // 진행 fps(1.3배속 정상 = 78)·이 판의 소리 바닥남 횟수
     dg.el.textContent = 'rtt ' + (dg.rtt ? dg.rtt.toFixed(0) : '-') + 'ms' + (c0 ? ' (start ' + c0.map(v => Math.round(v)).join('/') + ')' : '') + ' stall5s ' + dg.stall.toFixed(1) + '% fps ' + fpsNow.toFixed(1) + ' underrun ' + (ur - dg.ur0) + '\n' +
+      'raf p95 ' + PF.st.raf95.toFixed(1) + ' p99 ' + PF.st.raf99.toFixed(1) + 'ms  tick rt95 ' + PF.st.rt95.toFixed(1) + ' + main95 ' + PF.st.hd95.toFixed(1) + ' / ' + PF.st.bud.toFixed(1) + 'ms' + (PF.st.over ? ' OVER' : '') + '  thin ' + (THIN ? 'lv' + PF.st.lv + ' hid ' + PF.st.hid + '/' + PF.st.ticks : 'off') + '\n' +
       'delay ' + o.ls.delay + 'f rb ' + (R ? (R.on ? 'on' : 'off:' + R.why) : 'none') + ' lim ' + lim + ' rb/s ' + dg.rbps.toFixed(1) + '\n' +
       'rx gap avg ' + jA.toFixed(1) + ' max ' + dg.jMx.toFixed(0) + 'ms  hidden ' + (hid / 1000).toFixed(1) + 's\n' +
       dgSeatLines(o) + dgRtc(o) + dgNet() + (dgMob() ? ' mobile' : ' desktop');
@@ -427,7 +449,7 @@
     const tSnd = T && (!T.cpu[0] || !T.cpu[1]) && (!T.cpu[2] || !T.cpu[3]) && T.seatOf[o.slot | 0] !== undefined ? 1 + (T.seatOf[o.slot | 0] >> 1) : 0; // 양 팀에 사람 = 승패 징글을 내 팀 기준으로(web/sound_clock.js jingle, ctl[14] = 1 + 내 팀)
     Atomics.store(ctl, 14, tSnd);
     Atomics.store(ctl, 12, T ? 16 | T.cpu.reduce((a, v, i) => a | ((v ? 1 : 0) << i), 0) : 0); // 엔진 선택(web/worker.js ctl[12]): 엔진을 새로 만들기 전에 쓴다(아래 bootWith·onlineReset). 판이 끝나면 onlineStop 이 0
-    rec = null; loadWait = 0; // 온라인 = 엔진을 시작 상태로 다시 만든다(스토리 기록 끝)
+    pfLv(THIN_LV); rec = null; loadWait = 0; // 온라인 = 엔진을 시작 상태로 다시 만든다(스토리 기록 끝)
     const rbOn = !!(cfg.rollback && typeof cfg.rollback === 'object' && rbq && ctl.length > RBF); // 롤백 방(서버가 start.cfg.rollback 을 줌): 엔진을 만들기 전에 켠다(워커는 엔진을 새로 만들 때만 ctl[20] 을 읽는다)
     if (rbOn) { rbq.fill(0); Atomics.store(rbq, QLIMIT, Math.max(3, RBS.lim | 0, Math.min(24, cfg.rollback.limit | 0 || 8))); Atomics.store(ctl, RBF, 1); } else if (ctl.length > RBF) Atomics.store(ctl, RBF, 0);
     if (curBoot !== titleBoot) bootWith(titleBoot); // 타이틀 대기 상태(title_fight)로 돌던 워커 → 시작 상태로 새로 만든다(아래 idle → onlineReset 이 이어서 리셋. 프레임 번호 기준 bootFrame = titleBoot)
@@ -439,7 +461,7 @@
     if ((H >= 3 || T) && on.ls.width !== H) { online = null; Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); Atomics.store(ctl, RBF, 0); return false; } // 옛 락스텝(폭 2 고정)이 캐시에 남은 경우
     Atomics.store(ctl, 13, cfg.atkStep === 'dir' ? 1 : cfg.atkStep === 'auto' ? 2 : 0); // 기본 공격 전진 이동(web/worker.js ctl[13]): 서버 start.cfg.atkStep 을 모든 참가자가 같게. 워커가 다음 리셋(엔진 새로 만들기)에서 읽는다
     Atomics.store(ctl, 15, cfg.guardAS ? 1 : 0); // 온라인 가드(web/worker.js ctl[15], server/engine/guard_as.js): 서버 start.cfg.guardAS 를 모든 참가자가 같게. 패드 비트 4(Select) 눌림 = 가드. 워커가 다음 리셋에서 읽는다
-    if (on.rtc) on.rtc.bind(on.ls); // WebRTC DataChannel 전송(web/online_rtc.js): 입력·중계·확정을 UDP 로도 주고받는다(웹소켓 경로는 그대로)
+    if (on.rtc) on.rtc.bind(on.ls, cfg.ep); // WebRTC DataChannel 전송(web/online_rtc.js): 입력·중계·확정을 UDP 로도 주고받는다(웹소켓 경로는 그대로)
     o.attach({ msg: onlineMsg, have: () => on.ls.have });
     writePads(); bgSync(); return true; // bgSync: 탭이 숨겨진 채 시작해도 바로 워커 타이머로 돈다(0.5초 주기 확인을 기다리지 않는다)
   }
@@ -476,6 +498,7 @@
     if (o.rb) rbPut(o, d, o.pads); // 롤백: 이 프레임의 패드를 이력 H 에 쓴다(워커는 ctl 패드 칸을 안 읽는다)
     o.ls.take(() => fnv(d.ram));
     if (o.rb) { rbSync(o); rbPoll(o); }
+    if (THIN) { const hid = PF.st.lv >= 1 && !PF.lh && !menuOn && o.drvState !== 'run' && (PF.st.lv >= 2 || (o.acc >= 1 && (pred || o.ls.exec < o.ls.have))); PF.lh = hid; Atomics.store(ctl, VIS, hid ? received + 2 : 0); if (hid) PF.st.hid++; } PF.g = performance.now(); PF.qs = o.rb ? Atomics.load(rbq, QSTALLS) : 0; // 화면만 생략(위 렌더 솎기 (나)): 이 틱 다음 틱이 바로 허가될 것(예산 1 이상 + 입력 확정 또는 예측)이면 이 틱은 화면에 안 나온다. 단계 2 = 한 틱 건너. PF.g = 왕복 시간 재기
     granted = received + 1; Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT);
   }
   const NO_IDLE_SND = /[?&]idlesnd=0(&|$)/.test(location.search), NO_ABUF = /[?&]abuf=0(&|$)/.test(location.search); // ?abuf=0 = 온라인 소리 대기열 여유 확대 끔(web/audio_worklet.js bit3)
@@ -492,10 +515,10 @@
     else if (m.t === 'peer' && m.ev === 'gone') { if (o.rb) { o.rb.away.delete(m.slot); o.ls.onMessage(m); rbSync(o); } const at = o.team ? o.team.seatOf[m.slot] | 0 : m.slot | 0; if (MG) MG.toast((o.names[at] || (at + 1) + 'P') + ' 나감', 'hp-low'); } // 3·4인·팀전: 그 자리가 판에서 빠졌다(판은 계속, 그 자리 입력은 서버가 0 으로 확정). 팀전 slot = j 번째 사람
     else if (m.t === 'peer') { if (o.rb) { if (m.ev === 'drop') o.rb.away.add(m.slot); else o.rb.away.delete(m.slot); } const me = m.slot === o.slot, at = o.team ? o.team.seatOf[m.slot] | 0 : m.slot | 0, who = o.H >= 3 || o.team ? o.names[at] || (at + 1) + 'P' : '상대'; /* 3·4인 = 그 자리 이름, 2인 = 종전 문구 그대로 */ if (MG && !(me && m.ev === 'drop')) MG.toast(m.ev === 'drop' ? who + (m.why === 'stall' || m.why === 'slow' ? ' 화면 멈춤' : ' 연결 끊김') + ' — 기다리는 중' : me ? '재접속됨' : who + ' 복귀', m.ev === 'drop' ? 'hp-low' : 'hp', m.ev === 'drop' ? (m.grace || 20000) : 0); } // 서버는 복귀를 방 전원(돌아온 본인 포함)에게 알린다(slot = 그 자리). 본인 자리면 「재접속됨」
     else if (m.t === 'desync') { if (MG) MG.toast('동기 어긋남 감지', 'hp-low'); console.warn('온라인 지문 불일치 f=' + m.f); }
-    else if (m.t === 'end') { const r = mirror.m; if (m.reason === 'result' && o.resSent && !o.tail && MG && r[0x641] === 1 && (r[0x642] & 0x7F) === 5) { o.tail = m; o.tailN = 0; onlineAdvance(); } else onlineStop(o.tail || m); } // 결과 합의(end result)가 1:5 첫 프레임에 바로 와도 WINNER 연출(1:5)을 끝까지 보여 준 뒤 닫는다. 그 밖(기권·끊김 등)은 바로
+    else if (m.t === 'end') { const r = mirror.m; if (m.reason === 'result' && o.resSent && !o.tail && MG && r[0x641] === 1 && (r[0x642] & 0x7F) === 5) { o.tail = m; o.tailN = 0; if (o.rtc) o.rtc.unbind(); /* 꼬리 = 서버 입력이 더 오지 않는다: DC 무음 판정·재수립이 돌지 않게 여기서 푼다 */ onlineAdvance(); } else onlineStop(o.tail || m); } // 결과 합의(end result)가 1:5 첫 프레임에 바로 와도 WINNER 연출(1:5)을 끝까지 보여 준 뒤 닫는다. 그 밖(기권·끊김 등)은 바로
   }
   function onlineStop(m) { // 대전 끝(결과·기권·끊김): 엔진을 처음부터 다시 만들고 신규 층 결과 화면
-    const o = online; if (!o) return; if (DG) { try { dgEnd(o); } catch (e) { /* 진단 실패는 무시 */ } } if (o.rtc) o.rtc.unbind(); online = null; if (ctl.length > 21) Atomics.store(ctl, 21, 0); if (ctl.length > RBF) Atomics.store(ctl, RBF, 0); Atomics.store(ctl, 13, 0); Atomics.store(ctl, 15, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; bgSync(); if (!DEBUG) info.style.display = 'none'; // bgSync = 숨은 탭 타이머 바로 끔. ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
+    const o = online; if (!o) return; if (DG) { try { dgEnd(o); } catch (e) { /* 진단 실패는 무시 */ } } if (o.rtc) o.rtc.unbind(); online = null; pfLv(THIN_LV); if (ctl.length > 21) Atomics.store(ctl, 21, 0); if (ctl.length > RBF) Atomics.store(ctl, RBF, 0); Atomics.store(ctl, 13, 0); Atomics.store(ctl, 15, 0); Atomics.store(ctl, 12, 0); Atomics.store(ctl, 14, 0); held.clear(); fatal = null; bgSync(); if (!DEBUG) info.style.display = 'none'; // bgSync = 숨은 탭 타이머 바로 끔. ctl[12] = 일반 엔진으로(아래 리셋에서 읽는다). 엔진 정지 안내 글자도 숨긴다(reset 과 같게)
     zeroExt(); const to = holdOf(); if (curBoot !== to) bootWith(to); else { Atomics.add(ctl, RESET, 1); Atomics.notify(ctl, RESET); Atomics.notify(ctl, CREDIT); } // 신규 층 = 타이틀 대기 상태(대련부터, reset 과 같게)
     openMenu(() => { if (UI.onlineEnd) UI.onlineEnd(m, o.slot); else UI.show('title'); });
   }
@@ -640,7 +663,8 @@
     };
     node.connect(actx.destination);
   }
-  function onWorker(ev) {
+  function onWorker(ev) { const d = ev.data, fr = !!d && d.frame !== undefined && !d.redo, t0 = fr ? performance.now() : 0; if (fr && PF.g) { if (!online || !online.rb || Atomics.load(rbq, QSTALLS) === PF.qs) PF.rt[PF.ri++ & 127] = t0 - PF.g; /* 워커가 예측 한도에 걸려 선 시간(망 대기)은 기기 처리 시간이 아니다: 그 표본은 버린다 */ PF.g = 0; } onWorker0(ev); if (fr) { PF.hd[PF.hi++ & 127] = performance.now() - t0; PF.st.ticks++; } } // 틱 예산 감시용 시간 재기(위 PF)
+  function onWorker0(ev) {
     const d = ev.data;
     if (d.snd) { if (online && actx && d.snd.length && !menuOn && !paused) pushAudio(d.snd); return; } // 프레임이 선 동안 워커가 이어 만든 소리(web/worker.js audioIdle, 온라인 전투만)
     if (d.ready) { ready = true; pal32 = d.pal32; fit(); if (!ticking) { ticking = true; requestAnimationFrame(tick); } if (ko) setKo(true); return; } // 워커를 새로 만들어도(bootWith) 화면 주기는 하나
@@ -649,7 +673,7 @@
       mirror.frame = d.frame; mirror.loops = d.loops; mirror.m = d.ram; viewMode(d.ram);
       if (TAGS && TAGS.fix && d.rb && d.rb.h) TAGS.fix(d.rb.h); // 되감은 구간 끝 몇 프레임의 정정 RAM(이름표는 4프레임 전 RAM 으로 그린다)
       if (TAGS && TAGS.replace) TAGS.replace(d.frame, d.ram); if (FX && FX.replace) FX.replace(d.frame, d.ram); // FX.replace = 되감기 전 마지막 RAM ↔ 정정 RAM 을 한 번 비교해 새로 생긴 피격 이벤트만 낸다
-      if (HD) HD.spr = d.spr || HD.spr; if (online) { online.rbRedo = (online.rbRedo | 0) + 1; if (d.fb) img32.set(d.fb); if (d.ko) koSnap = d.ko; paint(); } return;
+      if (HD) HD.spr = d.spr || HD.spr; if (online) { online.rbRedo = (online.rbRedo | 0) + 1; if (d.fb) { img32.set(d.fb); pm = d.ram; pmF = d.frame; } if (d.ko) koSnap = d.ko; paintReq(); } return;
     }
     received++; fcount++; skipSet(0); fbStale = !d.fb; // 생략은 아래 빨리 감기 허가에서만 다시 켠다
     mirror.frame = d.frame; mirror.loops = d.loops; mirror.m = d.ram; viewMode(d.ram);
@@ -657,9 +681,9 @@
     if (TAGS) TAGS.frame(d.frame, d.ram); // 선수 표시 층: 화면이 RAM 보다 4프레임 늦어 프레임별 RAM 을 쌓아 둔다(읽기만)
     if (FX) FX.frame(d.frame, d.ram); // 타격 이펙트 층: 명중·다운 감지(읽기만)
     if (window.NKTutorial && !online) window.NKTutorial.frame(d.frame, d.ram); // 튜토리얼(web/tutorial.js, analysis/27 T2): 단계 판정(읽기만, 로컬 전용)
-    if (HD) HD.spr = d.spr || null; // HD 층: 그 프레임의 스프라이트 사본(보이는 스프라이트 픽셀을 가르는 데만 쓴다)
+    if (HD && !d.vs) HD.spr = d.spr || null; // HD 층: 그 프레임의 스프라이트 사본(보이는 스프라이트 픽셀을 가르는 데만 쓴다)
     if (rec && !online) recFrame(d);
-    if (online) { if (d.fb) img32.set(d.fb); koSnap = d.ko || null; paint(); if (actx && d.audio.length && !menuOn) pushAudio(d.audio); onlineFrame(d); return; } // 온라인: 부팅 화면 복귀·결과·대진표 감지는 하지 않는다
+    if (online) { if (d.fb) { img32.set(d.fb); pm = d.ram; pmF = d.frame; } if (!d.vs) { koSnap = d.ko || null; paintReq(); } /* vs = 화면만 생략 프레임: 직전 그림·한글 층 사본을 그대로 둔다 */ if (actx && d.audio.length && !menuOn) pushAudio(d.audio); onlineFrame(d); return; } // 온라인: 부팅 화면 복귀·결과·대진표 감지는 하지 않는다
     if (MENU && !menuOn && d.ram[0x641] === BOOT_MODE) { exits++; reset(); return; } // 원작 부팅 화면으로 빠짐 → 신규 타이틀로(이 프레임은 그리지도 소리 내지도 않는다)
     if (MENU && MG && UI === MG && !menuOn) { // 전투 종료 → 결과 화면(15 문서 8절): 1:5 진입 프레임의 RAM 을 잡아 두고, 모드 0(스테이지 선택으로 복귀)이 되면 신규 결과 화면으로 덮는다. 엔진은 덮개 아래 원작 스테이지 선택(0:1)에서 기다린다
       const md = d.ram[0x641], sub = d.ram[0x642] & 0x7F;
@@ -679,7 +703,7 @@
     }
     if (MG && (vsk.st || d.ram[0x641] === 1)) vskStep(d.ram); // 승리 연출 건너뛰기(덮기 판정 뒤: 덮개가 뜬 프레임에 끝낸다)
     if (loadWait && MG) storyLift(d);
-    if (d.fb) { img32.set(d.fb); if (MID && !menuOn) MID.frame(d, img32); /* 로컬 전투의 화면 픽셀만 바꾼다(자기 점검 실패·대상 밖이면 그대로). 엔진·입력과 무관 */ } koSnap = d.ko || null; if (d.fb) paint(); // 생략 프레임(fb null)은 그리지 않는다(덮개 아래). koSnap(구동기 팔레트)은 그대로 받는다
+    if (d.fb) { img32.set(d.fb); pm = d.ram; pmF = d.frame; if (MID && !menuOn) MID.frame(d, img32); /* 로컬 전투의 화면 픽셀만 바꾼다(자기 점검 실패·대상 밖이면 그대로). 엔진·입력과 무관 */ } if (!d.vs) koSnap = d.ko || null; if (d.fb) paintReq(); // 생략 프레임(fb null)은 그리지 않는다(덮개 아래). koSnap(구동기 팔레트)은 그대로 받는다
     if (pre) stepPre(); else if (drv && menuOn) stepDrv();
     if (!fbStale && drvEnd && menuOn) tryLink(); // 생략 프레임에서 끝난 구동: 다음 그린 프레임에서 덮개를 걷는다(tryLink 의 fbStale 대기)
     if (holding() && MG.titleBg) MG.titleBg(d.fb, d.ram); // 타이틀 대기: 원작 타이틀 프레임(모드 3)을 메인 메뉴 배경으로(표시 전용)
@@ -688,13 +712,15 @@
     if (actx && d.audio.length) pushAudio(d.audio);
     if (rec && !paused && acc >= 1 && recGrant()) acc -= 1; // 기록 중: 받은 즉시 다음 한 프레임(60Hz 예산 안에서)
   }
+  function paintReq() { if (THIN && !menuOn) pDirty = true; else { pDirty = false; paint(); } } // 덮개 없음 = 화면 주기마다 한 번(tick 이 그린다), 그 밖·?thin=0 = 종전대로 바로
   function paint() { // 코어 프레임 + (켜져 있으면) 한글 층
+    const pr = pm || mirror.m; PF.st.paints++; PF.st.pfr = pmF; // pr = 지금 img32 에 든 프레임의 RAM
     ctx.putImageData(img, OX, 0);
     if (ko && koMod && koSnap) {
-      try { koMod.draw(ctx, OX, koSnap, mirror.m); } // 한글 층은 캔버스 상태(save·clip·변환)를 바꾸지 않고 256x240 층 그림 한 장만 얹는다
+      try { koMod.draw(ctx, OX, koSnap, pr); } // 한글 층은 캔버스 상태(save·clip·변환)를 바꾸지 않고 256x240 층 그림 한 장만 얹는다
       catch (e) { koErr = String(e && e.message || e); ko = false; Atomics.store(ctl, KOF, 0); console.error('한글 층 오류: ' + koErr); ctx.putImageData(img, OX, 0); } // 층을 끄고 원작 화면으로 되돌린다
     }
-    if (HD) HD.draw(img32, koSnap, mirror.m, menuOn || !hdWant()); // 설정에서 끄면 덮개만 숨긴다(원작 배경) // 전투 배경 HD 층(?hd=1, web/hd_layer.js): 코어 캔버스는 그대로 두고 필드 자리 덮개 캔버스에만 그린다(표시 전용)
+    if (HD) HD.draw(img32, koSnap, pr, menuOn || !hdWant()); // 설정에서 끄면 덮개만 숨긴다(원작 배경) // 전투 배경 HD 층(?hd=1, web/hd_layer.js): 코어 캔버스는 그대로 두고 필드 자리 덮개 캔버스에만 그린다(표시 전용)
   }
   function setKo(on) {
     ko = on; if (!ctl) return;
@@ -729,7 +755,7 @@
     else if (!want && bgTick) { bgTick.terminate(); bgTick = null; last = 0; }
   };
   document.addEventListener('visibilitychange', bgSync); setInterval(bgSync, 500); // 숨은 채로 온라인이 시작되는 경우(이벤트 없음)도 잡는다(숨은 탭 타이머는 1초로 늦춰질 뿐 돈다)
-  function tick(t) { requestAnimationFrame(tick); bgSync(); tickBody(t); }
+  function tick(t) { requestAnimationFrame(tick); if (PF.lr && t - PF.lr < 1000) PF.rf[PF.fi++ & 255] = t - PF.lr; PF.lr = t; bgSync(); tickBody(t); if (pDirty) { pDirty = false; paint(); } pfTick(t); } // 허가(tickBody)를 먼저 하고 그린다: 워커가 다음 틱을 도는 동안 그리기 비용이 겹친다. // pDirty = 이번 화면 주기에 그릴 프레임(위 렌더 솎기 (가))
   function tickBody(t) {
     if (!last) last = t; let dt = t - last; last = t; if (dt > 100) dt = 100;
     if (MG) { const g = (navigator.getGamepads ? navigator.getGamepads() : [])[0], sb = KM ? KM.startBtn : 9, st = !!(g && sb >= 0 && g.buttons[sb] && g.buttons[sb].pressed); if (st && !gpStart) openPause(null); gpStart = st; } // 게임패드 START = 일시정지 메뉴
@@ -747,7 +773,7 @@
       let n = 0; while (acc >= 1 && n < MAX_AHEAD) { acc -= 1; n++; }
       if (acc >= 1) acc -= Math.floor(acc); // 밀린 분량은 버린다(느린 구간 뒤 따라잡기 배속 방지)
       n = Math.min(n, MAX_AHEAD - (granted - received)); // 워커가 밀려 있으면 더 쌓지 않는다
-      if (n > 0) { granted += n; Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT); }
+      if (n > 0) { granted += n; if (THIN && PF.st.lv >= 1 && n > 1 && !menuOn && !MID && inFight(mirror.m)) { Atomics.store(ctl, VIS, granted); PF.st.hid += n - 1; } /* 한 화면 주기에 여러 틱(배속 전투): 마지막 틱만 그린다(위 렌더 솎기 (나)) */ Atomics.store(ctl, CREDIT, granted); Atomics.notify(ctl, CREDIT); }
     }
     if (t - ft > 1000) { if (!fatal) info.textContent = 'fps ' + fcount + ' / 프레임 ' + mirror.frame + (actx ? ' / 소리 ' + actx.state : ' / 소리 꺼짐') + (paused ? ' / 정지(P)' : ''); fcount = 0; ft = t; }
   }
@@ -781,7 +807,7 @@
       clear() { for (const k of TOUCH) { held.delete(k[0]); kq.delete(k[0]); kAt.delete(k[0]); } writePads(); },
       pause: () => openPause(null), get fight() { return inFight(mirror.m); }, get online() { return !!online; },
       get show() { return ready && !fatal && !menuOn && !paused && vsk.st !== 2 && !(MG && (MG.active || MG.overlay)); } },
-    hold(v) { if (online) return; paused = !!v; last = 0; acc = 0; held.clear(); aSync(); }, /* 오프닝 장면(web/opening_scene.js) 재생 중 본 엔진 프레임 허가 멈춤(정지 P 와 같은 경로: 기록·소리도 멈춤) */ get turbo() { return turbo; }, set turbo(v) { turbo = !!v; if (!turbo) { acc = 0; last = 0; } }, get queued() { return wk ? (Atomics.load(wk.st, 0) - Atomics.load(wk.st, 1)) | 0 : wpos - rpos; }, get speed() { return spd(); }, get noFlicker() { return ctl ? Atomics.load(ctl, NF) === 1 : nfOn(); }, get pads() { return ctl ? [Atomics.load(ctl, PAD), Atomics.load(ctl, PAD + 1), Atomics.load(ctl, PAD3), Atomics.load(ctl, PAD4)] : null; },
+    hold(v) { if (online) return; paused = !!v; last = 0; acc = 0; held.clear(); aSync(); }, /* 오프닝 장면(web/opening_scene.js) 재생 중 본 엔진 프레임 허가 멈춤(정지 P 와 같은 경로: 기록·소리도 멈춤) */ get turbo() { return turbo; }, set turbo(v) { turbo = !!v; if (!turbo) { acc = 0; last = 0; } }, get queued() { return wk ? (Atomics.load(wk.st, 0) - Atomics.load(wk.st, 1)) | 0 : wpos - rpos; }, get speed() { return spd(); }, get perf() { return Object.assign({ thin: THIN, auto: THIN_AUTO }, PF.st); }, get diag() { return DG ? { stall: dg.stall, stallMax: dg.sMx, rtt: dg.rtt, seats: dg.sg.map(z => z ? { gap: z.tN ? z.tS / z.tN : 0, gapMax: z.tMx, wait: z.w, fix: z.fx } : null) } : null; }, /* 진단(?diag=1)의 자리별 누계: 도착 간격 평균·최대(ms), 그 자리를 기다리며 선 시간(ms), 예측 틀림 횟수 */ get noFlicker() { return ctl ? Atomics.load(ctl, NF) === 1 : nfOn(); }, get pads() { return ctl ? [Atomics.load(ctl, PAD), Atomics.load(ctl, PAD + 1), Atomics.load(ctl, PAD3), Atomics.load(ctl, PAD4)] : null; },
     get menu() { return MENU ? { on: menuOn, pre, hold: holding(), recArm, exits, want, opt: wantOpt, picked, drive: drv ? Object.assign({ end: drvEnd }, drv.info) : null, ui: UI.state, layer: UI === window.NKMenu ? 'menu' : 'manga' } : null; },
     get ko() { return { on: ko, ready: !!koMod, error: koErr, stats: koMod ? koMod.stats : null }; },
     get rec() { return rec ? { from: rec.from, n: rec.n, live: rec.live, bad: rec.bad, point: rec.point, key: rec.key } : null; }, get load() { return { wait: !!loadWait, ms: loadMs, boot: curBoot === titleBoot ? 'title' : curBoot && curBoot === holdBoot ? 'hold' : curBoot ? 'state' : '' }; },

@@ -32,11 +32,21 @@
 const CREDIT = 0, PAD = 1, RESET = 3, AUDIO = 4, KO = 5, PAD34 = 6, SPR = 8, SPD = 10, SKIP = 11, TEAM = 12, RBF = 20;
 const Q_REQ = 0, Q_CONF = 1, Q_LIMIT = 2, Q_FRONT = 3, Q_STOP = 4, Q_NRB = 5, Q_DEPTH = 6, Q_MAXD = 7, Q_RESIMF = 8, Q_RESIM_US = 9, Q_SNAPN = 10, Q_SNAP_US = 11, Q_REST_US = 12, Q_MEM = 13, Q_OVF = 14, Q_SEQ = 15, Q_STALLS = 16, Q_SNAPCAP = 17, Q_MEMCAP = 18, Q_DBG = 19, Q_DBGREQ = 20, Q_POSTS = 21, Q_SNAPMAX_US = 22, Q_RESTMAX_US = 23, Q_RESIMMAX_US = 24, Q_VER = 25, Q_PAD = 32, RING = 512, RMASK = RING - 1, HB = Q_PAD + RING * 4, SB = HB + RING, NONE = 0x7FFFFFFF; // 점검·통계 칸(워커가 씀): FRONT 최전선 k, STOP 정지 중, NRB 롤백 횟수, DEPTH 마지막 깊이, MAXD 최대 깊이, RESIMF 재시뮬 프레임 합, *_US 누적 마이크로초(MAX 는 1회 최대), SNAPN 스냅샷 수, MEM 보관 바이트, OVF 스냅샷 못 뜸 횟수, SEQ 롤백 완료 번호, STALLS 정지 진입 횟수, SNAPCAP 보관 개수 상한(기본 64), MEMCAP 바이트 상한(기본 2MB), DBG 1 = 소리 이벤트 기록, DBGREQ 1 = 기록 요청, POSTS 보낸 메시지 수
 // 소리 이어 가기(2026-11-23): ctl[21] = 1(web/game.js 가 온라인 전투 중에만 켠다)이면 프레임 허가를 기다리는 동안 그림자 사운드 드라이버만 실시간으로 더 돌려 { snd } 로 보낸다(sound_clock.idle). 프레임이 서도 BGM 이 끊기지 않게. 엔진·지문 무관
+// 화면만 생략(2026-11-23 렌더 솎기): ctl[22] = N 이면 프레임 번호(이 워커가 낸 프레임 누계 + 1 = 메인의 granted)가 N 미만인 프레임은 픽셀을 그리지 않고 fb 없이({ fb: null, vs: 1 }) 보낸다.
+//   ctl[11] 과 달리 소리는 그대로 만든다(엔진·RAM·패드·소리 불변, 표시만). 한 화면 주기에 2틱이 들어와 앞 틱이 화면에 안 보일 때 web/game.js 가 그 틱만 표시한다. 라인 0 은 그려 깜박임 제거 상태(render.js _nfFrame)를 잇는다
+const VIS = 22;
 const IDLEA = 21, CYC_MS = 262 * 113.6667 * 60.0988 / 1000; let aT = 0;
 function audioMark(r) { const t = now(); aT = t - aT > 200 ? t : Math.min(aT + 1000 / 60.0988 / r, t + 60); } // aT = 소리를 만들어 둔 벽시계 시각
+// 소리 중복 방지(리뷰 중간 1): 프레임이 선 동안 audioIdle 이 벽시계만큼 소리를 채운 뒤 따라잡기 프레임이 몰려 오면 그 프레임들의 소리가 더해져 벽시계보다 앞서 만들어진다(대기열이 불어 워클릿이 건너뛴다).
+//   채운 양(aDebt, ms)이 남아 있는 동안 소리가 벽시계를 앞서면(aT + 프레임 길이 > 지금) 그 프레임의 소리 길이를 앞선 만큼(최대 75%) 줄인다 = 배율을 그만큼 키워 frameEnd 에 넘긴다. 배속(r > 1, 그림자 격자 모드)일 때만. 엔진·지문 무관
+let aDebt = 0, aIdleAt = 0;
+function audioRate(r) {
+  if (aDebt <= 0 || r <= 1) return r; const t = now(), d = 1000 / 60.0988 / r; if (t - aIdleAt > 1000) { aDebt = 0; return r; }
+  const cut = Math.min(aT + d - t, d * 0.75, aDebt); if (cut <= 0.5) return r; aDebt -= cut; return r * d / (d - cut);
+}
 function audioIdle(clock) {
   if (ctl.length <= IDLEA || Atomics.load(ctl, IDLEA) !== 1) return; const t = now(); let lag = t - aT; if (lag < 30) return; if (lag > 150) { aT = t - 30; lag = 30; }
-  const ms = lag - 10, a = clock.idle(ms * CYC_MS); aT += ms; if (a && a.length) self.postMessage({ snd: a }, [a.buffer]);
+  const ms = lag - 10, a = clock.idle(ms * CYC_MS); aT += ms; if (a && a.length) { aDebt = Math.min(120, aDebt + ms); aIdleAt = t; self.postMessage({ snd: a }, [a.buffer]); }
 }
 const PAD_AT = [PAD, PAD + 1, PAD34, PAD34 + 1]; // 패드 포트(0 = 1P … 3 = 4P) → ctl 칸
 const RESET_SIGNAL = { reset: true };
@@ -74,15 +84,15 @@ function makeEngine(gen, team) {
   // 한글 층용 관측(읽기 전용): 켜져 있을 때만 라인마다 [v, fx | ctrl<<8, R0 | R1<<8, mask | bsel bit7<<8 | mirrorV<<9] 를 적고, 라인 239 에서 네임테이블·팔레트를 복사한다.
   let koOn = Atomics.load(ctl, KO), koFull = false; const lt = new Uint16Array(240 * 4), koVram = new Uint8Array(0x800), koPal = new Uint8Array(32);
   let sprOn = ctl.length > SPR && Atomics.load(ctl, SPR), sprFull = false; const sprOam = new Uint8Array(256), sprReg = new Uint8Array(4);
-  const rline = e.renderer.line, skipAt = ctl.length > SKIP; let skipOn = false; // 새 엔진의 허가 없이 도는 앞 프레임은 늘 그린다(칸은 허가를 받은 뒤 읽는다)
+  const rline = e.renderer.line, skipAt = ctl.length > SKIP, visAt = ctl.length > VIS; let skipOn = false, vs = false; // 새 엔진의 허가 없이 도는 앞 프레임은 늘 그린다(칸은 허가를 받은 뒤 읽는다)
   e.renderer.line = function (en, y, mask) {
-    if (koOn) {
+    if (koOn && !vs) {
       const p = en.ppu, o = y * 4;
       lt[o] = p.v; lt[o + 1] = p.fx | (p.ctrl << 8); lt[o + 2] = en.reg[0] | (en.reg[1] << 8); lt[o + 3] = mask | ((en.bsel & 0x80) << 1) | (p.mirrorV ? 0x200 : 0);
       if (y === 0) koFull = true; else if (y === 239 && koFull) { koVram.set(en.vram); koPal.set(en.pal); }
     }
-    if (sprOn && y === 0) { sprOam.set(en.oamView ? en.oamView() : en.ppuOam); sprReg.set(en.reg.subarray(2, 6)); sprFull = true; } // 프레임 끝의 ppuOam 은 이미 다음 프레임용(NMI 의 DMA 뒤)이라 라인 0 에서 잡는다
-    if (skipOn || rsk) return; // 화면 생략 프레임(ctl[11]): 픽셀만 안 그린다(렌더러는 엔진 상태를 바꾸지 않는다)
+    if (sprOn && y === 0 && !vs) { sprOam.set(en.oamView ? en.oamView() : en.ppuOam); sprReg.set(en.reg.subarray(2, 6)); sprFull = true; } // 프레임 끝의 ppuOam 은 이미 다음 프레임용(NMI 의 DMA 뒤)이라 라인 0 에서 잡는다
+    if (skipOn || rsk || (vs && y !== 0)) return; // vs = 화면만 생략(ctl[22]): 라인 0 만 그린다 // 화면 생략 프레임(ctl[11]): 픽셀만 안 그린다(렌더러는 엔진 상태를 바꾸지 않는다)
     return rline.call(this, en, y, mask);
   };
   const sr = Atomics.load(ctl, AUDIO);
@@ -99,12 +109,12 @@ function makeEngine(gen, team) {
     // 프레임 경계의 실제 누적 사이클까지 합성. 이 시점(nextLine 안, 새 라인 예산을 더하기 전)의 code.cyc 는 한 라인(114 사이클) 앞을 가리키므로 뺀다.
     // 1배속 = 종전 그대로 synth.runTo + drain. 배속 = 그림자 드라이버가 이 프레임의 실시간 길이(1/배율)만큼 합성(sound_clock)
     const sv = ctl.length > SPD ? Atomics.load(ctl, SPD) : 0;
-    const audio = clock.frameEnd(en.code.cyc - 114, sv > 1000 ? sv / 1000 : 1), fb = skipOn ? null : en.renderer.fb.slice(), ram = en.m.slice();
-    const out = { fb, audio, ram, frame: en.frame, loops };
+    const ar = audioRate(sv > 1000 ? sv / 1000 : 1), audio = clock.frameEnd(en.code.cyc - 114, ar), fb = skipOn || vs ? null : en.renderer.fb.slice(), ram = en.m.slice();
+    const out = { fb, audio, ram, frame: en.frame, loops }; if (vs) out.vs = 1;
     if (koOn && koFull) out.ko = { vram: koVram.slice(), pal: koPal.slice(), lt: lt.slice() };
     if (sprOn && sprFull) out.spr = { oam: sprOam.slice(), reg: sprReg.slice() };
     self.postMessage(out, fb ? [fb.buffer, audio.buffer, ram.buffer] : [audio.buffer, ram.buffer]);
-    produced++; audioMark(sv > 1000 ? sv / 1000 : 1);
+    produced++; audioMark(ar);
     for (;;) { // 다음 프레임 허가 대기(리셋 요청이면 엔진을 버리고 새로 만든다)
       if (Atomics.load(ctl, RESET) !== gen) throw RESET_SIGNAL;
       const c = Atomics.load(ctl, CREDIT);
@@ -112,7 +122,7 @@ function makeEngine(gen, team) {
       const ia = ctl.length > IDLEA && Atomics.load(ctl, IDLEA) === 1; if (ia) audioIdle(clock);
       Atomics.wait(ctl, CREDIT, c, ia ? 16 : 100);
     }
-    koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1; // 허가를 받은 뒤에 읽는다: 정지(P) 중에 한글 층을 켜고 한 프레임을 허가하면 바로 그 프레임부터 관측한다
+    koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1; vs = !vs && visAt && !skipOn && produced + 1 < Atomics.load(ctl, VIS); /* 두 틱 연속으로는 생략하지 않는다(메인이 뭐라 하든 화면이 굶지 않게) */ // 허가를 받은 뒤에 읽는다: 정지(P) 중에 한글 층을 켜고 한 프레임을 허가하면 바로 그 프레임부터 관측한다
   };
   const wire = en => { // 엔진 한 개에 입출력 갈고리를 건다(롤백 복원 때 새 엔진에도 같은 순서로)
     en.extPads = ctl.length > PAD34 + 1; // 3P·4P 칸이 있는 공유 메모리일 때만 확장 패드를 연결한다
@@ -184,7 +194,7 @@ function makeEngine(gen, team) {
     R.off = s.cyc - (en.code.cyc + 6); // 새 엔진의 사이클은 0 부근에서 다시 시작한다. 복원 직후 code.cyc 는 JSR 직전(bud + 6)이라 6 이 모자란다
     if (R.off) { const o = en.env.ioWr, off = R.off; en.env.ioWr = (a, v, c) => o(a, v, c === undefined ? c : c + off); } // APU 쓰기 시각을 연속 시간축으로(모드 0 합성기 직접 쓰기)
     en.renderer = renderer; clock.rollback.rebind(en, R.off); clock.rollback.beginResim(s.mk);
-    R.k = s.k; first = s.first; loops = s.loops; R.lastCap = s.k; R.front = front; R.sk = s.k; R.resim = true; R.hs = null; rsk = s.k < front - 2; R.t0 = t0;
+    R.k = s.k; first = s.first; loops = s.loops; R.lastCap = s.k; R.front = front; R.sk = s.k; R.resim = true; R.hs = null; vs = false; rsk = s.k < front - 2; R.t0 = t0;
     for (let f = s.k; f < front; f++) { const i = (f & RMASK) << 2; R.usedK[i] = R.usedK[i + 1] = R.usedK[i + 2] = R.usedK[i + 3] = -1; R.mixed[f & RMASK] = 0; } // 되감은 구간의 "읽은 값" 기록을 버린다
     const d = front - s.k, rus = Math.round((now() - t0) * 1000);
     Atomics.add(rbq, Q_NRB, 1); Atomics.store(rbq, Q_DEPTH, d); if (d > Atomics.load(rbq, Q_MAXD)) Atomics.store(rbq, Q_MAXD, d); Atomics.add(rbq, Q_RESIMF, d); Atomics.add(rbq, Q_REST_US, rus); if (rus > Atomics.load(rbq, Q_RESTMAX_US)) Atomics.store(rbq, Q_RESTMAX_US, rus);
@@ -192,9 +202,9 @@ function makeEngine(gen, team) {
     return en;
   }
   function postRb(en, audio, redo) {
-    const R = RBM, fb = skipOn ? null : renderer.fb.slice(), ram = en.m.slice();
+    const R = RBM, fb = skipOn || vs ? null : renderer.fb.slice(), ram = en.m.slice();
     const out = { fb, audio, ram, frame: en.frame, loops, rb: { f: R.k - 1, n: Atomics.load(rbq, Q_NRB), d: Atomics.load(rbq, Q_DEPTH) } };
-    if (redo) out.redo = true;
+    if (redo) out.redo = true; if (vs) out.vs = 1;
     if (R.hs) { out.rb.h = R.hs; R.hs = null; }
     if (koOn && koFull) out.ko = { vram: koVram.slice(), pal: koPal.slice(), lt: lt.slice() };
     if (sprOn && sprFull) out.spr = { oam: sprOam.slice(), reg: sprReg.slice() };
@@ -223,7 +233,7 @@ function makeEngine(gen, team) {
     } else {
       const rate = Atomics.load(ctl, AUDIO);
       if (rate && !synth.enabled) { synth.sampleRate = rate; synth.enabled = true; }
-      postRb(en, clock.frameEnd(C1, spdR), false); produced++; Atomics.store(rbq, Q_FRONT, R.k); audioMark(spdR);
+      const ar = audioRate(spdR); postRb(en, clock.frameEnd(C1, ar), false); produced++; Atomics.store(rbq, Q_FRONT, R.k); audioMark(ar);
     }
     for (;;) { // 다음 프레임 허가 대기(리셋·정정·정지 한도 확인)
       if (Atomics.load(ctl, RESET) !== gen) throw RESET_SIGNAL;
@@ -237,7 +247,7 @@ function makeEngine(gen, team) {
       audioIdle(clock);
       Atomics.wait(ctl, CREDIT, c, 16);
     }
-    koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1;
+    koOn = Atomics.load(ctl, KO); koFull = false; sprOn = ctl.length > SPR && Atomics.load(ctl, SPR); sprFull = false; skipOn = skipAt && Atomics.load(ctl, SKIP) === 1; vs = !vs && visAt && !skipOn && produced + 1 < Atomics.load(ctl, VIS); /* 두 틱 연속으로는 생략하지 않는다(메인이 뭐라 하든 화면이 굶지 않게) */
   }
 }
 async function run() {

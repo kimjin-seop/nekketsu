@@ -9,7 +9,8 @@
   const CLASSIC = /[?&]classic=1(&|$)/.test(location.search), Q = (/[?&]q=(high|mid|low)(&|$)/.exec(location.search) || [])[1];
   let autoLv = 0; try { const v = +localStorage.getItem(KEY); if (v === 1 || v === 2) autoLv = v; } catch (e) { /* 저장소 없음 = 높음부터 */ }
   const setting = () => { const v = S ? S.get('quality') : 'auto'; return LV.indexOf(v) >= 0 ? v : 'auto'; };
-  const level = () => Q ? LV.indexOf(Q) : setting() === 'auto' ? autoLv : LV.indexOf(setting());
+  let capLv = 0; // 이번 판만의 상한(web/game.js 틱 예산 감시: 온라인 전투에서 틱 처리가 예산을 넘으면 2 = 낮음, 판이 끝나면 0). 저장하지 않고, 품질 설정이 자동일 때만 적용한다
+  const level = () => Q ? LV.indexOf(Q) : setting() === 'auto' ? Math.max(autoLv, capLv) : LV.indexOf(setting());
   const off = k => k === 'hd' ? level() >= 1 : k === 'fx' ? level() >= 2 : false;
   const SLOW = 1000 / 60 * 1.5, WIN = 180, NEED = 2, FRAC = 0.25, COOL = 8000; // 느린 화면 주기 기준(ms), 창 길이(주기), 연속 창 수, 느린 비율, 낮춘 뒤 쉬는 시간(ms)
   const st = { windows: 0, frac: 0, drops: 0, running: false };
@@ -48,6 +49,7 @@
   sync(); mark();
   window.NKQuality = {
     LEVELS: LV, NAMES: NAME, off,
+    cap(v) { v = v === 1 || v === 2 ? v : 0; if (v !== capLv) { capLv = v; emit(); } }, get capped() { return capLv; },
     get level() { return LV[level()]; }, get setting() { return setting(); }, get auto() { return LV[autoLv]; },
     reset() { autoLv = 0; try { localStorage.removeItem(KEY); } catch (e) { /* 무시 */ } sync(); emit(); },
     on(f) { if (typeof f === 'function') subs.push(f); },
