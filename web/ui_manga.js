@@ -494,7 +494,6 @@
     }
     buildOg();
     buildChar('charsel'); buildChar('partner'); buildTeam(); buildStage(); buildStatus(); buildResult(); buildSettings(); buildVs(); buildBracket(); buildLobby(); buildEdit(); buildOnline(); buildSlots();
-    els.rot = el('div', 'nkm-rot', root, '가로 화면 권장'); // 세로 화면 안내(전용 세로 배치는 없다)
     // 메인 메뉴 하단 저작권 줄(타이틀·모드·스토리·인원 = #nkm.tbg 일 때만, CSS). 1줄 = 원작 타이틀 화면 저작권 줄 원문(3:5 네임테이블 1 26행 타일 f0 f1 f3 f3 f2 · f4~fa · fb fc fd fc f8 · f6 f9 fe fd ff = 「©1992 TECHNOS JAPAN CORP.」, 오라클 캡처 idle_f07560 육안 대조)
     crEl = el('div', 'nkm-cr', stageEl); el('div', '', crEl, '©1992 TECHNOS JAPAN CORP.'); el('div', '', crEl, 'Remake by 흑칠랑'); crEl.setAttribute('aria-hidden', 'true');
     els.toast = el('div', 'nkm-toast', stageEl); els.toast.setAttribute('role', 'status');

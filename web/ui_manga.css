@@ -183,10 +183,8 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 @media (prefers-reduced-motion:reduce){.nkm-scr.on,.nkm-btn.cur,.nkm-brk,.nkh-f.low .nkm-cut{animation:none}.nkm-brk,.nkm-g i{transition:none}}
 /* ── 2단계: 덮개(일시정지) · 세로 화면 · 상대 자동 · 대결 확인 · 결과 · 설정 ── */
 #nkm.ov{background:rgba(6,0,12,.62);z-index:2}
-#nkm.ov .nkm-wall,#nkm.ov .nkm-rot{display:none}
+#nkm.ov .nkm-wall{display:none}
 #nkm.port .nkm-foot{height:70px;border-bottom:4px solid var(--wall-text)} /* 세로: 띠를 화면 끝까지 늘이지 않는다(큰 검은 덩어리 방지) */
-.nkm-rot{display:none;position:absolute;left:50%;bottom:28px;transform:translateX(-50%);padding:6px 16px;border:2px solid #fff;border-radius:6px;background:#0A0A10;font:700 16px/24px Galmuri11,monospace;white-space:nowrap}
-#nkm.port .nkm-rot{display:block}
 .nk-touch #msg{display:none} /* 터치 기기에서는 키보드 조작 안내문을 그리지 않는다 */
 .nkm-auto{font-size:22px}
 .nkm-auto b{display:inline-block;box-sizing:border-box;width:26px;height:26px;line-height:22px;margin-left:12px;border:2px solid #fff;border-radius:5px;text-align:center;font-size:20px}
@@ -459,7 +457,7 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 .nko-room .nko-plo,.nko-sht,.nko-pbar{display:none}
 .nko-room .nko-rule{font:20px/30px NKM9,monospace}
 /* 세로 대기방(#nkm.pl): 논리 600x1300. 카드 2x2(초상 왼쪽 + 글자 오른쪽) · 설정 창 · 아래 고정 띠(큰 버튼) · 캐릭터 시트(내 카드/「캐릭터」 → 설정 창을 덮음) */
-#nkm.pl .nkm-rot,#nkm.pl .nko-room>.nkm-foot,#nkm.pl .nko-room>.nkm-hint:not(.nko-ttl),#nkm.pl .nko-room>.nkm-keys{display:none}
+#nkm.pl .nko-room>.nkm-foot,#nkm.pl .nko-room>.nkm-hint:not(.nko-ttl),#nkm.pl .nko-room>.nkm-keys{display:none}
 #nkm.pl .nko-room .nkm-head{left:16px;top:16px;max-width:568px;overflow:hidden;text-overflow:ellipsis}
 #nkm.pl .nkm-toast{left:16px;width:568px}
 #nkm.pl .nko-room .nko-pbar{display:block;position:absolute;background:#06060A;border-top:4px solid var(--wall-text)}
@@ -607,7 +605,6 @@ html:has(#nkm.tbg),html:has(#nkm.tbg) body,#nkm.tbg{overscroll-behavior:none} /*
 /* 하단 띠 키 안내 = 지금 키 이름(Enter·RShift 등 여러 글자도 들어가게 폭 자동). 터치 기기(html.nk-mob) = 키 안내 숨김 */
 .nkm-keys b{width:auto;min-width:26px;padding:0 5px}
 html.nk-mob .nkm-keys{display:none}
-#nkm.pset .nkm-rot{display:none} /* 세로 설정 = 전용 줄 배치(setLayout), 가로 안내 없음 */
 .nkm-set.t28{line-height:28px;font-size:21px}.nkm-set.t28 em,.nkm-set.t28 span{height:28px}.nkm-set.t28 span .nkm-g{top:5px} /* 18줄(접근성 추가): 줄 28 */
 .nkm-set.t27{line-height:27px;font-size:21px}.nkm-set.t27 em,.nkm-set.t27 span{height:27px}.nkm-set.t27 span .nkm-g{top:4px} /* 19줄(롤백 넷코드 추가): 줄 27 */
 /* 가운데 WINNER + 승자 초상(ui_manga.js winFx, 1:5). 자리 = 코어 필드(#stage 의 --nk-l·--nk-t·--nk-s·--nk-h, game.js), 크기 = 코어 픽셀 배수. 번쩍임 약 1.6초 뒤 노랑으로 유지 */
